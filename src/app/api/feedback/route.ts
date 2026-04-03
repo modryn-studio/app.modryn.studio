@@ -1,0 +1,124 @@
+import { createRouteLogger } from '@/lib/route-logger';
+import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
+import { site } from '@/config/site';
+
+const log = createRouteLogger('feedback');
+
+type FeedbackType = 'newsletter' | 'feedback' | 'bug';
+
+interface FeedbackBody {
+  type: FeedbackType;
+  email?: string;
+  message?: string;
+  page?: string;
+}
+
+const VALID_TYPES: FeedbackType[] = ['newsletter', 'feedback', 'bug'];
+
+function buildHtml(body: FeedbackBody): string {
+  const heading =
+    body.type === 'newsletter'
+      ? '📬 New Newsletter Signup'
+      : body.type === 'feedback'
+        ? '💬 New Feedback'
+        : '🐛 Bug Report';
+
+  return `
+    <div style="font-family: monospace; padding: 20px; max-width: 500px;">
+      <h2 style="margin: 0 0 16px;">${heading}</h2>
+      <p><strong>Email:</strong> ${body.email || '(not provided)'}</p>
+      ${body.message ? `<p><strong>Message:</strong><br/>${body.message}</p>` : ''}
+      ${body.page ? `<p><strong>Page:</strong> ${body.page}</p>` : ''}
+      <hr style="margin: 16px 0; border: 1px solid #333;" />
+      <p style="color: #666; font-size: 12px;">Sent from <strong>${site.name}</strong> &mdash; <a href="${site.url}">${site.url}</a></p>
+    </div>
+  `;
+}
+
+export async function POST(req: Request): Promise<Response> {
+  const ctx = log.begin();
+
+  try {
+    const body = (await req.json()) as FeedbackBody;
+    log.info(ctx.reqId, 'Request received', { type: body.type, email: body.email });
+
+    // Validate type
+    if (!body.type || !VALID_TYPES.includes(body.type)) {
+      log.warn(ctx.reqId, 'Invalid type', { type: body.type });
+      return log.end(ctx, Response.json({ error: 'Invalid type' }, { status: 400 }));
+    }
+
+    // Validate email — required for newsletter, optional for feedback/bug
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const hasEmail = body.email && emailRegex.test(body.email);
+
+    if (body.type === 'newsletter' && !hasEmail) {
+      log.warn(ctx.reqId, 'Invalid email for newsletter', { email: body.email });
+      return log.end(ctx, Response.json({ error: 'Valid email required' }, { status: 400 }));
+    }
+
+    // Check env vars
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    const feedbackTo = process.env.FEEDBACK_TO || gmailUser;
+
+    if (!gmailUser || !gmailPass) {
+      log.warn(ctx.reqId, 'Gmail credentials not configured');
+      return log.end(ctx, Response.json({ error: 'Email service unavailable' }, { status: 503 }));
+    }
+
+    // Send notification email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass },
+    });
+
+    const subjectMap: Record<FeedbackType, string> = {
+      newsletter: `📬 [${site.name}] New signup: ${body.email}`,
+      feedback: `💬 [${site.name}] Feedback${body.email ? ` from ${body.email}` : ''}`,
+      bug: `🐛 [${site.name}] Bug report${body.email ? ` from ${body.email}` : ''}`,
+    };
+
+    await transporter.sendMail({
+      from: gmailUser,
+      to: feedbackTo,
+      subject: subjectMap[body.type],
+      html: buildHtml(body),
+      // replyTo lets you hit Reply in Gmail and go straight to the user
+      ...(hasEmail && { replyTo: body.email }),
+    });
+
+    log.info(ctx.reqId, 'Email sent', { to: feedbackTo });
+
+    // Add to Resend Contacts for newsletter signups (best-effort — never blocks the response)
+    // Contacts are tagged with source=site.name so all projects are filterable
+    // in the shared Resend account audience without needing separate segments.
+    if (body.type === 'newsletter') {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        try {
+          const resend = new Resend(resendKey);
+          const segmentId = process.env.RESEND_SEGMENT_ID;
+          await resend.contacts.create({
+            email: body.email!,
+            unsubscribed: false,
+            ...(segmentId && { segments: [{ id: segmentId }] }),
+            properties: { source: site.name },
+          });
+          log.info(ctx.reqId, 'Resend contact created', { segmentId, source: site.name });
+        } catch (resendError) {
+          // Non-fatal — inbox notification already sent, list add failed silently
+          log.warn(ctx.reqId, 'Resend contact creation failed', { error: resendError });
+        }
+      } else {
+        log.warn(ctx.reqId, 'Resend not configured — signup not saved to contacts');
+      }
+    }
+
+    return log.end(ctx, Response.json({ ok: true }));
+  } catch (error) {
+    log.err(ctx, error);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
+  }
+}

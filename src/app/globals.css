@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* TODO /setup: replace all values below with the project's brand colors and font from brand.md */
+@theme {
+  --color-accent: #0070f3;     /* TODO: primary action color */
+  --color-secondary: #6366f1;  /* TODO: secondary action color */
+  --color-bg: #ffffff;         /* TODO: base background */
+  --color-text: #111111;       /* TODO: body text */
+  --color-muted: #888888;      /* TODO: borders, placeholders, labels */
+  --color-surface: #f5f5f5;    /* TODO: panel/card backgrounds */
+  --color-border: #e5e5e5;     /* TODO: subtle borders */
+  --font-heading: system-ui;   /* TODO: set to var(--font-your-font) once layout.tsx font is configured */
+}
+
+@layer base {
+  html {
+    @apply bg-bg text-text;
+  }
+}
