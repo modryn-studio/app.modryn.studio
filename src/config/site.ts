@@ -4,7 +4,7 @@
 export const site = {
   name: 'Modryn Studio',
   shortName: 'Modryn',
-  url: 'https://app.modryn.studio', // placeholder — update after Vercel deploy URL is assigned
+  url: 'https://app-modryn-studio.vercel.app',
   // Base description — used in <meta description>, manifest, JSON-LD
   description:
     'Internal AI company operating system for Modryn Studio. Chat with AI team members, assign tasks, log decisions, and run async threads.',

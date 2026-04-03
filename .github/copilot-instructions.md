@@ -12,7 +12,7 @@ Luke Hanner is a solo founder building Modryn Studio — a digital studio shippi
      If mode is standalone-*:       basePath must be absent from next.config.ts. -->
 
 mode: standalone-subdomain
-url: https://app.modryn.studio <!-- placeholder — update once Vercel deploy URL is assigned -->
+url: https://app-modryn-studio.vercel.app
 basePath: <!-- empty — standalone-subdomain mode -->
 
 ## Stack
