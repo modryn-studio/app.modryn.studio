@@ -1,25 +1,25 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { cn } from "@/lib/utils"
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface InboxMessage {
-  id: string
-  from: string
-  fromInitials: string
-  subject: string
-  preview: string
-  body: string
-  time: string
-  isAI: boolean
-  unread: boolean
+  id: string;
+  from: string;
+  fromInitials: string;
+  subject: string;
+  preview: string;
+  body: string;
+  time: string;
+  isAI: boolean;
+  unread: boolean;
 }
 
 const INBOX_MESSAGES: InboxMessage[] = [
   {
-    id: "1",
-    from: "Peter Thiel",
-    fromInitials: "PT",
+    id: '1',
+    from: 'Peter Thiel',
+    fromInitials: 'PT',
     subject: "Q3 Strategy — You're asking the wrong questions",
     preview:
       "Competition is for losers. The real question is why you don't already have a monopoly on this...",
@@ -30,17 +30,17 @@ Most founders obsess over market share in an existing category. That's precisely
 What's the one thing this company can do that no one else can — or will — do for the next 10 years?
 
 If you can't answer that in a single clear sentence, the strategy isn't done.`,
-    time: "09:14",
+    time: '09:14',
     isAI: true,
     unread: true,
   },
   {
-    id: "2",
-    from: "Peter Thiel",
-    fromInitials: "PT",
-    subject: "On the pricing model",
+    id: '2',
+    from: 'Peter Thiel',
+    fromInitials: 'PT',
+    subject: 'On the pricing model',
     preview:
-      "Raising prices is almost always the right move if your product is genuinely indispensable...",
+      'Raising prices is almost always the right move if your product is genuinely indispensable...',
     body: `Raising prices is almost always the right move if your product is genuinely indispensable.
 
 The instinct to keep prices low is a scarcity mindset. It signals to the market — and to yourself — that you're not sure the product is worth it.
@@ -50,16 +50,17 @@ If customers are willing to pay more and you're not charging it, that's not humi
 The question isn't "what will the market bear?" The question is: what does this make possible for the buyer that they couldn't do before?
 
 Price to the value created, not to what competitors charge.`,
-    time: "Yesterday",
+    time: 'Yesterday',
     isAI: true,
     unread: false,
   },
   {
-    id: "3",
-    from: "Peter Thiel",
-    fromInitials: "PT",
-    subject: "Hiring note",
-    preview: "Don't hire for credentials. Hire for conviction about something most people think is wrong...",
+    id: '3',
+    from: 'Peter Thiel',
+    fromInitials: 'PT',
+    subject: 'Hiring note',
+    preview:
+      "Don't hire for credentials. Hire for conviction about something most people think is wrong...",
     body: `Don't hire for credentials. Hire for conviction about something most people think is wrong.
 
 The best early employees aren't the most polished — they're the ones who have a specific, heterodox view about how a particular problem should be solved, and the obsession to prove it.
@@ -67,31 +68,29 @@ The best early employees aren't the most polished — they're the ones who have 
 Ask: what important truth do very few people agree with you on?
 
 If they can't answer that, they'll build consensus, not the future.`,
-    time: "Mon",
+    time: 'Mon',
     isAI: true,
     unread: false,
   },
-]
+];
 
 export function InboxView() {
-  const [selected, setSelected] = useState<InboxMessage | null>(null)
-  const [messages, setMessages] = useState(INBOX_MESSAGES)
+  const [selected, setSelected] = useState<InboxMessage | null>(null);
+  const [messages, setMessages] = useState(INBOX_MESSAGES);
 
   const handleSelect = (msg: InboxMessage) => {
-    setSelected(msg)
-    setMessages((prev) =>
-      prev.map((m) => (m.id === msg.id ? { ...m, unread: false } : m))
-    )
-  }
+    setSelected(msg);
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, unread: false } : m)));
+  };
 
   return (
-    <div className="flex h-full bg-panel">
+    <div className="bg-panel flex h-full">
       {/* Message list */}
-      <div className="w-72 flex-shrink-0 border-r border-panel-border flex flex-col">
-        <div className="px-5 py-4 border-b border-panel-border">
+      <div className="border-panel-border flex w-72 flex-shrink-0 flex-col border-r">
+        <div className="border-panel-border border-b px-5 py-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-panel-foreground">Inbox</h2>
-            <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">
+            <h2 className="text-panel-foreground text-xs font-semibold">Inbox</h2>
+            <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
               {messages.filter((m) => m.unread).length} new
             </span>
           </div>
@@ -103,49 +102,49 @@ export function InboxView() {
               key={msg.id}
               onClick={() => handleSelect(msg)}
               className={cn(
-                "w-full text-left px-5 py-4 border-b border-panel-border transition-colors hover:bg-black/5",
-                selected?.id === msg.id && "bg-panel-selected"
+                'border-panel-border w-full border-b px-5 py-4 text-left transition-colors hover:bg-black/5',
+                selected?.id === msg.id && 'bg-panel-selected'
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5">
+                <div className="mt-0.5 flex-shrink-0">
                   {msg.unread && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-status-active block mt-1.5" />
+                    <span className="bg-status-active mt-1.5 block h-1.5 w-1.5 rounded-full" />
                   )}
-                  {!msg.unread && <span className="w-1.5 h-1.5 block" />}
+                  {!msg.unread && <span className="block h-1.5 w-1.5" />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-0.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       <span
                         className={cn(
-                          "text-xs",
+                          'text-xs',
                           msg.unread
-                            ? "font-semibold text-panel-foreground"
-                            : "font-medium text-panel-text-secondary"
+                            ? 'text-panel-foreground font-semibold'
+                            : 'text-panel-text-secondary font-medium'
                         )}
                       >
                         {msg.from}
                       </span>
                       {msg.isAI && (
-                        <span className="text-[8px] font-mono bg-zinc-200 text-zinc-500 px-1 py-0.5 rounded-sm">
+                        <span className="rounded-sm bg-zinc-200 px-1 py-0.5 font-mono text-[8px] text-zinc-500">
                           AI
                         </span>
                       )}
                     </div>
-                    <span className="text-[9px] font-mono text-panel-faint flex-shrink-0">
+                    <span className="text-panel-faint flex-shrink-0 font-mono text-[9px]">
                       {msg.time}
                     </span>
                   </div>
                   <p
                     className={cn(
-                      "text-xs truncate mb-1",
-                      msg.unread ? "text-panel-foreground font-medium" : "text-panel-text-secondary"
+                      'mb-1 truncate text-xs',
+                      msg.unread ? 'text-panel-foreground font-medium' : 'text-panel-text-secondary'
                     )}
                   >
                     {msg.subject}
                   </p>
-                  <p className="text-[10px] text-panel-muted truncate">{msg.preview}</p>
+                  <p className="text-panel-muted truncate text-[10px]">{msg.preview}</p>
                 </div>
               </div>
             </button>
@@ -154,44 +153,46 @@ export function InboxView() {
       </div>
 
       {/* Message body */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {selected ? (
           <>
-            <div className="px-8 py-5 border-b border-panel-border">
-              <h1 className="text-base font-semibold text-panel-foreground text-balance mb-2">
+            <div className="border-panel-border border-b px-8 py-5">
+              <h1 className="text-panel-foreground mb-2 text-base font-semibold text-balance">
                 {selected.subject}
               </h1>
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-sm bg-zinc-300 flex items-center justify-center">
-                  <span className="text-[8px] font-mono font-bold text-zinc-600">
+                <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-zinc-300">
+                  <span className="font-mono text-[8px] font-bold text-zinc-600">
                     {selected.fromInitials}
                   </span>
                 </div>
-                <span className="text-xs text-panel-text-secondary">{selected.from}</span>
+                <span className="text-panel-text-secondary text-xs">{selected.from}</span>
                 {selected.isAI && (
-                  <span className="text-[8px] font-mono bg-zinc-200 text-zinc-500 px-1 py-0.5 rounded-sm">
+                  <span className="rounded-sm bg-zinc-200 px-1 py-0.5 font-mono text-[8px] text-zinc-500">
                     AI
                   </span>
                 )}
-                <span className="text-[10px] font-mono text-panel-faint ml-auto">{selected.time}</span>
+                <span className="text-panel-faint ml-auto font-mono text-[10px]">
+                  {selected.time}
+                </span>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-8 py-6">
               <div className="max-w-prose">
-                <p className="text-sm font-mono text-panel-foreground leading-relaxed whitespace-pre-wrap">
+                <p className="text-panel-foreground font-mono text-sm leading-relaxed whitespace-pre-wrap">
                   {selected.body}
                 </p>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
-              <p className="text-sm text-panel-muted">Select a message to read</p>
+              <p className="text-panel-muted text-sm">Select a message to read</p>
             </div>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

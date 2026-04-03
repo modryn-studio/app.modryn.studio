@@ -1,36 +1,38 @@
-"use client"
+'use client';
 
-import { Menu, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MobileHeaderProps {
-  drawerOpen: boolean
-  onToggleDrawer: () => void
-  activeViewLabel: string
+  drawerOpen: boolean;
+  onToggleDrawer: () => void;
+  activeViewLabel: string;
 }
 
 export function MobileHeader({ drawerOpen, onToggleDrawer, activeViewLabel }: MobileHeaderProps) {
   return (
-    <header className="flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border flex-shrink-0 md:hidden">
+    <header className="bg-sidebar border-sidebar-border flex flex-shrink-0 items-center justify-between border-b px-4 py-3 md:hidden">
       <button
         onClick={onToggleDrawer}
-        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors"
-        aria-label={drawerOpen ? "Close menu" : "Open menu"}
+        className="flex h-8 w-8 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-200"
+        aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
       >
-        {drawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px] font-bold text-zinc-300 tracking-tight select-none">M</span>
-        <span className="text-[11px] font-mono tracking-[0.22em] text-zinc-400 uppercase">
+        <span className="font-mono text-[11px] font-bold tracking-tight text-zinc-300 select-none">
+          M
+        </span>
+        <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-400 uppercase">
           Modryn Studio
         </span>
       </div>
 
       {/* Right avatar — founder */}
-      <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center flex-shrink-0">
-        <span className="text-[10px] font-mono font-bold text-zinc-200">F</span>
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-600">
+        <span className="font-mono text-[10px] font-bold text-zinc-200">F</span>
       </div>
     </header>
-  )
+  );
 }

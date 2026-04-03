@@ -1,18 +1,18 @@
-"use client"
+'use client';
 
-import { SlidersHorizontal, X } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { ContextPanel } from "@/components/modryn/context-panel"
+import { SlidersHorizontal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ContextPanel } from '@/components/modryn/context-panel';
 
 interface MobileContextFabProps {
-  open: boolean
-  onToggle: () => void
-  memberName: string
-  memberRole: string
-  memberInitials: string
-  decisions: { text: string }[]
-  tasks: { text: string; due?: string }[]
-  notes: { text: string }[]
+  open: boolean;
+  onToggle: () => void;
+  memberName: string;
+  memberRole: string;
+  memberInitials: string;
+  decisions: { text: string }[];
+  tasks: { text: string; due?: string }[];
+  notes: { text: string }[];
 }
 
 export function MobileContextFab({
@@ -31,14 +31,12 @@ export function MobileContextFab({
       <button
         onClick={onToggle}
         className={cn(
-          "fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors md:hidden",
-          open
-            ? "bg-zinc-700 text-zinc-200"
-            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+          'fixed right-4 bottom-20 z-50 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-colors md:hidden',
+          open ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
         )}
-        aria-label={open ? "Close context panel" : "Open context panel"}
+        aria-label={open ? 'Close context panel' : 'Open context panel'}
       >
-        {open ? <X className="w-4 h-4" /> : <SlidersHorizontal className="w-4 h-4" />}
+        {open ? <X className="h-4 w-4" /> : <SlidersHorizontal className="h-4 w-4" />}
       </button>
 
       {/* Slide-up context sheet */}
@@ -51,8 +49,8 @@ export function MobileContextFab({
       )}
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-lg bg-context md:hidden transition-transform duration-250 ease-in-out",
-          open ? "translate-y-0" : "translate-y-full"
+          'bg-context fixed right-0 bottom-0 left-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-lg transition-transform duration-250 ease-in-out md:hidden',
+          open ? 'translate-y-0' : 'translate-y-full'
         )}
         role="dialog"
         aria-modal="true"
@@ -60,7 +58,7 @@ export function MobileContextFab({
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-8 h-1 rounded-full bg-zinc-400" />
+          <div className="h-1 w-8 rounded-full bg-zinc-400" />
         </div>
         {/* Reuse the existing context panel content (without the aside wrapper's width/border logic) */}
         <ContextPanel
@@ -76,5 +74,5 @@ export function MobileContextFab({
         />
       </div>
     </>
-  )
+  );
 }

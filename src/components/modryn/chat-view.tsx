@@ -1,26 +1,29 @@
-"use client"
+'use client';
 
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
-import { useEffect, useRef, useState } from "react"
-import { Send, CornerDownLeft } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { useEffect, useRef, useState } from 'react';
+import { Send, CornerDownLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ChatViewProps {
-  memberId: string
-  memberName: string
-  memberRole: string
-  memberInitials: string
+  memberId: string;
+  memberName: string;
+  memberRole: string;
+  memberInitials: string;
 }
 
-function getMessageText(message: { parts?: { type: string; text?: string }[]; content?: string }): string {
+function getMessageText(message: {
+  parts?: { type: string; text?: string }[];
+  content?: string;
+}): string {
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
-      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
       .map((p) => p.text)
-      .join("")
+      .join('');
   }
-  return message.content ?? ""
+  return message.content ?? '';
 }
 
 function ThinkingDots() {
@@ -29,27 +32,29 @@ function ThinkingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="w-1.5 h-1.5 rounded-full bg-panel-faint animate-pulse"
+          className="bg-panel-faint h-1.5 w-1.5 animate-pulse rounded-full"
           style={{ animationDelay: `${i * 150}ms` }}
         />
       ))}
     </div>
-  )
+  );
 }
 
 function FounderMessage({ text, timestamp }: { text: string; timestamp: string }) {
   return (
-    <div className="group flex flex-col gap-1 py-4 px-6 border-b border-panel-border last:border-b-0">
-      <div className="flex items-center gap-2.5 mb-1.5">
-        <div className="w-6 h-6 rounded-sm bg-zinc-300 flex items-center justify-center flex-shrink-0">
-          <span className="text-[9px] font-mono font-bold text-zinc-600">F</span>
+    <div className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
+      <div className="mb-1.5 flex items-center gap-2.5">
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-300">
+          <span className="font-mono text-[9px] font-bold text-zinc-600">F</span>
         </div>
-        <span className="text-xs font-semibold text-panel-foreground">Founder</span>
-        <span className="text-[10px] text-panel-faint font-mono">{timestamp}</span>
+        <span className="text-panel-foreground text-xs font-semibold">Founder</span>
+        <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
       </div>
-      <p className="text-sm text-panel-foreground leading-relaxed pl-8.5 whitespace-pre-wrap">{text}</p>
+      <p className="text-panel-foreground pl-8.5 text-sm leading-relaxed whitespace-pre-wrap">
+        {text}
+      </p>
     </div>
-  )
+  );
 }
 
 function AIMessage({
@@ -59,64 +64,70 @@ function AIMessage({
   timestamp,
   isStreaming,
 }: {
-  text: string
-  memberName: string
-  memberInitials: string
-  timestamp: string
-  isStreaming?: boolean
+  text: string;
+  memberName: string;
+  memberInitials: string;
+  timestamp: string;
+  isStreaming?: boolean;
 }) {
   return (
-    <div className="group flex flex-col gap-1 py-4 px-6 bg-ai-surface border-b border-ai-border last:border-b-0">
-      <div className="flex items-center gap-2.5 mb-1.5">
-        <div className="w-6 h-6 rounded-sm bg-zinc-400 flex items-center justify-center flex-shrink-0">
-          <span className="text-[9px] font-mono font-bold text-zinc-100">{memberInitials}</span>
+    <div className="group bg-ai-surface border-ai-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
+      <div className="mb-1.5 flex items-center gap-2.5">
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-400">
+          <span className="font-mono text-[9px] font-bold text-zinc-100">{memberInitials}</span>
         </div>
-        <span className="text-xs font-semibold text-panel-foreground">{memberName}</span>
-        <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">AI</span>
-        <span className="text-[10px] text-panel-faint font-mono">{timestamp}</span>
+        <span className="text-panel-foreground text-xs font-semibold">{memberName}</span>
+        <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+          AI
+        </span>
+        <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
         {isStreaming && (
-          <span className="text-[9px] font-mono text-status-generating tracking-wide">â€" generating</span>
+          <span className="text-status-generating font-mono text-[9px] tracking-wide">
+            â€" generating
+          </span>
         )}
       </div>
       <div className="pl-8.5">
         {text ? (
-          <p className="text-sm text-panel-foreground leading-relaxed font-mono whitespace-pre-wrap">{text}</p>
+          <p className="text-panel-foreground font-mono text-sm leading-relaxed whitespace-pre-wrap">
+            {text}
+          </p>
         ) : (
           <ThinkingDots />
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function EmptyState({ memberName }: { memberName: string }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
-      <div className="w-12 h-12 rounded-sm border border-dashed border-panel-border flex items-center justify-center">
-        <span className="text-sm font-mono text-panel-faint">PT</span>
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+      <div className="border-panel-border flex h-12 w-12 items-center justify-center rounded-sm border border-dashed">
+        <span className="text-panel-faint font-mono text-sm">PT</span>
       </div>
-      <div className="text-center max-w-xs">
-        <p className="text-sm font-medium text-panel-text">{memberName}</p>
-        <p className="text-xs text-panel-muted mt-1 leading-relaxed">
+      <div className="max-w-xs text-center">
+        <p className="text-panel-text text-sm font-medium">{memberName}</p>
+        <p className="text-panel-muted mt-1 text-xs leading-relaxed">
           Start a conversation. Ask anything — strategy, decisions, first principles.
         </p>
       </div>
     </div>
-  )
+  );
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export function ChatView({ memberId, memberName, memberRole, memberInitials }: ChatViewProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const [inputValue, setInputValue] = useState("")
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [inputValue, setInputValue] = useState('');
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: '/api/chat',
       prepareSendMessagesRequest: ({ id, messages }) => ({
         body: {
           id,
@@ -125,54 +136,56 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
         },
       }),
     }),
-  })
+  });
 
-  const isStreaming = status === "streaming" || status === "submitted"
+  const isStreaming = status === 'streaming' || status === 'submitted';
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isStreaming])
+  }, [messages, isStreaming]);
 
   const handleSend = () => {
-    if (!inputValue.trim() || isStreaming) return
-    sendMessage({ text: inputValue })
-    setInputValue("")
-  }
+    if (!inputValue.trim() || isStreaming) return;
+    sendMessage({ text: inputValue });
+    setInputValue('');
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
   return (
-    <div className="flex flex-col h-full bg-panel">
+    <div className="bg-panel flex h-full flex-col">
       {/* Header â€" hidden on mobile (handled by MobileHeader) */}
-      <div className="hidden md:flex items-center justify-between px-6 py-3.5 border-b border-panel-border bg-panel">
+      <div className="border-panel-border bg-panel hidden items-center justify-between border-b px-6 py-3.5 md:flex">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-sm bg-zinc-300 flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-mono font-bold text-zinc-600">{memberInitials}</span>
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-300">
+            <span className="font-mono text-[10px] font-bold text-zinc-600">{memberInitials}</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-panel-foreground">{memberName}</span>
-              <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">AI</span>
+              <span className="text-panel-foreground text-sm font-semibold">{memberName}</span>
+              <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+                AI
+              </span>
             </div>
-            <p className="text-[10px] text-panel-muted">{memberRole}</p>
+            <p className="text-panel-muted text-[10px]">{memberRole}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              isStreaming ? "bg-status-active animate-pulse" : "bg-emerald-500"
+              'h-1.5 w-1.5 rounded-full',
+              isStreaming ? 'bg-status-active animate-pulse' : 'bg-emerald-500'
             )}
           />
-          <span className="text-[10px] font-mono text-panel-muted">
-            {isStreaming ? "analyzing" : "online"}
+          <span className="text-panel-muted font-mono text-[10px]">
+            {isStreaming ? 'analyzing' : 'online'}
           </span>
         </div>
       </div>
@@ -184,14 +197,12 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
         ) : (
           <div>
             {messages.map((message, idx) => {
-              const text = getMessageText(message)
-              const timestamp = formatTime(new Date())
-              const isLastAI = message.role === "assistant" && idx === messages.length - 1
+              const text = getMessageText(message);
+              const timestamp = formatTime(new Date());
+              const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
 
-              if (message.role === "user") {
-                return (
-                  <FounderMessage key={message.id ?? idx} text={text} timestamp={timestamp} />
-                )
+              if (message.role === 'user') {
+                return <FounderMessage key={message.id ?? idx} text={text} timestamp={timestamp} />;
               }
 
               return (
@@ -203,11 +214,11 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
                   timestamp={timestamp}
                   isStreaming={isLastAI && isStreaming}
                 />
-              )
+              );
             })}
 
             {/* Streaming placeholder when submitted but no AI message yet */}
-            {status === "submitted" && (
+            {status === 'submitted' && (
               <AIMessage
                 text=""
                 memberName={memberName}
@@ -221,8 +232,8 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
       </div>
 
       {/* Input */}
-      <div className="border-t border-panel-border bg-panel px-6 py-4">
-        <div className="flex items-end gap-3 bg-panel-input border border-panel-border rounded-sm px-4 py-3">
+      <div className="border-panel-border bg-panel border-t px-6 py-4">
+        <div className="bg-panel-input border-panel-border flex items-end gap-3 rounded-sm border px-4 py-3">
           <textarea
             ref={inputRef}
             value={inputValue}
@@ -231,34 +242,35 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
             placeholder={`Message ${memberName}...`}
             rows={1}
             disabled={isStreaming}
-            className="flex-1 bg-transparent text-sm text-panel-foreground placeholder:text-panel-faint resize-none outline-none leading-relaxed min-h-[20px] max-h-32 overflow-y-auto disabled:opacity-50"
+            className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-[20px] flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
             style={{
-              height: "auto",
+              height: 'auto',
             }}
             onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement
-              target.style.height = "auto"
-              target.style.height = Math.min(target.scrollHeight, 128) + "px"
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = Math.min(target.scrollHeight, 128) + 'px';
             }}
           />
-          <div className="flex items-center gap-2 flex-shrink-0 pb-0.5">
-            <span className="text-[9px] font-mono text-panel-faint hidden sm:flex items-center gap-1">
-              <CornerDownLeft className="w-2.5 h-2.5" /> send
+          <div className="flex flex-shrink-0 items-center gap-2 pb-0.5">
+            <span className="text-panel-faint hidden items-center gap-1 font-mono text-[9px] sm:flex">
+              <CornerDownLeft className="h-2.5 w-2.5" /> send
             </span>
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || isStreaming}
-              className="w-7 h-7 rounded-sm bg-panel-foreground disabled:opacity-30 flex items-center justify-center hover:bg-panel-foreground-hover transition-colors"
+              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-7 w-7 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
               aria-label="Send message"
             >
-              <Send className="w-3 h-3 text-panel-inverse" />
+              <Send className="text-panel-inverse h-3 w-3" />
             </button>
           </div>
         </div>
-        <p className="text-[9px] font-mono text-panel-faint mt-2 text-center">
-          Shift+Enter for new line — responses reflect AI modeling only, not the views of real individuals
+        <p className="text-panel-faint mt-2 text-center font-mono text-[9px]">
+          Shift+Enter for new line — responses reflect AI modeling only, not the views of real
+          individuals
         </p>
       </div>
     </div>
-  )
+  );
 }

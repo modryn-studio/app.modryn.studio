@@ -25,7 +25,8 @@ basePath: <!-- empty — standalone-subdomain mode -->
 - Resend — installed, not yet wired to product flow
 - Stripe — installed, not yet active (monetization: none at this stage)
 - lucide-react — icon library
-- **Not yet installed — planned:** Neon (serverless Postgres + Neon Auth), Anthropic API (`@anthropic-ai/sdk`), AI SDK (`@ai-sdk/react`) for streaming responses
+- **Installed:** `ai` 6.x, `@ai-sdk/react` 3.x, `@ai-sdk/anthropic` 3.x — streaming AI responses via `/api/chat`
+- **Not yet installed — planned:** Neon (serverless Postgres + Neon Auth)
 
 ## Project Structure
 
