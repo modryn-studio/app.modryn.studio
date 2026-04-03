@@ -1,6 +1,7 @@
 import { streamText, convertToModelMessages } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createRouteLogger } from '@/lib/route-logger';
+import '@/lib/env'; // validate required env vars on cold start
 
 const log = createRouteLogger('chat');
 

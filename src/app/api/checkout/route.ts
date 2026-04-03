@@ -10,6 +10,7 @@
  *   .env.local: STRIPE_SECRET_KEY, STRIPE_PRICE_ID
  */
 import { createRouteLogger } from '@/lib/route-logger';
+import { env } from '@/lib/env';
 import Stripe from 'stripe';
 
 const log = createRouteLogger('checkout');
@@ -18,8 +19,8 @@ export async function POST(req: Request): Promise<Response> {
   const ctx = log.begin();
 
   try {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    const priceId = process.env.STRIPE_PRICE_ID;
+    const secretKey = env.STRIPE_SECRET_KEY;
+    const priceId = env.STRIPE_PRICE_ID;
 
     if (!secretKey || !priceId) {
       log.warn(ctx.reqId, 'Stripe not configured');

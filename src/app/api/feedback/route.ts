@@ -1,4 +1,5 @@
 import { createRouteLogger } from '@/lib/route-logger';
+import { env } from '@/lib/env';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import { site } from '@/config/site';
@@ -59,9 +60,9 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Check env vars
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailPass = process.env.GMAIL_APP_PASSWORD;
-    const feedbackTo = process.env.FEEDBACK_TO || gmailUser;
+    const gmailUser = env.GMAIL_USER;
+    const gmailPass = env.GMAIL_APP_PASSWORD;
+    const feedbackTo = env.FEEDBACK_TO || gmailUser;
 
     if (!gmailUser || !gmailPass) {
       log.warn(ctx.reqId, 'Gmail credentials not configured');
@@ -95,11 +96,11 @@ export async function POST(req: Request): Promise<Response> {
     // Contacts are tagged with source=site.name so all projects are filterable
     // in the shared Resend account audience without needing separate segments.
     if (body.type === 'newsletter') {
-      const resendKey = process.env.RESEND_API_KEY;
+      const resendKey = env.RESEND_API_KEY;
       if (resendKey) {
         try {
           const resend = new Resend(resendKey);
-          const segmentId = process.env.RESEND_SEGMENT_ID;
+          const segmentId = env.RESEND_SEGMENT_ID;
           await resend.contacts.create({
             email: body.email!,
             unsubscribed: false,
