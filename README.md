@@ -1,8 +1,10 @@
-# Modryn Studio — Boilerplate
+![Modryn Studio](public/brand/banner.png)
 
-Next.js starter for every Modryn Studio product. Pre-wired for production from day one.
+# Modryn Studio
 
-→ [modrynstudio.com](https://modrynstudio.com)
+A company operating system where AI team members hold strategy, push back, and run alongside you.
+
+→ [app.modryn.studio](https://app.modryn.studio)
 
 ---
 
