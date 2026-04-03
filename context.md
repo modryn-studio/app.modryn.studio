@@ -1,6 +1,7 @@
 # Project Context
 
 ## Core Framework
+
 <!-- The three decisions that justify building this. Fill these in before writing a single line of code.
      If you can't fill these in, you don't have a product yet — you have a hypothesis.
 
@@ -17,17 +18,22 @@
         Avoid: "better", "faster", "cheaper" without a specific mechanism.
 -->
 
-Market:
-Reference product (what people pay for):
-Your angle:
+Market: AI-powered productivity and team collaboration tools for indie founders and solo operators building digital businesses.
+
+Reference product (what people pay for): Notion AI ($10/mo add-on) and Character.AI (free–$9.99/mo). Notion AI complaint: too generic, no persistent personality or role. Character.AI complaint: fun but not useful for real work — no task management, no memory, no company context.
+
+Your angle: A real company operating system where AI team members have distinct, persistent personalities modeled after real thinkers — not generic assistants. The mechanism: system-prompt-driven personality + database-backed memory + task and decision logging, wrapped in a company OS interface, not a chat UI.
 
 ## Product
-<!-- What is this product? One or two sentences. -->
+
+An internal AI team communication system for Modryn Studio. The founder converses one-on-one or in group threads with AI personalities modeled after real public figures (starting with Peter Thiel). Members have persistent memory, can be assigned tasks, send async messages, and participate in scheduled group discussions — operating like a real company team.
 
 ## Target User
-<!-- Who is it for? Be specific — describe one real person, not a demographic. -->
+
+A full-stack solo founder — analytical, visionary, building a digital studio — who wants strategic leverage without hiring. Specifically: someone who thinks in frameworks, makes decisions through debate, and wants an AI team that pushes back rather than just agrees. Right now, that person is the Modryn Studio founder.
 
 ## Deployment
+
 <!-- How is this project served? Pick one mode and fill in the three fields below.
 
      MODE: modryn-app
@@ -48,62 +54,50 @@ Your angle:
      → BASE_PATH = '' in src/lib/base-path.ts
 -->
 
-mode: <!-- modryn-app | standalone-subdomain | standalone-domain -->
+mode: standalone-subdomain
 
-modrynstudio.com has a verified **Domain property** in Google Search Console. All tools under that domain are covered automatically. Never walk through domain verification steps  just submit the tool sitemap to the existing property.
-url:  <!-- https://modrynstudio.com/tools/your-slug -->
-basePath: <!-- /tools/your-slug   (leave empty for standalone modes) -->
+modrynstudio.com has a verified **Domain property** in Google Search Console. All tools under that domain are covered automatically. Never walk through domain verification steps — just submit the tool sitemap to the existing property.
+url: will use random vercel deployment URL for now
+basePath:
 
 ## Minimum Money Loop
-<!-- The minimum sequence that results in money changing hands.
-     Wire every step end-to-end before polishing any individual step.
-     One real order through the whole system is the only milestone that matters in Phase 4.
 
-     Fill in your funnel as a one-line arrow chain:
-     [Entry point] → [Core action] → [Payment] → [Fulfillment trigger] → [Delivery] → [Shareable output]
-
-     Example:
-     Landing page → /create intake → Stripe checkout ($9.99) → Admin notified → Admin fulfills → Resend email → /result/[id] shareable page
-
-     Rule: do not polish any one piece until this loop has run once with a real order.
--->
+<!-- Blank — no monetization at this stage. Internal tool only. -->
 
 ## Stack Additions
-<!-- Any services beyond the boilerplate defaults (Next.js, Tailwind, Vercel, GA4)?
-     e.g. Resend for email, Stripe for payments, Prisma + Supabase for database -->
+
+- Neon (serverless Postgres — database + Neon Auth)
+- Anthropic API (claude-sonnet-4-6 for AI member responses)
+- Vercel SSE (Server-Sent Events for real-time streaming responses)
+- Vercel Hobby tier (hosting + serverless functions)
 
 ## Project Structure Additions
-<!-- Any directories beyond /app, /components, /lib?
-     e.g. /content/posts/*.mdx, /content/tools/*.json -->
+
+- /members — AI member configs, system prompts, personality definitions
+- /conversations — conversation threads and message history
+- /tasks — task assignments and outputs per member
+- /memory — summarized context per member, updated after each session
 
 ## Route Map
-<!-- List every route and what it does.
-     /privacy and /terms will be added automatically.
-     Example: - `/dashboard` → Main user dashboard after login -->
-- `/` →
+
+- `/` → Dashboard / Company HQ — overview of active members, recent conversations, pending tasks
+- `/dm/[memberId]` → One-on-one chat with an AI team member (real-time streaming)
+- `/threads` → Group conversation threads (async, multi-member)
+- `/inbox` → Async messages — member-initiated messages to the founder, like internal email
+- `/tasks` → Task management — assigned to members, with status and output
+- `/calendar` → Scheduled meetings and group sessions
 
 ## Monetization
-<!-- How does this product make money? Pick one:
-     - `email-only`        → Free tool, capture emails for future launches (default)
-     - `one-time-payment`  → Pay once, use forever (Stripe)
-     - `none`              → No email capture, no payment — pure SEO/traffic play
 
-     If `one-time-payment`:
-       Fast path (default): create a Payment Link in Stripe Dashboard, pass URL to <PayGate>.
-       No server code, no env vars, no npm package.
-       Upgrade path: /api/checkout route for dynamic pricing (needs `stripe` npm + env vars). -->
+none
 
 ## Target Subreddits
-<!-- Subreddits where the target user's pain lives.
-     Used by /social prompt for launch-day distribution.
-     List 2–4. Don't include r/SideProject (always included as founder channel).
-     Example: r/webdev, r/freelance -->
+
+<!-- Not applicable at this stage — internal tool, not launching publicly yet. -->
 
 ## Social Profiles
-<!-- Your accounts — used by /init and /launch to populate site.ts social block and footer links.
-     twitter/devto/shipordie are universal — already filled in.
-     Update GitHub to this project's repo URL. -->
+
 - X/Twitter: https://x.com/lukehanner
-- GitHub: https://github.com/TODO
+- GitHub: https://github.com/modryn-studio/app.modryn.studio
 - Dev.to: https://dev.to/lukehanner
 - Ship or Die: https://shipordie.club/lukehanner

@@ -1,75 +1,84 @@
 # Brand
 
-Fill this in before running `/init`. It populates the Brand & Voice section of `copilot-instructions.md`.
-
----
-
 ## Voice
 
-How the product sounds in UI copy, headings, CTAs, and error messages.
+How the product sounds in UI copy, headings, CTAs, error messages, and status labels.
 
-- <!-- TODO: voice rule 1. Example: "Short sentences. Direct. No jargon." -->
-- <!-- TODO: voice rule 2. Example: "Confident without being arrogant." -->
-- <!-- TODO: voice rule 3. Example: "Honest about what doesn't exist yet." -->
-- Never use: <!-- TODO: list words/phrases that feel off-brand. Example: "powerful, seamless, revolutionary, unlock" -->
+- Direct and functional. No setup, no softening. Say the thing.
+- Technical precision over warmth — system language, not consumer app language.
+- Honest about AI nature. Always label it. Never pretend the AI is human.
+- Status language is exact: "online", "analyzing", "generating" — not "thinking" or "loading".
+- First-principles framing: ask the fundamental question. Strip the surface question away.
+- Mono font for system/meta text signals intentionality, not decoration.
+- Never use: "powerful", "seamless", "unlock", "supercharge", "AI-powered", "next-level", "revolutionary"
 
 ---
 
 ## The User
 
-One or two sentences describing who you're building for. Be specific about what they feel, want, or hate.
-
-<!-- TODO: Example: "Impatient people who hate bad software and don't want to do the research. They want it handed to them. Fast." -->
+A solo founder building a serious digital business who thinks in frameworks and makes decisions through debate. They want strategic challenge, not agreement. They've tried generic AI tools and found them too agreeable to be useful.
 
 ---
 
 ## Visual Rules
 
-- Color mode: <!-- TODO: Example: "Dark mode base, system toggle" -->
-- Fonts: <!-- TODO: Example: "Space Grotesk (headlines) + Space Mono (badges/code)" -->
-- Motion: <!-- TODO: Example: "Minimal. One scroll fade max." -->
-- Avoid: <!-- TODO: Example: "No fake testimonials, no stock photos, no popups" -->
+- Color mode: Dark mode base — near-black, not pure black. No system toggle (internal tool).
+- Fonts: Inter (body, UI text) + JetBrains Mono (system labels, timestamps, badges, mono content)
+- Avatars: Square (`rounded-sm`), not circular — deliberate departure from standard workspace UI.
+- Motion: Minimal. Pulse animation for active/streaming status only. No scroll animations.
+- Density: Information-dense. Workspace aesthetic — not marketing page aesthetic.
+- Avoid: Gradients, bright fills, rounded pill shapes, stock photography, popups, onboarding modals.
 
 ---
 
 ## Color System
 
-Five named slots — fill all before running `/init`. These become the `@theme` tokens in `globals.css`.
+| Name       | Hex     | Role                                                             |
+| ---------- | ------- | ---------------------------------------------------------------- |
+| Accent     | #4B57D8 | Interactive primary — active sidebar state, CTAs, selected items |
+| Secondary  | #9EB421 | Status indicators — analyzing, unread, live/streaming states     |
+| Background | #171717 | Page background base                                             |
+| Text       | #FAFAFA | Body text — near-white on dark                                   |
+| Muted      | #6B6B6B | Secondary text, timestamps, meta-labels, placeholders            |
 
-| Name | Hex | Role |
-|---|---|---|
-| Accent | <!-- TODO: #XXXXXX --> | Primary — CTAs, logomark, key interactive moments |
-| Secondary | <!-- TODO: #XXXXXX --> | Supporting accent — celebration states, highlights |
-| Background | <!-- TODO: #XXXXXX --> | Page background base |
-| Text | <!-- TODO: #XXXXXX --> | Body text — dark, but warm not cold |
-| Muted | <!-- TODO: #XXXXXX --> | Secondary text, borders, placeholders |
+Additional surface tokens (for reference — not all in @theme slot list):
+
+- Surface: #242424 — slightly elevated panels (chat pane, inbox)
+- Border: #2E2E2E — panel separators, input borders
+- Sidebar: #1D1D1D — left sidebar background
 
 Color rules:
-- <!-- TODO: What color territory does your main competitor own? Avoid it entirely. Example: "Competitor X owns blue-purple gradients." -->
-- <!-- TODO: Any colors explicitly banned? Example: "No cool grays, no pure black, no gradients." -->
+
+- Notion owns purple-gray gradients. Avoid entirely.
+- Character.AI owns light-mode pastels and rounded bubbly UI. Stay dark and angular.
+- No pure black (#000000) — use #171717 as the darkest value.
+- No gradients anywhere in the product UI.
+- Zinc is the neutral palette base (zinc-700—zinc-900 for interactive surfaces).
 
 ---
 
 ## Logomark
 
-Discovery questions — answer all before attempting to design the mark.
-
-**Direction:**
-<!-- TODO: Letterform, abstract shape, or icon? Example: "Single letterform — the S in Instrument Serif" -->
+**Direction:** Single letterform — "M" for Modryn. Mono-weight, square, minimal.
 
 **Primary color:**
+
 <!-- TODO: Which brand color is the mark rendered in? Example: "Accent #FF6B6B" -->
 
 **Background:**
+
 <!-- TODO: Transparent, contained circle, etc.? Example: "Transparent — no container" -->
 
 **Future-proofing:**
+
 <!-- TODO: Is the mark tied to the current niche, or scalable? Example: "No birthday-specific imagery — mark must work if product expands to anniversaries/graduations" -->
 
 **Competitor exclusions:**
+
 <!-- TODO: What visual territory does your main competitor own that you must avoid? Example: "Competitor owns pink-purple gradient circle + music note — avoid: gradients, circle badges, music notes" -->
 
 **Anti-patterns:**
+
 <!-- TODO: Broader category clichés to avoid. Example: "No music notes, no headphones, no waveform bars, no vinyl" -->
 
 ---

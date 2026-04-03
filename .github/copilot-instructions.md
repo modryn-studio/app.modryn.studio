@@ -1,48 +1,86 @@
-# [Project Name] — Copilot Context
+# Modryn Studio — Copilot Context
 
 ## Who I Am
-<!-- TODO: describe yourself, your product, and your target user -->
+
+Luke Hanner is a solo founder building Modryn Studio — a digital studio shipping micro-SaaS products and tools. This app is the internal company operating system: a workspace where Luke converses with AI team members modeled after real thinkers (starting with Peter Thiel), assigns tasks, logs decisions, and runs async group threads. It is an internal tool only — not a public product. The target user is Luke himself: analytical, framework-driven, wants strategic challenge not agreement.
 
 ## Deployment
+
 <!-- Filled in by /setup from context.md.
      Read this before touching next.config.ts, BASE_PATH, site.ts, or any hardcoded URL.
      If mode is modryn-app:         basePath must stay set in next.config.ts.
      If mode is standalone-*:       basePath must be absent from next.config.ts. -->
 
-mode: <!-- modryn-app | standalone-subdomain | standalone-domain -->
-url:  <!-- canonical URL -->
-basePath: <!-- /tools/your-slug   (empty for standalone modes) -->
+mode: standalone-subdomain
+url: https://app.modryn.studio <!-- placeholder — update once Vercel deploy URL is assigned -->
+basePath: <!-- empty — standalone-subdomain mode -->
 
 ## Stack
+
 - Next.js 16 (App Router) with TypeScript
 - Tailwind CSS for styling
 - Vercel for deployment
 - Vercel Analytics `<Analytics />` in `layout.tsx` — zero-config pageview tracking, no env vars needed
 - `@/lib/analytics.ts` — no-op stub with named methods; wire in a real provider here if needed
-<!-- TODO: add project-specific services (e.g. Resend, Stripe, Prisma, Supabase) -->
+- Resend — installed, not yet wired to product flow
+- Stripe — installed, not yet active (monetization: none at this stage)
+- lucide-react — icon library
+- **Not yet installed — planned:** Neon (serverless Postgres + Neon Auth), Anthropic API (`@anthropic-ai/sdk`), AI SDK (`@ai-sdk/react`) for streaming responses
 
 ## Project Structure
+
 ```
 /app                    → Next.js App Router pages
 /components             → Reusable UI components
 /lib                    → Utilities, helpers, data fetching
-<!-- TODO: add any project-specific directories -->
+/members                → AI member configs, system prompts, personality definitions
+/conversations          → Conversation threads and message history
+/tasks                  → Task assignments and outputs per member
+/memory                 → Summarized context per member, updated after each session
 ```
 
 ## Route Map
-<!-- TODO: list every route and what it does -->
-- `/`                → (home)
-- `/privacy`         → Privacy policy
-- `/terms`           → Terms of service
+
+- `/` → Dashboard / Company HQ — active members, recent conversations, pending tasks
+- `/dm/[memberId]` → One-on-one chat with an AI team member (real-time streaming)
+- `/threads` → Group conversation threads (async, multi-member)
+- `/inbox` → Async messages — member-initiated messages to the founder
+- `/tasks` → Task management — assigned to members, with status and output
+- `/calendar` → Scheduled meetings and group sessions
+- `/privacy` → Privacy policy
+- `/terms` → Terms of service
 
 ## Brand & Voice
-<!-- TODO: populate from brand.md
-  Voice rules: how the product sounds (tone, banned words, sentence style)
-  Target User: 2–3 sentence portrait of who is using this and why
-  Visual Rules: colors (all 5 with roles), fonts, motion, things to avoid
-  Emotional Arc: what the user feels at each stage — land, use, convert, share
-  Copy Reference: real examples of hero, CTA, error, waiting state copy
--->
+
+**Voice:** Direct and functional — say the thing, no softening. Technical precision over warmth. System language, not consumer app language. Status labels are exact: "online", "analyzing", "generating" — never "thinking" or "loading". Always label AI elements explicitly. First-principles framing in copy. Mono font for system/meta text is intentional. Never use: "powerful", "seamless", "unlock", "supercharge", "AI-powered", "next-level", "revolutionary".
+
+**Target User:** A solo founder who thinks in frameworks and makes decisions through debate. They want an AI team that pushes back, not one that agrees. They've tried generic AI tools and found them too agreeable to be useful.
+
+**Visual Rules:**
+
+- Dark mode only (internal tool — no system toggle)
+- Fonts: Inter (body/UI) + JetBrains Mono (system labels, timestamps, badges, code)
+- Avatars: `rounded-sm` square — not circular
+- Motion: pulse only for active/streaming states. No scroll animations.
+- Density: information-dense workspace aesthetic — not a marketing page
+- Avoid: gradients, bright fills, rounded pill shapes, popups, onboarding modals
+
+**Colors:**
+
+- Accent `#4B57D8` — interactive primary, active sidebar state, CTAs, selected items
+- Secondary `#9EB421` — status indicators: analyzing, unread, live/streaming
+- Background `#171717` — page background base
+- Text `#FAFAFA` — body text (near-white on dark)
+- Muted `#6B6B6B` — secondary text, timestamps, meta-labels, placeholders
+- Surface `#242424` — elevated panels (chat pane, inbox)
+- Border `#2E2E2E` — panel separators, input borders
+
+**Copy reference:**
+
+- Status: "online" / "analyzing" / "generating"
+- Empty state: "Start a conversation. Ask anything — strategy, decisions, first principles."
+- AI badge: small mono tag reading "AI" — always visible on AI member avatars/messages
+- Disclaimer: "Responses reflect AI modeling only, not the views of real individuals"
 
 ## README Standard
 
@@ -63,6 +101,7 @@ Next.js · TypeScript · Tailwind CSS · Vercel
 ```
 
 Rules:
+
 - **Banner image** — always first. Path is `public/brand/banner.png`.
 - **H1 title** — product name only, no subtitle.
 - **Tagline** — one sentence. What the user gets. No buzzwords ("powerful", "seamless", "AI-powered").
@@ -72,6 +111,7 @@ Rules:
 - **Nothing else.** No install instructions, no contributing section, no architecture diagrams, no screenshots beyond the banner. Real docs go in `/docs` or on the live site.
 
 When adding a badge row (optional, for open source tools/libraries only):
+
 - Place it between the H1 and the tagline
 - Use shields.io format: `[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)`
 - Keep it to 3 badges max: typically license + CI status + live site
@@ -83,27 +123,27 @@ This project uses Tailwind CSS v4. The rules are different from v3 — follow th
 
 **Design tokens live in `@theme`, not `:root`:**
 
-<!-- TODO: update the @theme example below with the actual brand colors from globals.css -->
 ```css
 /* ✅ correct — generates text-accent, bg-surface, border-border, etc. */
 @theme {
-  --color-accent: #F97415;    /* TODO: replace with brand accent color */
-  --color-secondary: #FFDD00; /* TODO: replace with brand secondary color */
-  --color-bg: #050505;        /* TODO: replace with brand background color */
-  --color-text: #e5e5e5;      /* TODO: replace with brand text color */
-  --color-muted: #666666;     /* TODO: replace with brand muted color */
-  --color-surface: #111111;   /* TODO: replace with brand surface color */
-  --color-border: #222222;    /* TODO: replace with brand border color */
-  --font-heading: var(--font-sans); /* TODO: replace with brand heading font */
+  --color-accent: #4b57d8; /* interactive primary — active sidebar, CTAs, selected items */
+  --color-secondary: #9eb421; /* status indicators — analyzing, unread, streaming */
+  --color-bg: #171717; /* page background base */
+  --color-text: #fafafa; /* body text — near-white on dark */
+  --color-muted: #6b6b6b; /* secondary text, timestamps, placeholders */
+  --color-surface: #242424; /* elevated panels — chat pane, inbox */
+  --color-border: #2e2e2e; /* panel separators, input borders */
+  --font-heading: var(--font-inter); /* Inter — body and UI text */
 }
 
 /* ❌ wrong — :root creates CSS variables but NO utility classes */
 :root {
-  --color-accent: #F97415;
+  --color-accent: #4b57d8;
 }
 ```
 
 **Use `(--color-*)` shorthand in class strings — never `[var(--color-*)]`:**
+
 ```tsx
 // ✅ correct — TW v4 native shorthand
 <div className="border-(--color-border) bg-(--color-surface) text-(--color-muted)" />
@@ -113,6 +153,7 @@ This project uses Tailwind CSS v4. The rules are different from v3 — follow th
 ```
 
 If tokens are defined in `@theme`, you can also use the short utility names directly:
+
 ```tsx
 // ✅ also correct when @theme is properly set up
 <div className="border-border bg-surface text-muted text-accent" />
@@ -131,9 +172,13 @@ const log = createRouteLogger('my-route');
 export async function POST(req: Request): Promise<Response> {
   const ctx = log.begin();
   try {
-    log.info(ctx.reqId, 'Request received', { /* key fields */ });
+    log.info(ctx.reqId, 'Request received', {
+      /* key fields */
+    });
     // ... handler body ...
-    return log.end(ctx, Response.json(result), { /* key result fields */ });
+    return log.end(ctx, Response.json(result), {
+      /* key result fields */
+    });
   } catch (error) {
     log.err(ctx, error);
     return Response.json({ error: 'Internal error' }, { status: 500 });
@@ -163,12 +208,15 @@ analytics.track('event_name', { prop: value });
 ## Dev Server
 
 Start with `Ctrl+Shift+B` (default build task). This runs:
+
 ```
 npm run dev -- --port 3000 2>&1 | Tee-Object -FilePath dev.log
 ```
+
 Tell Copilot **"check logs"** at any point — it reads `dev.log` and flags errors or slow requests.
 
 ## Code Style
+
 - Write as a senior engineer: minimal surface area, obvious naming, no abstractions before they're needed
 - Comments explain WHY, not what
 - One file = one responsibility
@@ -177,6 +225,7 @@ Tell Copilot **"check logs"** at any point — it reads `dev.log` and flags erro
 - Leave TODO comments for post-launch polish items
 
 ## Core Rules
+
 - Every page earns its place — no pages for businesses not yet running
 - Ship fast, stay honest — empty is better than fake
 - Ugly is acceptable, broken is not — polish the core action ruthlessly

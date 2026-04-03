@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import { site } from '@/config/site';
 import './globals.css';
 
-// TODO /setup: import project fonts from next/font/google based on brand.md Typography section
-// Example:
-//   import { Inter } from 'next/font/google';
-//   const inter = Inter({ subsets: ['latin'], variable: '--font-heading' });
-// Then add the variable className to <html> and 'font-heading' to <body>
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  weight: ['400', '700'],
+});
 
 export const metadata: Metadata = {
   title: site.ogTitle,
@@ -27,10 +29,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // TODO /setup: add font variable className(s) to <html> once fonts are configured above
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-heading antialiased">
         {children}
         <Analytics />
       </body>
