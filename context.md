@@ -57,7 +57,7 @@ A full-stack solo founder — analytical, visionary, building a digital studio �
 mode: standalone-subdomain
 
 modrynstudio.com has a verified **Domain property** in Google Search Console. All tools under that domain are covered automatically. Never walk through domain verification steps — just submit the tool sitemap to the existing property.
-url: https://app-modryn-studio.vercel.app
+url: private
 basePath:
 
 ## Minimum Money Loop
