@@ -22,7 +22,7 @@ A solo founder building a serious digital business who thinks in frameworks and 
 
 ## Visual Rules
 
-- Color mode: Dark mode base — near-black, not pure black. No system toggle (internal tool).
+- Color mode: Split-tone — dark chrome (sidebar, nav rail, headers) with warm cream content panels (chat, inbox, context pane). Not dark mode throughout. No system toggle (internal tool).
 - Fonts: Inter (body, UI text) + JetBrains Mono (system labels, timestamps, badges, mono content)
 - Avatars: Square (`rounded-sm`), not circular — deliberate departure from standard workspace UI.
 - Motion: Minimal. Pulse animation for active/streaming status only. No scroll animations.
@@ -33,30 +33,49 @@ A solo founder building a serious digital business who thinks in frameworks and 
 
 ## Color System
 
-| Name       | Hex     | Role                                                             |
-| ---------- | ------- | ---------------------------------------------------------------- |
-| Accent     | #4B57D8 | Interactive primary — active sidebar state, CTAs, selected items |
-| Secondary  | #9EB421 | Status indicators — analyzing, unread, live/streaming states     |
-| Background | #171717 | Page background base                                             |
-| Text       | #FAFAFA | Body text — near-white on dark                                   |
-| Muted      | #6B6B6B | Secondary text, timestamps, meta-labels, placeholders            |
+Two distinct zones with different palettes:
 
-Additional surface tokens (for reference — not all in @theme slot list):
+### Dark chrome (sidebar, nav rail, mobile header/tabs)
 
-- Surface: #242424 — slightly elevated panels (chat pane, inbox)
-- Border: #2E2E2E — panel separators, input borders
-- Sidebar: #1D1D1D — left sidebar background
+| Name           | Approx     | Role                                                      |
+| -------------- | ---------- | --------------------------------------------------------- |
+| Sidebar bg     | ~#1a1a1a   | Leftmost chrome -- darkest surface                        |
+| Sidebar accent | ~#1e1e1e   | Hover + active row highlight in sidebar                   |
+| Sidebar border | ~#232323   | Rail + roster dividers                                    |
+| Sidebar text   | zinc-200   | Primary member names, nav labels                          |
+| Sidebar muted  | zinc-500   | Secondary labels, roles, timestamps                       |
+| Status active  | #9EB421    | Analyzing / unread / streaming dot                        |
+| Status online  | emerald-500 | Online presence dot                                      |
+
+### Warm cream panels (chat, inbox, context pane)
+
+| Name          | Approx                | Role                                                  |
+| ------------- | --------------------- | ----------------------------------------------------- |
+| Panel bg      | oklch(0.965 0.004 80) | Main reading surface -- warm off-white                |
+| AI surface    | oklch(0.94 0.004 80)  | AI message rows -- slightly tinted from panel         |
+| Context bg    | oklch(0.955 0.004 80) | Right context panel background                        |
+| Panel border  | oklch(0.88 0.004 80)  | Row dividers, input borders within panels             |
+| Panel text    | oklch(0.15-0.2 0 0)   | Body text in panels -- near-black on cream            |
+| Panel muted   | oklch(0.55-0.6 0 0)   | Timestamps, secondary labels in panels                |
+| Input surface | oklch(0.945 0.003 80) | Textarea/input background                             |
+
+### Brand tokens (shared)
+
+| Name      | Hex     | Role                                                              |
+| --------- | ------- | ----------------------------------------------------------------- |
+| Accent    | #4B57D8 | Interactive primary -- active sidebar state, CTAs, selected items |
+| Secondary | #9EB421 | Status -- analyzing, unread, streaming                            |
 
 Color rules:
 
-- Notion owns purple-gray gradients. Avoid entirely.
-- Character.AI owns light-mode pastels and rounded bubbly UI. Stay dark and angular.
-- No pure black (#000000) — use #171717 as the darkest value.
+- The split-tone contrast is deliberate. Dark chrome frames the reading surface. Don't flatten to all-dark or all-light.
+- Warm cream panels read as "paper" -- ambient temperature is warm, not cool gray.
+- Notion owns purple-gray. Avoid entirely.
+- No pure black (#000000) or pure white (#ffffff) anywhere.
 - No gradients anywhere in the product UI.
-- Zinc is the neutral palette base (zinc-700—zinc-900 for interactive surfaces).
+- Zinc is the neutral scale for dark chrome (zinc-200 for text, zinc-500/600 for muted, zinc-700 for AI badge backgrounds).
 
 ---
-
 ## Logomark
 
 **Direction:** Single letterform — "M" for Modryn. Mono-weight, square, minimal.

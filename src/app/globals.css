@@ -1,132 +1,76 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:is(.dark *));
+@theme {
+  /* -- Dark chrome (sidebar, nav rail) -- */
+  --color-sidebar: oklch(0.10 0 0);
+  --color-sidebar-foreground: oklch(0.85 0 0);
+  --color-sidebar-border: oklch(0.18 0 0);
+  --color-sidebar-accent: oklch(0.18 0 0);
+  --color-sidebar-accent-foreground: oklch(0.85 0 0);
+  --color-sidebar-primary: oklch(0.93 0 0);
+  --color-sidebar-primary-foreground: oklch(0.10 0 0);
+  --color-sidebar-ring: oklch(0.4 0 0);
 
-:root {
-  /* Modryn Studio â€” dark-first OS aesthetic */
-  /* Main surfaces */
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.92 0 0);
+  /* -- Warm cream panels (chat, inbox, context) -- */
+  --color-panel-bg: oklch(0.965 0.004 80);
+  --color-panel-foreground: oklch(0.15 0 0);
+  --color-panel-border: oklch(0.88 0.004 80);
+  --color-ai-surface: oklch(0.94 0.004 80);
+  --color-ai-border: oklch(0.85 0.005 80);
+  --color-context-bg: oklch(0.955 0.004 80);
+  --color-context-border: oklch(0.87 0.004 80);
 
-  /* Card / panel surfaces */
-  --card: oklch(0.155 0 0);
-  --card-foreground: oklch(0.92 0 0);
+  /* -- Brand -- */
+  --color-accent: #4b57d8;
+  --color-accent-foreground: #fafafa;
+  --color-secondary: #9eb421;
+  --color-status-active: oklch(0.72 0.12 75);
+  --color-destructive: oklch(0.4 0.18 25);
+  --color-destructive-foreground: oklch(0.9 0 0);
 
-  /* Popover */
-  --popover: oklch(0.17 0 0);
-  --popover-foreground: oklch(0.92 0 0);
+  /* -- App background (behind panels) -- */
+  --color-background: oklch(0.12 0 0);
+  --color-foreground: oklch(0.92 0 0);
 
-  /* Primary â€” off-white on dark */
-  --primary: oklch(0.93 0 0);
-  --primary-foreground: oklch(0.12 0 0);
+  /* -- shadcn compat -- */
+  --color-card: oklch(0.155 0 0);
+  --color-card-foreground: oklch(0.92 0 0);
+  --color-popover: oklch(0.17 0 0);
+  --color-popover-foreground: oklch(0.92 0 0);
+  --color-primary: oklch(0.93 0 0);
+  --color-primary-foreground: oklch(0.12 0 0);
+  --color-secondary-foreground: oklch(0.85 0 0);
+  --color-muted: oklch(0.19 0 0);
+  --color-muted-foreground: oklch(0.52 0 0);
+  --color-border: oklch(0.22 0 0);
+  --color-input: oklch(0.22 0 0);
+  --color-ring: oklch(0.4 0 0);
 
-  /* Secondary */
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.85 0 0);
+  /* -- Radius -- */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.625rem;
 
-  /* Muted */
-  --muted: oklch(0.19 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-
-  /* Accent â€” muted amber for status / accents */
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.88 0 0);
-
-  /* Status amber */
-  --status-active: oklch(0.72 0.12 75);
-  --status-active-foreground: oklch(0.12 0 0);
-
-  /* Destructive */
-  --destructive: oklch(0.4 0.18 25);
-  --destructive-foreground: oklch(0.9 0 0);
-
-  /* Borders */
-  --border: oklch(0.22 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.4 0 0);
-
-  /* Radius â€” sharper for OS feel */
-  --radius: 0.25rem;
-
-  /* Sidebar â€” darkest surface */
-  --sidebar: oklch(0.10 0 0);
-  --sidebar-foreground: oklch(0.85 0 0);
-  --sidebar-primary: oklch(0.93 0 0);
-  --sidebar-primary-foreground: oklch(0.10 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.85 0 0);
-  --sidebar-border: oklch(0.18 0 0);
-  --sidebar-ring: oklch(0.4 0 0);
-
-  /* Conversation panel â€” warm off-white */
-  --panel-bg: oklch(0.965 0.004 80);
-  --panel-foreground: oklch(0.15 0 0);
-  --panel-border: oklch(0.88 0.004 80);
-
-  /* AI message surface */
-  --ai-surface: oklch(0.94 0.004 80);
-  --ai-border: oklch(0.85 0.005 80);
-
-  /* Context panel */
-  --context-bg: oklch(0.955 0.004 80);
-  --context-border: oklch(0.87 0.004 80);
-
-  /* Chart */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* -- Fonts -- */
+  --font-sans: var(--font-inter), 'Inter', sans-serif;
+  --font-heading: var(--font-inter), 'Inter', sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
 }
 
-@theme inline {
-  --font-sans: var(--font-inter), 'Inter', sans-serif;
-  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-status-active: var(--status-active);
-  --color-panel-bg: var(--panel-bg);
-  --color-panel-foreground: var(--panel-foreground);
-  --color-panel-border: var(--panel-border);
-  --color-ai-surface: var(--ai-surface);
-  --color-ai-border: var(--ai-border);
-  --color-context-bg: var(--context-bg);
-  --color-context-border: var(--context-border);
+/* CSS variables referenced directly by components via var(--panel-bg) etc. */
+:root {
+  --panel-bg: oklch(0.965 0.004 80);
+  --panel-border: oklch(0.88 0.004 80);
+  --ai-surface: oklch(0.94 0.004 80);
+  --ai-border: oklch(0.85 0.005 80);
+  --context-bg: oklch(0.955 0.004 80);
+  --context-border: oklch(0.87 0.004 80);
+  --sidebar: oklch(0.10 0 0);
+  --sidebar-border: oklch(0.18 0 0);
+  --sidebar-accent: oklch(0.18 0 0);
+  --status-active: oklch(0.72 0.12 75);
 }
 
 @layer base {
