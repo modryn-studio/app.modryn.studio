@@ -29,7 +29,7 @@ function ThinkingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="w-1.5 h-1.5 rounded-full bg-[oklch(0.6_0_80)] animate-pulse"
+          className="w-1.5 h-1.5 rounded-full bg-panel-faint animate-pulse"
           style={{ animationDelay: `${i * 150}ms` }}
         />
       ))}
@@ -39,15 +39,15 @@ function ThinkingDots() {
 
 function FounderMessage({ text, timestamp }: { text: string; timestamp: string }) {
   return (
-    <div className="group flex flex-col gap-1 py-4 px-6 border-b border-[var(--panel-border)] last:border-b-0">
+    <div className="group flex flex-col gap-1 py-4 px-6 border-b border-panel-border last:border-b-0">
       <div className="flex items-center gap-2.5 mb-1.5">
         <div className="w-6 h-6 rounded-sm bg-zinc-300 flex items-center justify-center flex-shrink-0">
           <span className="text-[9px] font-mono font-bold text-zinc-600">F</span>
         </div>
-        <span className="text-xs font-semibold text-[oklch(0.2_0_0)]">Founder</span>
-        <span className="text-[10px] text-[oklch(0.6_0_0)] font-mono">{timestamp}</span>
+        <span className="text-xs font-semibold text-panel-foreground">Founder</span>
+        <span className="text-[10px] text-panel-faint font-mono">{timestamp}</span>
       </div>
-      <p className="text-sm text-[oklch(0.2_0_0)] leading-relaxed pl-8.5 whitespace-pre-wrap">{text}</p>
+      <p className="text-sm text-panel-foreground leading-relaxed pl-8.5 whitespace-pre-wrap">{text}</p>
     </div>
   )
 }
@@ -66,21 +66,21 @@ function AIMessage({
   isStreaming?: boolean
 }) {
   return (
-    <div className="group flex flex-col gap-1 py-4 px-6 bg-[var(--ai-surface)] border-b border-[var(--ai-border)] last:border-b-0">
+    <div className="group flex flex-col gap-1 py-4 px-6 bg-ai-surface border-b border-ai-border last:border-b-0">
       <div className="flex items-center gap-2.5 mb-1.5">
         <div className="w-6 h-6 rounded-sm bg-zinc-400 flex items-center justify-center flex-shrink-0">
           <span className="text-[9px] font-mono font-bold text-zinc-100">{memberInitials}</span>
         </div>
-        <span className="text-xs font-semibold text-[oklch(0.15_0_0)]">{memberName}</span>
+        <span className="text-xs font-semibold text-panel-foreground">{memberName}</span>
         <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">AI</span>
-        <span className="text-[10px] text-[oklch(0.6_0_0)] font-mono">{timestamp}</span>
+        <span className="text-[10px] text-panel-faint font-mono">{timestamp}</span>
         {isStreaming && (
-          <span className="text-[9px] font-mono text-[oklch(0.55_0.08_80)] tracking-wide">— generating</span>
+          <span className="text-[9px] font-mono text-status-generating tracking-wide">â€" generating</span>
         )}
       </div>
       <div className="pl-8.5">
         {text ? (
-          <p className="text-sm text-[oklch(0.18_0_0)] leading-relaxed font-mono whitespace-pre-wrap">{text}</p>
+          <p className="text-sm text-panel-foreground leading-relaxed font-mono whitespace-pre-wrap">{text}</p>
         ) : (
           <ThinkingDots />
         )}
@@ -92,12 +92,12 @@ function AIMessage({
 function EmptyState({ memberName }: { memberName: string }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
-      <div className="w-12 h-12 rounded-sm border border-dashed border-[var(--panel-border)] flex items-center justify-center">
-        <span className="text-sm font-mono text-[oklch(0.65_0_0)]">PT</span>
+      <div className="w-12 h-12 rounded-sm border border-dashed border-panel-border flex items-center justify-center">
+        <span className="text-sm font-mono text-panel-faint">PT</span>
       </div>
       <div className="text-center max-w-xs">
-        <p className="text-sm font-medium text-[oklch(0.3_0_0)]">{memberName}</p>
-        <p className="text-xs text-[oklch(0.55_0_0)] mt-1 leading-relaxed">
+        <p className="text-sm font-medium text-panel-text">{memberName}</p>
+        <p className="text-xs text-panel-muted mt-1 leading-relaxed">
           Start a conversation. Ask anything — strategy, decisions, first principles.
         </p>
       </div>
@@ -149,29 +149,29 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--panel-bg)]">
-      {/* Header — hidden on mobile (handled by MobileHeader) */}
-      <div className="hidden md:flex items-center justify-between px-6 py-3.5 border-b border-[var(--panel-border)] bg-[var(--panel-bg)]">
+    <div className="flex flex-col h-full bg-panel">
+      {/* Header â€" hidden on mobile (handled by MobileHeader) */}
+      <div className="hidden md:flex items-center justify-between px-6 py-3.5 border-b border-panel-border bg-panel">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-sm bg-zinc-300 flex items-center justify-center flex-shrink-0">
             <span className="text-[10px] font-mono font-bold text-zinc-600">{memberInitials}</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[oklch(0.15_0_0)]">{memberName}</span>
+              <span className="text-sm font-semibold text-panel-foreground">{memberName}</span>
               <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">AI</span>
             </div>
-            <p className="text-[10px] text-[oklch(0.55_0_0)]">{memberRole}</p>
+            <p className="text-[10px] text-panel-muted">{memberRole}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full",
-              isStreaming ? "bg-[oklch(0.72_0.12_75)] animate-pulse" : "bg-emerald-500"
+              isStreaming ? "bg-status-active animate-pulse" : "bg-emerald-500"
             )}
           />
-          <span className="text-[10px] font-mono text-[oklch(0.55_0_0)]">
+          <span className="text-[10px] font-mono text-panel-muted">
             {isStreaming ? "analyzing" : "online"}
           </span>
         </div>
@@ -221,8 +221,8 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
       </div>
 
       {/* Input */}
-      <div className="border-t border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
-        <div className="flex items-end gap-3 bg-[oklch(0.945_0.003_80)] border border-[var(--panel-border)] rounded-sm px-4 py-3">
+      <div className="border-t border-panel-border bg-panel px-6 py-4">
+        <div className="flex items-end gap-3 bg-panel-input border border-panel-border rounded-sm px-4 py-3">
           <textarea
             ref={inputRef}
             value={inputValue}
@@ -231,7 +231,7 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
             placeholder={`Message ${memberName}...`}
             rows={1}
             disabled={isStreaming}
-            className="flex-1 bg-transparent text-sm text-[oklch(0.15_0_0)] placeholder:text-[oklch(0.6_0_0)] resize-none outline-none leading-relaxed min-h-[20px] max-h-32 overflow-y-auto disabled:opacity-50"
+            className="flex-1 bg-transparent text-sm text-panel-foreground placeholder:text-panel-faint resize-none outline-none leading-relaxed min-h-[20px] max-h-32 overflow-y-auto disabled:opacity-50"
             style={{
               height: "auto",
             }}
@@ -242,20 +242,20 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
             }}
           />
           <div className="flex items-center gap-2 flex-shrink-0 pb-0.5">
-            <span className="text-[9px] font-mono text-[oklch(0.6_0_0)] hidden sm:flex items-center gap-1">
+            <span className="text-[9px] font-mono text-panel-faint hidden sm:flex items-center gap-1">
               <CornerDownLeft className="w-2.5 h-2.5" /> send
             </span>
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || isStreaming}
-              className="w-7 h-7 rounded-sm bg-[oklch(0.15_0_0)] disabled:opacity-30 flex items-center justify-center hover:bg-[oklch(0.25_0_0)] transition-colors"
+              className="w-7 h-7 rounded-sm bg-panel-foreground disabled:opacity-30 flex items-center justify-center hover:bg-panel-foreground-hover transition-colors"
               aria-label="Send message"
             >
-              <Send className="w-3 h-3 text-[oklch(0.9_0_0)]" />
+              <Send className="w-3 h-3 text-panel-inverse" />
             </button>
           </div>
         </div>
-        <p className="text-[9px] font-mono text-[oklch(0.6_0_0)] mt-2 text-center">
+        <p className="text-[9px] font-mono text-panel-faint mt-2 text-center">
           Shift+Enter for new line — responses reflect AI modeling only, not the views of real individuals
         </p>
       </div>

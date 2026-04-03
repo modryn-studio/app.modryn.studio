@@ -51,7 +51,7 @@ interface SidebarProps {
 
 const statusColors: Record<string, string> = {
   online: "bg-emerald-500",
-  analyzing: "bg-[var(--status-active)]",
+  analyzing: "bg-status-active",
   away: "bg-zinc-500",
 }
 
@@ -78,7 +78,7 @@ function MemberAvatar({ member }: { member: Member }) {
       </div>
       <span
         className={cn(
-          "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[var(--sidebar)]",
+          "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar",
           statusColors[member.status]
         )}
       />
@@ -88,9 +88,9 @@ function MemberAvatar({ member }: { member: Member }) {
 
 export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: SidebarProps) {
   return (
-    <aside className="flex h-full bg-[var(--sidebar)]">
+    <aside className="flex h-full bg-sidebar">
       {/* Icon rail */}
-      <nav className="flex flex-col items-center pt-4 pb-4 gap-1 w-14 border-r border-[var(--sidebar-border)]">
+      <nav className="flex flex-col items-center pt-4 pb-4 gap-1 w-14 border-r border-sidebar-border">
         {/* Logo mark */}
         <div className="mb-4 w-8 h-8 flex items-center justify-center">
           <span className="font-mono text-sm font-bold text-zinc-200 tracking-tight select-none">M</span>
@@ -135,8 +135,8 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
               className={cn(
                 "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-sm transition-colors text-left",
                 activeChat === member.id && activeView === "chat"
-                  ? "bg-[var(--sidebar-accent)]"
-                  : "hover:bg-[var(--sidebar-accent)]/50"
+                  ? "bg-sidebar-accent"
+                  : "hover:bg-sidebar-accent/50"
               )}
             >
               <MemberAvatar member={member} />
@@ -160,8 +160,8 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
               className={cn(
                 "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-sm transition-colors text-left",
                 activeChat === member.id && activeView === "chat"
-                  ? "bg-[var(--sidebar-accent)]"
-                  : "hover:bg-[var(--sidebar-accent)]/50"
+                  ? "bg-sidebar-accent"
+                  : "hover:bg-sidebar-accent/50"
               )}
             >
               <MemberAvatar member={member} />
@@ -193,7 +193,7 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-[var(--sidebar-border)] mt-auto">
+        <div className="px-4 py-3 border-t border-sidebar-border mt-auto">
           <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">v0.1 — prototype</p>
         </div>
       </div>

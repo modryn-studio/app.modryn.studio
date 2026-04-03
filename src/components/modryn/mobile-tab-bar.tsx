@@ -20,7 +20,7 @@ interface MobileTabBarProps {
 export function MobileTabBar({ activeView, onViewChange }: MobileTabBarProps) {
   return (
     <nav
-      className="flex items-stretch bg-[var(--sidebar)] border-t border-[var(--sidebar-border)] md:hidden flex-shrink-0"
+      className="flex items-stretch bg-sidebar border-t border-sidebar-border md:hidden flex-shrink-0"
       aria-label="Main navigation"
     >
       {tabs.map(({ id, label, icon: Icon }) => {

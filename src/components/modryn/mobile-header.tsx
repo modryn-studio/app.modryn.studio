@@ -11,7 +11,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ drawerOpen, onToggleDrawer, activeViewLabel }: MobileHeaderProps) {
   return (
-    <header className="flex items-center justify-between px-4 py-3 bg-[var(--sidebar)] border-b border-[var(--sidebar-border)] flex-shrink-0 md:hidden">
+    <header className="flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border flex-shrink-0 md:hidden">
       <button
         onClick={onToggleDrawer}
         className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors"

@@ -85,12 +85,12 @@ export function InboxView() {
   }
 
   return (
-    <div className="flex h-full bg-[var(--panel-bg)]">
+    <div className="flex h-full bg-panel">
       {/* Message list */}
-      <div className="w-72 flex-shrink-0 border-r border-[var(--panel-border)] flex flex-col">
-        <div className="px-5 py-4 border-b border-[var(--panel-border)]">
+      <div className="w-72 flex-shrink-0 border-r border-panel-border flex flex-col">
+        <div className="px-5 py-4 border-b border-panel-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-[oklch(0.2_0_0)]">Inbox</h2>
+            <h2 className="text-xs font-semibold text-panel-foreground">Inbox</h2>
             <span className="text-[9px] font-mono bg-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded-sm">
               {messages.filter((m) => m.unread).length} new
             </span>
@@ -103,14 +103,14 @@ export function InboxView() {
               key={msg.id}
               onClick={() => handleSelect(msg)}
               className={cn(
-                "w-full text-left px-5 py-4 border-b border-[var(--panel-border)] transition-colors hover:bg-black/5",
-                selected?.id === msg.id && "bg-[oklch(0.93_0.004_80)]"
+                "w-full text-left px-5 py-4 border-b border-panel-border transition-colors hover:bg-black/5",
+                selected?.id === msg.id && "bg-panel-selected"
               )}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   {msg.unread && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[oklch(0.72_0.12_75)] block mt-1.5" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-status-active block mt-1.5" />
                   )}
                   {!msg.unread && <span className="w-1.5 h-1.5 block" />}
                 </div>
@@ -121,8 +121,8 @@ export function InboxView() {
                         className={cn(
                           "text-xs",
                           msg.unread
-                            ? "font-semibold text-[oklch(0.15_0_0)]"
-                            : "font-medium text-[oklch(0.35_0_0)]"
+                            ? "font-semibold text-panel-foreground"
+                            : "font-medium text-panel-text-secondary"
                         )}
                       >
                         {msg.from}
@@ -133,19 +133,19 @@ export function InboxView() {
                         </span>
                       )}
                     </div>
-                    <span className="text-[9px] font-mono text-[oklch(0.6_0_0)] flex-shrink-0">
+                    <span className="text-[9px] font-mono text-panel-faint flex-shrink-0">
                       {msg.time}
                     </span>
                   </div>
                   <p
                     className={cn(
                       "text-xs truncate mb-1",
-                      msg.unread ? "text-[oklch(0.2_0_0)] font-medium" : "text-[oklch(0.4_0_0)]"
+                      msg.unread ? "text-panel-foreground font-medium" : "text-panel-text-secondary"
                     )}
                   >
                     {msg.subject}
                   </p>
-                  <p className="text-[10px] text-[oklch(0.55_0_0)] truncate">{msg.preview}</p>
+                  <p className="text-[10px] text-panel-muted truncate">{msg.preview}</p>
                 </div>
               </div>
             </button>
@@ -157,8 +157,8 @@ export function InboxView() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {selected ? (
           <>
-            <div className="px-8 py-5 border-b border-[var(--panel-border)]">
-              <h1 className="text-base font-semibold text-[oklch(0.15_0_0)] text-balance mb-2">
+            <div className="px-8 py-5 border-b border-panel-border">
+              <h1 className="text-base font-semibold text-panel-foreground text-balance mb-2">
                 {selected.subject}
               </h1>
               <div className="flex items-center gap-2">
@@ -167,18 +167,18 @@ export function InboxView() {
                     {selected.fromInitials}
                   </span>
                 </div>
-                <span className="text-xs text-[oklch(0.4_0_0)]">{selected.from}</span>
+                <span className="text-xs text-panel-text-secondary">{selected.from}</span>
                 {selected.isAI && (
                   <span className="text-[8px] font-mono bg-zinc-200 text-zinc-500 px-1 py-0.5 rounded-sm">
                     AI
                   </span>
                 )}
-                <span className="text-[10px] font-mono text-[oklch(0.6_0_0)] ml-auto">{selected.time}</span>
+                <span className="text-[10px] font-mono text-panel-faint ml-auto">{selected.time}</span>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-8 py-6">
               <div className="max-w-prose">
-                <p className="text-sm font-mono text-[oklch(0.2_0_0)] leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm font-mono text-panel-foreground leading-relaxed whitespace-pre-wrap">
                   {selected.body}
                 </p>
               </div>
@@ -187,7 +187,7 @@ export function InboxView() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-sm text-[oklch(0.5_0_0)]">Select a message to read</p>
+              <p className="text-sm text-panel-muted">Select a message to read</p>
             </div>
           </div>
         )}

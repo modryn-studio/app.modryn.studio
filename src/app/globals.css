@@ -2,7 +2,22 @@
 @import 'tw-animate-css';
 
 @theme {
-  /* -- Dark chrome (sidebar, nav rail) -- */
+  /* -- Brand -- */
+  --color-accent: #4b57d8;
+  --color-accent-foreground: #fafafa;
+  --color-secondary: #9eb421;
+  --color-destructive: oklch(0.4 0.18 25);
+  --color-destructive-foreground: oklch(0.9 0 0);
+
+  /* -- Status -- */
+  --color-status-active: oklch(0.72 0.12 75);
+  --color-status-generating: oklch(0.55 0.08 80);
+
+  /* -- App background (behind panels) -- */
+  --color-background: oklch(0.12 0 0);
+  --color-foreground: oklch(0.92 0 0);
+
+  /* -- Dark chrome (sidebar, nav rail, mobile header/tabs) -- */
   --color-sidebar: oklch(0.10 0 0);
   --color-sidebar-foreground: oklch(0.85 0 0);
   --color-sidebar-border: oklch(0.18 0 0);
@@ -13,25 +28,21 @@
   --color-sidebar-ring: oklch(0.4 0 0);
 
   /* -- Warm cream panels (chat, inbox, context) -- */
-  --color-panel-bg: oklch(0.965 0.004 80);
+  --color-panel: oklch(0.965 0.004 80);
   --color-panel-foreground: oklch(0.15 0 0);
+  --color-panel-foreground-hover: oklch(0.25 0 0);
+  --color-panel-text: oklch(0.25 0 0);
+  --color-panel-text-secondary: oklch(0.4 0 0);
+  --color-panel-muted: oklch(0.5 0 0);
+  --color-panel-faint: oklch(0.6 0 0);
+  --color-panel-inverse: oklch(0.9 0 0);
   --color-panel-border: oklch(0.88 0.004 80);
+  --color-panel-input: oklch(0.945 0.003 80);
+  --color-panel-selected: oklch(0.93 0.004 80);
   --color-ai-surface: oklch(0.94 0.004 80);
   --color-ai-border: oklch(0.85 0.005 80);
-  --color-context-bg: oklch(0.955 0.004 80);
+  --color-context: oklch(0.955 0.004 80);
   --color-context-border: oklch(0.87 0.004 80);
-
-  /* -- Brand -- */
-  --color-accent: #4b57d8;
-  --color-accent-foreground: #fafafa;
-  --color-secondary: #9eb421;
-  --color-status-active: oklch(0.72 0.12 75);
-  --color-destructive: oklch(0.4 0.18 25);
-  --color-destructive-foreground: oklch(0.9 0 0);
-
-  /* -- App background (behind panels) -- */
-  --color-background: oklch(0.12 0 0);
-  --color-foreground: oklch(0.92 0 0);
 
   /* -- shadcn compat -- */
   --color-card: oklch(0.155 0 0);
@@ -57,20 +68,6 @@
   --font-sans: var(--font-inter), 'Inter', sans-serif;
   --font-heading: var(--font-inter), 'Inter', sans-serif;
   --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
-}
-
-/* CSS variables referenced directly by components via var(--panel-bg) etc. */
-:root {
-  --panel-bg: oklch(0.965 0.004 80);
-  --panel-border: oklch(0.88 0.004 80);
-  --ai-surface: oklch(0.94 0.004 80);
-  --ai-border: oklch(0.85 0.005 80);
-  --context-bg: oklch(0.955 0.004 80);
-  --context-border: oklch(0.87 0.004 80);
-  --sidebar: oklch(0.10 0 0);
-  --sidebar-border: oklch(0.18 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --status-active: oklch(0.72 0.12 75);
 }
 
 @layer base {

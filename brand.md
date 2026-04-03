@@ -37,27 +37,27 @@ Two distinct zones with different palettes:
 
 ### Dark chrome (sidebar, nav rail, mobile header/tabs)
 
-| Name           | Approx     | Role                                                      |
-| -------------- | ---------- | --------------------------------------------------------- |
-| Sidebar bg     | ~#1a1a1a   | Leftmost chrome -- darkest surface                        |
-| Sidebar accent | ~#1e1e1e   | Hover + active row highlight in sidebar                   |
-| Sidebar border | ~#232323   | Rail + roster dividers                                    |
-| Sidebar text   | zinc-200   | Primary member names, nav labels                          |
-| Sidebar muted  | zinc-500   | Secondary labels, roles, timestamps                       |
-| Status active  | #9EB421    | Analyzing / unread / streaming dot                        |
-| Status online  | emerald-500 | Online presence dot                                      |
+| Name           | Approx      | Role                                    |
+| -------------- | ----------- | --------------------------------------- |
+| Sidebar bg     | ~#1a1a1a    | Leftmost chrome -- darkest surface      |
+| Sidebar accent | ~#1e1e1e    | Hover + active row highlight in sidebar |
+| Sidebar border | ~#232323    | Rail + roster dividers                  |
+| Sidebar text   | zinc-200    | Primary member names, nav labels        |
+| Sidebar muted  | zinc-500    | Secondary labels, roles, timestamps     |
+| Status active  | #9EB421     | Analyzing / unread / streaming dot      |
+| Status online  | emerald-500 | Online presence dot                     |
 
 ### Warm cream panels (chat, inbox, context pane)
 
-| Name          | Approx                | Role                                                  |
-| ------------- | --------------------- | ----------------------------------------------------- |
-| Panel bg      | oklch(0.965 0.004 80) | Main reading surface -- warm off-white                |
-| AI surface    | oklch(0.94 0.004 80)  | AI message rows -- slightly tinted from panel         |
-| Context bg    | oklch(0.955 0.004 80) | Right context panel background                        |
-| Panel border  | oklch(0.88 0.004 80)  | Row dividers, input borders within panels             |
-| Panel text    | oklch(0.15-0.2 0 0)   | Body text in panels -- near-black on cream            |
-| Panel muted   | oklch(0.55-0.6 0 0)   | Timestamps, secondary labels in panels                |
-| Input surface | oklch(0.945 0.003 80) | Textarea/input background                             |
+| Name          | Approx                | Role                                          |
+| ------------- | --------------------- | --------------------------------------------- |
+| Panel bg      | oklch(0.965 0.004 80) | Main reading surface -- warm off-white        |
+| AI surface    | oklch(0.94 0.004 80)  | AI message rows -- slightly tinted from panel |
+| Context bg    | oklch(0.955 0.004 80) | Right context panel background                |
+| Panel border  | oklch(0.88 0.004 80)  | Row dividers, input borders within panels     |
+| Panel text    | oklch(0.15-0.2 0 0)   | Body text in panels -- near-black on cream    |
+| Panel muted   | oklch(0.55-0.6 0 0)   | Timestamps, secondary labels in panels        |
+| Input surface | oklch(0.945 0.003 80) | Textarea/input background                     |
 
 ### Brand tokens (shared)
 
@@ -76,6 +76,7 @@ Color rules:
 - Zinc is the neutral scale for dark chrome (zinc-200 for text, zinc-500/600 for muted, zinc-700 for AI badge backgrounds).
 
 ---
+
 ## Logomark
 
 **Direction:** Single letterform — "M" for Modryn. Mono-weight, square, minimal.

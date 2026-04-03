@@ -26,7 +26,7 @@ const FUTURE_AI: { name: string; role: string }[] = [
 
 const statusColors: Record<string, string> = {
   online: "bg-emerald-500",
-  analyzing: "bg-[var(--status-active)]",
+  analyzing: "bg-status-active",
   away: "bg-zinc-500",
 }
 
@@ -43,7 +43,7 @@ function MemberRow({ member, active, onClick }: { member: Member; active: boolea
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 px-5 py-3 text-left transition-colors",
-        active ? "bg-[var(--sidebar-accent)]" : "hover:bg-[var(--sidebar-accent)]/60"
+        active ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
       )}
     >
       <div className="relative flex-shrink-0">
@@ -57,7 +57,7 @@ function MemberRow({ member, active, onClick }: { member: Member; active: boolea
         </div>
         <span
           className={cn(
-            "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[var(--sidebar)]",
+            "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar",
             statusColors[member.status]
           )}
         />
@@ -92,7 +92,7 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
       {/* Drawer panel */}
       <div
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-72 bg-[var(--sidebar)] flex flex-col md:hidden transition-transform duration-250 ease-in-out",
+          "fixed top-0 left-0 z-50 h-full w-72 bg-sidebar flex flex-col md:hidden transition-transform duration-250 ease-in-out",
           open ? "translate-x-0" : "-translate-x-full"
         )}
         role="dialog"
@@ -100,7 +100,7 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
         aria-label="Team roster"
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 pt-5 pb-4 border-b border-[var(--sidebar-border)]">
+        <div className="flex items-center gap-2 px-5 pt-5 pb-4 border-b border-sidebar-border">
           <span className="font-mono text-sm font-bold text-zinc-300 tracking-tight">M</span>
           <span className="text-[10px] font-mono tracking-[0.2em] text-zinc-500 uppercase">Modryn Studio</span>
         </div>
@@ -149,7 +149,7 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
           ))}
         </div>
 
-        <div className="px-5 py-3 border-t border-[var(--sidebar-border)]">
+        <div className="px-5 py-3 border-t border-sidebar-border">
           <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">v0.1 — prototype</p>
         </div>
       </div>
