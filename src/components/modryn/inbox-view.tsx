@@ -90,7 +90,7 @@ export function InboxView() {
         <div className="border-panel-border border-b px-5 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-panel-foreground text-xs font-semibold">Inbox</h2>
-            <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+            <span className="bg-panel-badge text-panel-muted rounded-sm px-1.5 py-0.5 font-mono text-[9px]">
               {messages.filter((m) => m.unread).length} new
             </span>
           </div>
@@ -127,7 +127,7 @@ export function InboxView() {
                         {msg.from}
                       </span>
                       {msg.isAI && (
-                        <span className="rounded-sm bg-zinc-200 px-1 py-0.5 font-mono text-[8px] text-zinc-500">
+                        <span className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 font-mono text-[8px]">
                           AI
                         </span>
                       )}
@@ -161,14 +161,14 @@ export function InboxView() {
                 {selected.subject}
               </h1>
               <div className="flex items-center gap-2">
-                <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-zinc-300">
-                  <span className="font-mono text-[8px] font-bold text-zinc-600">
+                <div className="bg-panel-chrome flex h-5 w-5 items-center justify-center rounded-sm">
+                  <span className="text-panel-chrome-foreground font-mono text-[8px] font-bold">
                     {selected.fromInitials}
                   </span>
                 </div>
                 <span className="text-panel-text-secondary text-xs">{selected.from}</span>
                 {selected.isAI && (
-                  <span className="rounded-sm bg-zinc-200 px-1 py-0.5 font-mono text-[8px] text-zinc-500">
+                  <span className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 font-mono text-[8px]">
                     AI
                   </span>
                 )}

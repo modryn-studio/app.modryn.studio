@@ -138,7 +138,7 @@ export default function FeedbackWidget() {
             disabled={state === 'submitting'}
             className="mt-2 text-xs"
           />
-          {error && <p className="text-accent mt-2 text-xs">{error}</p>}
+          {error && <p className="text-destructive mt-2 text-xs">{error}</p>}
           <div className="mt-3 flex justify-end">
             <Button
               onClick={handleSubmit}
@@ -196,7 +196,7 @@ export default function FeedbackWidget() {
         {/* Tab — leftmost, always the visible 'handle' */}
         <button
           onClick={() => setState(isOpen ? 'idle' : 'open')}
-          className="text-accent border-border bg-surface hover:bg-border/40 flex shrink-0 items-center rounded-l-2xl border border-r-0 px-3 py-2 text-xs font-semibold tracking-wide shadow-md transition-colors"
+          className="border-border bg-surface hover:bg-border/40 text-foreground/80 flex shrink-0 items-center rounded-l-2xl border border-r-0 px-3 py-2 text-xs font-semibold tracking-wide shadow-md transition-colors"
           aria-label={isOpen ? 'Close feedback' : 'Open feedback'}
         >
           Feedback

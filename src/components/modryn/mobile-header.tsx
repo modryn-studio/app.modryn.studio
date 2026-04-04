@@ -14,24 +14,24 @@ export function MobileHeader({ drawerOpen, onToggleDrawer, activeViewLabel }: Mo
     <header className="bg-sidebar border-sidebar-border flex flex-shrink-0 items-center justify-between border-b px-4 py-3 md:hidden">
       <button
         onClick={onToggleDrawer}
-        className="flex h-8 w-8 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-200"
+        className="text-sidebar-muted hover:text-sidebar-foreground flex h-8 w-8 items-center justify-center transition-colors"
         aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
       >
         {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px] font-bold tracking-tight text-zinc-300 select-none">
+        <span className="text-sidebar-foreground font-mono text-[11px] font-bold tracking-tight select-none">
           M
         </span>
-        <span className="font-mono text-[11px] tracking-[0.22em] text-zinc-400 uppercase">
+        <span className="text-sidebar-muted font-mono text-[11px] tracking-[0.22em] uppercase">
           Modryn Studio
         </span>
       </div>
 
       {/* Right avatar — founder */}
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-600">
-        <span className="font-mono text-[10px] font-bold text-zinc-200">F</span>
+      <div className="bg-sidebar-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full">
+        <span className="text-sidebar-foreground font-mono text-[10px] font-bold">F</span>
       </div>
     </header>
   );

@@ -110,8 +110,10 @@ export function ContextPanel({
       {/* Member card */}
       <div className="border-context-border border-b px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-200">
-            <span className="font-mono text-xs font-semibold text-zinc-700">{memberInitials}</span>
+          <div className="bg-panel-chrome flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm">
+            <span className="text-panel-chrome-foreground font-mono text-xs font-semibold">
+              {memberInitials}
+            </span>
           </div>
           <div>
             <p className="text-panel-foreground text-sm leading-tight font-medium">{memberName}</p>

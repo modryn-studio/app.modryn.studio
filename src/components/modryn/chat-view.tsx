@@ -44,8 +44,8 @@ function FounderMessage({ text, timestamp }: { text: string; timestamp: string }
   return (
     <div className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-300">
-          <span className="font-mono text-[9px] font-bold text-zinc-600">F</span>
+        <div className="bg-panel-chrome flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm">
+          <span className="text-panel-chrome-foreground font-mono text-[9px] font-bold">F</span>
         </div>
         <span className="text-panel-foreground text-xs font-semibold">Founder</span>
         <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
@@ -73,11 +73,13 @@ function AIMessage({
   return (
     <div className="group bg-ai-surface border-ai-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-400">
-          <span className="font-mono text-[9px] font-bold text-zinc-100">{memberInitials}</span>
+        <div className="bg-panel-chrome-strong flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm">
+          <span className="text-panel-inverse font-mono text-[9px] font-bold">
+            {memberInitials}
+          </span>
         </div>
         <span className="text-panel-foreground text-xs font-semibold">{memberName}</span>
-        <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+        <span className="bg-panel-badge text-panel-muted rounded-sm px-1.5 py-0.5 font-mono text-[9px]">
           AI
         </span>
         <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
@@ -164,13 +166,15 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
       {/* Header â€" hidden on mobile (handled by MobileHeader) */}
       <div className="border-panel-border bg-panel hidden items-center justify-between border-b px-6 py-3.5 md:flex">
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm bg-zinc-300">
-            <span className="font-mono text-[10px] font-bold text-zinc-600">{memberInitials}</span>
+          <div className="bg-panel-chrome flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm">
+            <span className="text-panel-chrome-foreground font-mono text-[10px] font-bold">
+              {memberInitials}
+            </span>
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-panel-foreground text-sm font-semibold">{memberName}</span>
-              <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+              <span className="bg-panel-badge text-panel-muted rounded-sm px-1.5 py-0.5 font-mono text-[9px]">
                 AI
               </span>
             </div>
@@ -181,7 +185,7 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full',
-              isStreaming ? 'bg-status-active animate-pulse' : 'bg-emerald-500'
+              isStreaming ? 'bg-status-active animate-pulse' : 'bg-status-online'
             )}
           />
           <span className="text-panel-muted font-mono text-[10px]">

@@ -59,7 +59,7 @@ basePath: <!-- empty — standalone-subdomain mode -->
 
 **Visual Rules:**
 
-- Dark mode only (internal tool — no system toggle)
+- Color mode: Split-tone — dark chrome (sidebar, nav rail, headers) with warm cream content panels (chat, inbox, context pane). Not dark mode throughout. No system toggle.
 - Fonts: Inter (body/UI) + JetBrains Mono (system labels, timestamps, badges, code)
 - Avatars: `rounded-sm` square — not circular
 - Motion: pulse only for active/streaming states. No scroll animations.
@@ -68,13 +68,29 @@ basePath: <!-- empty — standalone-subdomain mode -->
 
 **Colors:**
 
-- Accent `#4B57D8` — interactive primary, active sidebar state, CTAs, selected items
-- Secondary `#9EB421` — status indicators: analyzing, unread, live/streaming
-- Background `#171717` — page background base
+Two distinct zones:
+
+_Dark chrome (sidebar, nav rail, mobile header/tabs):_
+
+- Sidebar bg `oklch(0.10 0 0)` — leftmost chrome, darkest surface
+- Sidebar accent `oklch(0.18 0 0)` — hover + active row highlight
+- Sidebar border `oklch(0.18 0 0)` — rail + roster dividers
+- Sidebar foreground `oklch(0.85 0 0)` — primary member names, nav labels
+
+_Warm cream panels (chat, inbox, context pane):_
+
+- Panel `oklch(0.965 0.004 80)` — main reading surface, warm off-white
+- AI surface `oklch(0.94 0.004 80)` — AI message rows
+- Panel border `oklch(0.88 0.004 80)` — row dividers, input borders
+- Panel foreground `oklch(0.15 0 0)` — primary body text on cream
+- Panel muted `oklch(0.5 0 0)` — timestamps, secondary labels
+
+_Brand tokens (shared):_
+
+- Accent `#E4E4E7` — near-white neutral, active states, selected items
+- Secondary `#D4922A` — status indicators: analyzing, unread, streaming (warm amber)
+- Background `#171717` — app background behind panels
 - Text `#FAFAFA` — body text (near-white on dark)
-- Muted `#6B6B6B` — secondary text, timestamps, meta-labels, placeholders
-- Surface `#242424` — elevated panels (chat pane, inbox)
-- Border `#2E2E2E` — panel separators, input borders
 
 **Copy reference:**
 
@@ -125,21 +141,21 @@ This project uses Tailwind CSS v4. The rules are different from v3 — follow th
 **Design tokens live in `@theme`, not `:root`:**
 
 ```css
-/* ✅ correct — generates text-accent, bg-surface, border-border, etc. */
+/* ✅ correct — generates text-accent, bg-panel, border-sidebar-border, etc. */
 @theme {
-  --color-accent: #4b57d8; /* interactive primary — active sidebar, CTAs, selected items */
-  --color-secondary: #9eb421; /* status indicators — analyzing, unread, streaming */
+  --color-accent: #e4e4e7; /* near-white neutral — active states, selected items */
+  --color-secondary: #d4922a; /* warm amber — analyzing, unread, streaming */
   --color-bg: #171717; /* page background base */
   --color-text: #fafafa; /* body text — near-white on dark */
   --color-muted: #6b6b6b; /* secondary text, timestamps, placeholders */
-  --color-surface: #242424; /* elevated panels — chat pane, inbox */
-  --color-border: #2e2e2e; /* panel separators, input borders */
+  --color-sidebar: oklch(0.1 0 0); /* dark chrome surface */
+  --color-panel: oklch(0.965 0.004 80); /* warm cream reading surface */
   --font-heading: var(--font-inter); /* Inter — body and UI text */
 }
 
 /* ❌ wrong — :root creates CSS variables but NO utility classes */
 :root {
-  --color-accent: #4b57d8;
+  --color-accent: #e4e4e7;
 }
 ```
 

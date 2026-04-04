@@ -41,13 +41,13 @@ export default function EmailSignup() {
   };
 
   return (
-    <section id="signup" className="border-t border-border">
+    <section id="signup" className="border-border border-t">
       <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
         <div className="mx-auto max-w-lg text-center">
           <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
             {site.waitlist.headline}
           </h2>
-          <p className="mt-4 text-sm text-muted md:text-base">{site.waitlist.subheadline}</p>
+          <p className="text-muted mt-4 text-sm md:text-base">{site.waitlist.subheadline}</p>
 
           {!done ? (
             <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -69,12 +69,12 @@ export default function EmailSignup() {
               </Button>
             </form>
           ) : (
-            <div className="mt-8 border border-accent/30 bg-accent/5 p-4 text-sm text-accent">
+            <div className="border-foreground/20 bg-foreground/5 text-foreground/80 mt-8 border p-4 text-sm">
               {site.waitlist.success}
             </div>
           )}
 
-          {error && <p className="mt-4 text-sm text-accent">{error}</p>}
+          {error && <p className="text-destructive mt-4 text-sm">{error}</p>}
         </div>
       </div>
     </section>

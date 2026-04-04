@@ -31,7 +31,7 @@ export function MobileTabBar({ activeView, onViewChange }: MobileTabBarProps) {
             onClick={() => onViewChange(id)}
             className={cn(
               'flex flex-1 flex-col items-center justify-center gap-1 py-3 transition-colors',
-              active ? 'text-zinc-100' : 'text-zinc-600 hover:text-zinc-400'
+              active ? 'text-sidebar-primary' : 'text-sidebar-ring hover:text-sidebar-muted'
             )}
             aria-label={label}
             aria-current={active ? 'page' : undefined}
@@ -40,7 +40,7 @@ export function MobileTabBar({ activeView, onViewChange }: MobileTabBarProps) {
             <span
               className={cn(
                 'font-mono text-[9px] tracking-widest uppercase',
-                active ? 'text-zinc-100' : 'text-zinc-600'
+                active ? 'text-sidebar-primary' : 'text-sidebar-ring'
               )}
             >
               {label}

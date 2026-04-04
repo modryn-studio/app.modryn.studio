@@ -32,9 +32,9 @@ const FUTURE_AI: { name: string; role: string }[] = [
 ];
 
 const statusColors: Record<string, string> = {
-  online: 'bg-emerald-500',
+  online: 'bg-status-online',
   analyzing: 'bg-status-active',
-  away: 'bg-zinc-500',
+  away: 'bg-sidebar-ring',
 };
 
 interface MobileDrawerProps {
@@ -65,7 +65,9 @@ function MemberRow({
         <div
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-sm font-mono text-xs font-semibold',
-            member.isAI ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-600 text-zinc-100'
+            member.isAI
+              ? 'bg-sidebar-accent text-sidebar-foreground'
+              : 'bg-sidebar-accent text-sidebar-foreground'
           )}
         >
           {member.initials}
@@ -79,14 +81,14 @@ function MemberRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-zinc-200">{member.name}</p>
+          <p className="text-sidebar-foreground truncate text-sm font-medium">{member.name}</p>
           {member.isAI && (
-            <span className="flex-shrink-0 rounded-sm bg-zinc-700 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+            <span className="bg-sidebar-accent text-sidebar-muted flex-shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[8px]">
               AI
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-zinc-500">{member.role}</p>
+        <p className="text-sidebar-muted truncate text-xs">{member.role}</p>
       </div>
     </button>
   );
@@ -116,15 +118,17 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
       >
         {/* Header */}
         <div className="border-sidebar-border flex items-center gap-2 border-b px-5 pt-5 pb-4">
-          <span className="font-mono text-sm font-bold tracking-tight text-zinc-300">M</span>
-          <span className="font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+          <span className="text-sidebar-foreground font-mono text-sm font-bold tracking-tight">
+            M
+          </span>
+          <span className="text-sidebar-muted font-mono text-[10px] tracking-[0.2em] uppercase">
             Modryn Studio
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
           {/* Team */}
-          <p className="px-5 pt-3 pb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600 uppercase">
+          <p className="text-sidebar-ring px-5 pt-3 pb-2 font-mono text-[9px] tracking-[0.18em] uppercase">
             Team
           </p>
           {TEAM_MEMBERS.map((m) => (
@@ -140,7 +144,7 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
           ))}
 
           {/* AI Members */}
-          <p className="px-5 pt-4 pb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600 uppercase">
+          <p className="text-sidebar-ring px-5 pt-4 pb-2 font-mono text-[9px] tracking-[0.18em] uppercase">
             AI Members
           </p>
           {AI_MEMBERS.map((m) => (
@@ -161,19 +165,19 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
               key={i}
               className="flex cursor-default items-center gap-3 px-5 py-3 opacity-30 select-none"
             >
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-dashed border-zinc-700">
-                <span className="text-xs text-zinc-600">+</span>
+              <div className="border-sidebar-ring flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-dashed">
+                <span className="text-sidebar-ring text-xs">+</span>
               </div>
               <div>
-                <p className="truncate text-sm text-zinc-500">{item.name}</p>
-                <p className="truncate text-xs text-zinc-600">{item.role}</p>
+                <p className="text-sidebar-muted truncate text-sm">{item.name}</p>
+                <p className="text-sidebar-ring truncate text-xs">{item.role}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className="border-sidebar-border border-t px-5 py-3">
-          <p className="font-mono text-[9px] tracking-widest text-zinc-600 uppercase">
+          <p className="text-sidebar-ring font-mono text-[9px] tracking-widest uppercase">
             v0.1 — prototype
           </p>
         </div>

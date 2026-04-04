@@ -22,7 +22,7 @@ export const site = {
     success: '',
   },
   // Brand colors — used in manifest theme_color / background_color
-  accent: '#4B57D8',
+  accent: '#171717',
   bg: '#171717',
   // Social profiles — used in footer links and Twitter card metadata.
   social: {

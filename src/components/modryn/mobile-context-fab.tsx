@@ -32,7 +32,9 @@ export function MobileContextFab({
         onClick={onToggle}
         className={cn(
           'fixed right-4 bottom-20 z-50 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-colors md:hidden',
-          open ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+          open
+            ? 'bg-sidebar-accent text-sidebar-foreground'
+            : 'bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent'
         )}
         aria-label={open ? 'Close context panel' : 'Open context panel'}
       >
@@ -58,7 +60,7 @@ export function MobileContextFab({
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="h-1 w-8 rounded-full bg-zinc-400" />
+          <div className="bg-panel-faint h-1 w-8 rounded-full" />
         </div>
         {/* Reuse the existing context panel content (without the aside wrapper's width/border logic) */}
         <ContextPanel
