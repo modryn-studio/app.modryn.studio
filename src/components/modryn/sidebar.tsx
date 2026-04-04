@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, Inbox, Pencil } from 'lucide-react';
+import { MessageSquare, Inbox, Pencil, Plus } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/use-profile';
 import { ProfileSheet } from '@/components/modryn/profile-sheet';
+import { AddMemberSheet } from '@/components/modryn/add-member-sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import type { AIMember } from '@/hooks/use-members';
 
@@ -28,6 +29,7 @@ interface SidebarProps {
   members: AIMember[];
   onViewChange: (view: View) => void;
   onChatSelect: (memberId: string) => void;
+  onMemberAdded: () => void;
 }
 
 const statusColors: Record<MemberStatus, string> = {
@@ -177,9 +179,11 @@ export function Sidebar({
   members,
   onViewChange,
   onChatSelect,
+  onMemberAdded,
 }: SidebarProps) {
   const { profile, save } = useProfile();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
 
   return (
     <>
@@ -188,6 +192,14 @@ export function Sidebar({
         onOpenChange={setProfileOpen}
         profile={profile}
         save={save}
+      />
+      <AddMemberSheet
+        open={addMemberOpen}
+        onOpenChange={setAddMemberOpen}
+        onMemberAdded={() => {
+          onMemberAdded();
+          setAddMemberOpen(false);
+        }}
       />
       <aside className="bg-sidebar border-sidebar-border flex h-full border-r">
         {/* Icon rail */}
@@ -231,8 +243,8 @@ export function Sidebar({
         {/* Team roster */}
         <div className="flex w-60 flex-col overflow-y-auto">
           <div className="flex h-18 items-center px-4">
-            <span className="text-sidebar-foreground text-[13px] font-medium tracking-[0.05em] uppercase">
-              Modryn Studio
+            <span className="text-sidebar-foreground truncate text-[13px] font-medium tracking-[0.05em] uppercase">
+              {profile.name || 'Studio'}
             </span>
           </div>
 
@@ -292,27 +304,40 @@ export function Sidebar({
             <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               AI Members
             </ChromeLabel>
-            {members.map((m) => {
-              const member: Member = {
-                id: m.id,
-                name: m.name,
-                role: m.role,
-                initials: m.initials,
-                status: m.status,
-                isAI: true,
-              };
-              return (
-                <MemberRow
-                  key={member.id}
-                  member={member}
-                  selected={activeChat === member.id && activeView === 'chat'}
-                  onClick={() => {
-                    onViewChange('chat');
-                    onChatSelect(member.id);
-                  }}
-                />
-              );
-            })}
+            {members.length === 0 ? (
+              <p className="text-sidebar-muted px-2 py-1 font-mono text-[11px]">
+                No members — add one
+              </p>
+            ) : (
+              members.map((m) => {
+                const member: Member = {
+                  id: m.id,
+                  name: m.name,
+                  role: m.role,
+                  initials: m.initials,
+                  status: m.status,
+                  isAI: true,
+                };
+                return (
+                  <MemberRow
+                    key={member.id}
+                    member={member}
+                    selected={activeChat === member.id && activeView === 'chat'}
+                    onClick={() => {
+                      onViewChange('chat');
+                      onChatSelect(member.id);
+                    }}
+                  />
+                );
+              })
+            )}
+            <button
+              onClick={() => setAddMemberOpen(true)}
+              className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-2 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <ChromeLabel className="normal-case tracking-[0.05em]">Add member</ChromeLabel>
+            </button>
           </div>
         </div>
       </aside>

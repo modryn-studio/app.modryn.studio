@@ -15,10 +15,10 @@ export async function GET(): Promise<Response> {
       return log.end(
         ctx,
         Response.json({
-          name: 'Founder',
+          name: '',
           description: '',
           avatarDataUrl: '',
-          initials: 'FO',
+          initials: '',
         })
       );
     }
@@ -45,7 +45,7 @@ export async function PATCH(req: Request): Promise<Response> {
 
     // Build only the fields that were sent
     const updates: Record<string, string> = {};
-    if (typeof name === 'string') updates.name = name.trim() || 'Founder';
+    if (typeof name === 'string') updates.name = name.trim();
     if (typeof description === 'string') updates.description = description;
     if (typeof avatarDataUrl === 'string') updates.avatar_url = avatarDataUrl;
 

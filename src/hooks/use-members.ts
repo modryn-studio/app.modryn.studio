@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface AIMember {
   id: string;
@@ -14,6 +14,7 @@ export interface AIMember {
 export function useMembers() {
   const [members, setMembers] = useState<AIMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +36,9 @@ export function useMembers() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tick]);
 
-  return { members, isLoading };
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+
+  return { members, isLoading, refetch };
 }

@@ -37,16 +37,18 @@ Two distinct zones with different palettes:
 
 ### Dark chrome (sidebar, nav rail, mobile header/tabs)
 
-| Name              | Token                        | Value                  | Role                                   |
-| ----------------- | ---------------------------- | ---------------------- | -------------------------------------- |
-| Sidebar bg        | `--color-sidebar`            | `oklch(0.10 0 0)`      | Leftmost chrome, darkest surface       |
-| Sidebar accent    | `--color-sidebar-accent`     | `oklch(0.28 0 0)`      | Hover + active row highlight in roster |
-| Sidebar border    | `--color-sidebar-border`     | `oklch(0.18 0 0)`      | Rail + roster dividers                 |
-| Sidebar text      | `--color-sidebar-foreground` | `oklch(0.85 0 0)`      | Primary member names, nav labels       |
-| Sidebar muted     | component zinc scale         | `zinc-500/600`         | Secondary labels, roles, timestamps    |
-| Status active     | `--color-status-active`      | `#d4922a`              | Analyzing / unread / streaming dot     |
-| Status online     | `--color-status-online`      | `oklch(0.72 0.19 160)` | Online presence dot                    |
-| Status generating | `--color-status-generating`  | `oklch(0.55 0.08 80)`  | "generating" label during streaming    |
+| Name                | Token                        | Value                  | Role                                        |
+| ------------------- | ---------------------------- | ---------------------- | ------------------------------------------- |
+| Nav rail bg         | `--color-sidebar-rail`       | `oklch(0.07 0 0)`      | Icon rail background, darkest surface       |
+| Sidebar bg          | `--color-sidebar`            | `oklch(0.10 0 0)`      | Roster panel background                     |
+| Sidebar accent      | `--color-sidebar-accent`     | `oklch(0.28 0 0)`      | Hover + active row highlight in roster      |
+| Sidebar border      | `--color-sidebar-border`     | `oklch(0.18 0 0)`      | Rail + roster dividers                      |
+| Sidebar text        | `--color-sidebar-foreground` | `oklch(0.85 0 0)`      | Body text — member names, nav labels        |
+| Sidebar active text | `--color-sidebar-primary`    | `oklch(0.93 0 0)`      | Near-white — selected names, active UI text |
+| Sidebar muted       | `--color-sidebar-muted`      | `oklch(0.55 0 0)`      | Secondary labels, roles, timestamps         |
+| Status active       | `--color-status-active`      | `#d4922a`              | Analyzing / unread / streaming dot          |
+| Status online       | `--color-status-online`      | `oklch(0.72 0.19 160)` | Online presence dot                         |
+| Status generating   | `--color-status-generating`  | `oklch(0.55 0.08 80)`  | "generating" label during streaming         |
 
 ### Warm cream panels (chat, inbox, context pane)
 
@@ -65,6 +67,7 @@ Two distinct zones with different palettes:
 | Panel text tertiary  | `--color-panel-text-secondary`    | `oklch(0.4 0 0)`        | Tertiary / dimmer labels                    |
 | Panel muted          | `--color-panel-muted`             | `oklch(0.5 0 0)`        | Timestamps, secondary labels                |
 | Panel faint          | `--color-panel-faint`             | `oklch(0.6 0 0)`        | Placeholder / low-priority metadata         |
+| Panel text hover     | `--color-panel-foreground-hover`  | `oklch(0.25 0 0)`       | Hover state for panel body text             |
 | Panel inverse        | `--color-panel-inverse`           | `oklch(0.9 0 0)`        | Light text on dark chips within cream zone  |
 | In-panel avatar bg   | `--color-panel-chrome`            | `oklch(0.82 0 0)`       | Founder avatar chip background              |
 | In-panel avatar dark | `--color-panel-chrome-strong`     | `oklch(0.65 0 0)`       | AI member avatar chip background            |
@@ -77,6 +80,8 @@ Two distinct zones with different palettes:
 | --------- | ------- | ------------------------------------------------------------- |
 | Accent    | #E4E4E7 | Near-white neutral — active states, selected items (zinc-200) |
 | Secondary | #D4922A | Status — analyzing, unread, streaming (warm amber)            |
+
+Note: `--color-secondary` and `--color-status-active` share the same amber value (`#d4922a`). `--color-secondary` is the brand token alias; `--color-status-active` is the semantic status alias. Use the semantic token (`bg-status-active`) in component code.
 
 ### Logomark palette
 
@@ -100,6 +105,29 @@ Color rules:
 - No pure black (#000000) or pure white (#ffffff) anywhere.
 - No gradients anywhere in the product UI.
 - Zinc is the neutral scale for dark chrome (zinc-200 for text, zinc-500/600 for muted, zinc-700 for AI badge backgrounds).
+
+---
+
+## Component Zones
+
+Every UI component belongs to one of two token zones. Never mix tokens across zones.
+
+### Dark chrome zone
+Components: Sidebar, nav rail, mobile header/tabs, `ProfileSheet`, `AddMemberSheet`
+- Background: `bg-sidebar` / `bg-sidebar-rail`
+- Text: `text-sidebar-primary` (active), `text-sidebar-foreground` (body), `text-sidebar-muted` (labels)
+- Borders: `border-sidebar-border`
+- Input underlines / focus rings: `border-sidebar-ring`
+- Hover rows: `bg-sidebar-accent`
+
+### Warm cream zone
+Components: `ChatView`, `InboxView`, `ContextPanel`, `PlaceholderView`, `SetupView`
+- Background: `bg-panel` (chat/inbox), `bg-context` (right pane)
+- Text: `text-panel-foreground` (primary), `text-panel-text` (secondary), `text-panel-muted` (timestamps), `text-panel-faint` (placeholders)
+- Borders: `border-panel-border`
+- Inputs: `bg-panel-input`
+- AI messages: `bg-ai-surface` / `border-ai-border`
+- Avatars in panel: `bg-panel-chrome` (founder), `bg-panel-chrome-strong` (AI member), `text-panel-chrome-foreground` (initials)
 
 ---
 
@@ -138,5 +166,5 @@ Real copy to use as reference when writing UI text.
 
 - Hero: <!-- TODO: Example: "Tools for people who don't have time for bad software." -->
 - CTA: <!-- TODO: Example: "Don't miss the drop." -->
-- Footer: <!-- TODO: Example: "Built by Luke. Paid for by a day job. Shipping anyway." -->
+- Footer: <!-- TODO: Example: "Built by one person. Shipped anyway." -->
 - Error: <!-- TODO: Example: "Something went wrong. Try again." -->
