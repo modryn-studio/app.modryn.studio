@@ -32,9 +32,12 @@ export function SetupView() {
 
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" htmlFor="setup-name" className="text-panel-muted">
+            <label
+              htmlFor="setup-name"
+              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+            >
               Your name
-            </ChromeLabel>
+            </label>
             <input
               id="setup-name"
               type="text"
@@ -48,10 +51,13 @@ export function SetupView() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" htmlFor="setup-description" className="text-panel-muted">
+            <label
+              htmlFor="setup-description"
+              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+            >
               What you&apos;re building
               <span className="text-panel-faint ml-1 normal-case">(optional)</span>
-            </ChromeLabel>
+            </label>
             <input
               id="setup-description"
               type="text"
