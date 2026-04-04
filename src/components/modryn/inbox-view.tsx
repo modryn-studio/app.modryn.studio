@@ -17,64 +17,7 @@ interface InboxMessage {
   unread: boolean;
 }
 
-const INBOX_MESSAGES: InboxMessage[] = [
-  {
-    id: '1',
-    from: 'Peter Thiel',
-    fromInitials: 'PT',
-    subject: "Q3 Strategy — You're asking the wrong questions",
-    preview:
-      "Competition is for losers. The real question is why you don't already have a monopoly on this...",
-    body: `Competition is for losers. The real question is why you don't already have a monopoly on this vertical.
-
-Most founders obsess over market share in an existing category. That's precisely the wrong frame. The goal isn't to compete — it's to build something so differentiated that competition becomes irrelevant.
-
-What's the one thing this company can do that no one else can — or will — do for the next 10 years?
-
-If you can't answer that in a single clear sentence, the strategy isn't done.`,
-    time: '09:14',
-    isAI: true,
-    unread: true,
-  },
-  {
-    id: '2',
-    from: 'Peter Thiel',
-    fromInitials: 'PT',
-    subject: 'On the pricing model',
-    preview:
-      'Raising prices is almost always the right move if your product is genuinely indispensable...',
-    body: `Raising prices is almost always the right move if your product is genuinely indispensable.
-
-The instinct to keep prices low is a scarcity mindset. It signals to the market — and to yourself — that you're not sure the product is worth it.
-
-If customers are willing to pay more and you're not charging it, that's not humility — it's leaving signal on the table.
-
-The question isn't "what will the market bear?" The question is: what does this make possible for the buyer that they couldn't do before?
-
-Price to the value created, not to what competitors charge.`,
-    time: 'Yesterday',
-    isAI: true,
-    unread: false,
-  },
-  {
-    id: '3',
-    from: 'Peter Thiel',
-    fromInitials: 'PT',
-    subject: 'Hiring note',
-    preview:
-      "Don't hire for credentials. Hire for conviction about something most people think is wrong...",
-    body: `Don't hire for credentials. Hire for conviction about something most people think is wrong.
-
-The best early employees aren't the most polished — they're the ones who have a specific, heterodox view about how a particular problem should be solved, and the obsession to prove it.
-
-Ask: what important truth do very few people agree with you on?
-
-If they can't answer that, they'll build consensus, not the future.`,
-    time: 'Mon',
-    isAI: true,
-    unread: false,
-  },
-];
+const INBOX_MESSAGES: InboxMessage[] = [];
 
 export function InboxView() {
   const [selected, setSelected] = useState<InboxMessage | null>(null);

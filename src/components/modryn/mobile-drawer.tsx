@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { useProfile } from '@/lib/use-profile';
+import type { AIMember } from '@/hooks/use-members';
 
 interface Member {
   id: string;
@@ -15,17 +16,6 @@ interface Member {
   avatarDataUrl?: string;
 }
 
-const AI_MEMBERS: Member[] = [
-  {
-    id: 'peter-thiel',
-    name: 'Peter Thiel',
-    role: 'AI Strategist',
-    status: 'analyzing',
-    isAI: true,
-    initials: 'PT',
-  },
-];
-
 const statusColors: Record<string, string> = {
   online: 'bg-status-online',
   analyzing: 'bg-status-active',
@@ -35,6 +25,7 @@ const statusColors: Record<string, string> = {
 interface MobileDrawerProps {
   open: boolean;
   activeChat: string;
+  members: AIMember[];
   onClose: () => void;
   onChatSelect: (id: string) => void;
 }
@@ -100,7 +91,13 @@ function MemberRow({
   );
 }
 
-export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: MobileDrawerProps) {
+export function MobileDrawer({
+  open,
+  activeChat,
+  members,
+  onClose,
+  onChatSelect,
+}: MobileDrawerProps) {
   const { profile } = useProfile();
   const founder: Member = {
     id: 'founder',
@@ -166,17 +163,27 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
           <ChromeLabel as="p" className="text-sidebar-ring px-5 pt-4 pb-2">
             AI Members
           </ChromeLabel>
-          {AI_MEMBERS.map((m) => (
-            <MemberRow
-              key={m.id}
-              member={m}
-              active={activeChat === m.id}
-              onClick={() => {
-                onChatSelect(m.id);
-                onClose();
-              }}
-            />
-          ))}
+          {members.map((m) => {
+            const member: Member = {
+              id: m.id,
+              name: m.name,
+              role: m.role,
+              initials: m.initials,
+              status: m.status,
+              isAI: true,
+            };
+            return (
+              <MemberRow
+                key={member.id}
+                member={member}
+                active={activeChat === member.id}
+                onClick={() => {
+                  onChatSelect(member.id);
+                  onClose();
+                }}
+              />
+            );
+          })}
         </div>
 
         <div className="border-sidebar-border border-t px-5 py-3">

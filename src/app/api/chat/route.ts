@@ -11,12 +11,15 @@ const FALLBACK_SYSTEM = 'You are a helpful AI advisor inside Modryn Studio.';
 export async function POST(req: Request): Promise<Response> {
   const ctx = log.begin();
   try {
-    const { messages, memberId } = await req.json();
+    const { messages, memberId, conversationId } = await req.json();
 
-    log.info(ctx.reqId, 'Chat request', { memberId, messageCount: messages?.length });
+    log.info(ctx.reqId, 'Chat request', {
+      memberId,
+      conversationId,
+      messageCount: messages?.length,
+    });
 
     // Pull member system prompt + recent memory summaries from DB.
-    // Falls back to a generic prompt if the member isn't found.
     const [memberRows, memoryRows] = await Promise.all([
       sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
       sql`
@@ -30,12 +33,32 @@ export async function POST(req: Request): Promise<Response> {
     let systemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
 
     if (memoryRows.length > 0) {
-      // Prepend oldest-first so the model reads context chronologically
       const memorySections = [...memoryRows]
         .reverse()
-        .map((r: { summary: string }) => r.summary)
+        .map((r: Record<string, string>) => r.summary)
         .join('\n\n---\n\n');
       systemPrompt = `${systemPrompt}\n\n## Session Memory (previous conversations, oldest first)\n\n${memorySections}`;
+    }
+
+    // Save the user's new message to DB (last message in the array)
+    if (conversationId && messages?.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === 'user') {
+        // Extract text from parts or content
+        const text =
+          lastMsg.parts
+            ?.filter((p: { type: string }) => p.type === 'text')
+            .map((p: { text: string }) => p.text)
+            .join('') ??
+          lastMsg.content ??
+          '';
+        if (text) {
+          await sql`
+            INSERT INTO messages (conversation_id, sender_id, role, content)
+            VALUES (${conversationId}, 'founder', 'user', ${text})
+          `;
+        }
+      }
     }
 
     const result = streamText({
@@ -44,6 +67,22 @@ export async function POST(req: Request): Promise<Response> {
       messages: await convertToModelMessages(messages),
       maxOutputTokens: 800,
       temperature: 0.7,
+      async onFinish({ text }) {
+        // Save the AI response to DB
+        if (conversationId && text) {
+          try {
+            await sql`
+              INSERT INTO messages (conversation_id, sender_id, role, content)
+              VALUES (${conversationId}, ${memberId}, 'assistant', ${text})
+            `;
+            await sql`
+              UPDATE conversations SET updated_at = now() WHERE id = ${conversationId}
+            `;
+          } catch (e) {
+            console.error('[chat] Failed to persist AI response:', e);
+          }
+        }
+      },
     });
 
     return log.end(ctx, result.toUIMessageStreamResponse(), { memberId });

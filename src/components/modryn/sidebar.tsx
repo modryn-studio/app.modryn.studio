@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/use-profile';
 import { ProfileSheet } from '@/components/modryn/profile-sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import type { AIMember } from '@/hooks/use-members';
 
 export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar';
 
@@ -21,31 +22,10 @@ interface Member {
   initials: string;
 }
 
-const TEAM_MEMBERS: Member[] = [
-  {
-    id: 'founder',
-    name: 'Founder',
-    role: '',
-    status: 'online',
-    isAI: false,
-    initials: 'LH',
-  },
-];
-
-const AI_MEMBERS: Member[] = [
-  {
-    id: 'peter-thiel',
-    name: 'Peter Thiel',
-    role: 'AI Strategist',
-    status: 'analyzing',
-    isAI: true,
-    initials: 'PT',
-  },
-];
-
 interface SidebarProps {
   activeView: View;
   activeChat: string;
+  members: AIMember[];
   onViewChange: (view: View) => void;
   onChatSelect: (memberId: string) => void;
 }
@@ -103,26 +83,6 @@ function FounderAvatar({
 }
 
 function MemberAvatar({ member }: { member: Member }) {
-  if (member.id === 'founder') {
-    // Rendered separately via FounderRow — this branch is never reached
-    return null;
-  }
-
-  if (member.id === 'peter-thiel') {
-    return (
-      <div className="relative shrink-0">
-        <Image
-          src="https://upload.wikimedia.org/wikipedia/commons/4/4b/Peter_Thiel_2018.jpg"
-          alt={member.name}
-          width={32}
-          height={32}
-          unoptimized
-          className="h-8 w-8 rounded-sm object-cover"
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="relative shrink-0">
       <div
@@ -211,7 +171,13 @@ function MemberRow({
   );
 }
 
-export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: SidebarProps) {
+export function Sidebar({
+  activeView,
+  activeChat,
+  members,
+  onViewChange,
+  onChatSelect,
+}: SidebarProps) {
   const { profile, save } = useProfile();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -326,17 +292,27 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
             <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               AI Members
             </ChromeLabel>
-            {AI_MEMBERS.map((member) => (
-              <MemberRow
-                key={member.id}
-                member={member}
-                selected={activeChat === member.id && activeView === 'chat'}
-                onClick={() => {
-                  onViewChange('chat');
-                  onChatSelect(member.id);
-                }}
-              />
-            ))}
+            {members.map((m) => {
+              const member: Member = {
+                id: m.id,
+                name: m.name,
+                role: m.role,
+                initials: m.initials,
+                status: m.status,
+                isAI: true,
+              };
+              return (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  selected={activeChat === member.id && activeView === 'chat'}
+                  onClick={() => {
+                    onViewChange('chat');
+                    onChatSelect(member.id);
+                  }}
+                />
+              );
+            })}
           </div>
         </div>
       </aside>

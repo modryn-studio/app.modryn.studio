@@ -166,8 +166,11 @@ export function ChatView({
   const [inputValue, setInputValue] = useState('');
   const [messageTimestamps, setMessageTimestamps] = useState<Record<string, string>>({});
   const [pendingTimestamp, setPendingTimestamp] = useState<string | null>(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const conversationIdRef = useRef<string | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
       prepareSendMessagesRequest: ({ id, messages }) => ({
@@ -175,10 +178,70 @@ export function ChatView({
           id,
           messages,
           memberId,
+          conversationId: conversationIdRef.current,
         },
       }),
     }),
   });
+
+  // Load conversation history on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function loadHistory() {
+      try {
+        const res = await fetch(`/api/conversations/dm/${encodeURIComponent(memberId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        conversationIdRef.current = data.conversationId;
+
+        if (data.messages.length > 0) {
+          const loaded = data.messages.map(
+            (m: { id: string; role: string; content: string; createdAt: string }) => ({
+              id: m.id,
+              role: m.role,
+              parts: [{ type: 'text' as const, text: m.content }],
+              createdAt: new Date(m.createdAt),
+            })
+          );
+          setMessages(loaded);
+
+          // Pre-populate timestamps from DB
+          const ts: Record<string, string> = {};
+          for (const m of data.messages) {
+            ts[m.id] = formatTime(new Date(m.createdAt));
+          }
+          setMessageTimestamps(ts);
+        }
+      } catch {
+        // chat works without history
+      } finally {
+        if (!cancelled) setHistoryLoaded(true);
+      }
+    }
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId, setMessages]);
+
+  // Mobile keyboard safety — track on-screen keyboard
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vp = window.visualViewport;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
+      setKeyboardOffset(offset > 120 ? offset : 0);
+    };
+    update();
+    vp.addEventListener('resize', update);
+    vp.addEventListener('scroll', update);
+    return () => {
+      vp.removeEventListener('resize', update);
+      vp.removeEventListener('scroll', update);
+    };
+  }, []);
 
   const isStreaming = status === 'streaming' || status === 'submitted';
 
@@ -329,7 +392,10 @@ export function ChatView({
       </div>
 
       {/* Input */}
-      <div className="border-panel-border bg-panel border-t px-6 py-6">
+      <div
+        className="border-panel-border bg-panel border-t px-6 py-6 transition-[padding]"
+        style={{ paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined }}
+      >
         <label htmlFor="chat-input" className="sr-only">
           Message {memberName}
         </label>

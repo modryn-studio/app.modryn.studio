@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export interface Profile {
   name: string;
@@ -9,7 +9,7 @@ export interface Profile {
   initials: string;
 }
 
-const STORAGE_KEY = 'modryn:profile';
+const CACHE_KEY = 'modryn:profile';
 const PROFILE_UPDATED_EVENT = 'modryn:profile-updated';
 
 export function getInitials(name: string): string {
@@ -30,48 +30,89 @@ const DEFAULT: Profile = {
   initials: 'FO',
 };
 
+function readCache(): Profile {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? (JSON.parse(raw) as Profile) : DEFAULT;
+  } catch {
+    return DEFAULT;
+  }
+}
+
+function writeCache(p: Profile) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(p));
+  } catch {}
+}
+
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile>(DEFAULT);
+  const [profile, setProfile] = useState<Profile>(readCache);
 
+  // Fetch from API on mount, update cache if different
   useEffect(() => {
-    const readProfile = () => {
+    let cancelled = false;
+    async function load() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        setProfile(raw ? (JSON.parse(raw) as Profile) : DEFAULT);
+        const res = await fetch('/api/profile');
+        if (!res.ok) return;
+        const data: Profile = await res.json();
+        if (!cancelled) {
+          setProfile(data);
+          writeCache(data);
+        }
       } catch {
-        setProfile(DEFAULT);
+        // cache is fine as fallback
       }
-    };
-
-    readProfile();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key && event.key !== STORAGE_KEY) return;
-      readProfile();
-    };
-
-    const handleProfileUpdated = () => {
-      readProfile();
-    };
-
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-
+    }
+    load();
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+      cancelled = true;
     };
   }, []);
 
-  function save(updates: Partial<Omit<Profile, 'initials'>>) {
-    const name = (updates.name ?? profile.name).trim() || 'Founder';
-    const next: Profile = { ...profile, ...updates, name, initials: getInitials(name) };
-    setProfile(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  // Listen for cross-tab and same-tab updates
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key && e.key !== CACHE_KEY) return;
+      setProfile(readCache());
+    };
+    const handleUpdated = () => setProfile(readCache());
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleUpdated);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleUpdated);
+    };
+  }, []);
+
+  const save = useCallback(
+    async (updates: Partial<Omit<Profile, 'initials'>>) => {
+      // Optimistic update
+      const name = (updates.name ?? profile.name).trim() || 'Founder';
+      const next: Profile = { ...profile, ...updates, name, initials: getInitials(name) };
+      setProfile(next);
+      writeCache(next);
       window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
-    } catch {}
-  }
+
+      // Persist to API
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (res.ok) {
+          const saved: Profile = await res.json();
+          setProfile(saved);
+          writeCache(saved);
+        }
+      } catch {
+        // optimistic update stands — will sync on next load
+      }
+    },
+    [profile]
+  );
 
   return { profile, save };
 }

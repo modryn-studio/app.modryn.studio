@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, Inbox } from 'lucide-react';
+import { MessageSquare, Inbox, MessagesSquare, CheckSquare, Calendar } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { cn } from '@/lib/utils';
 import type { View } from '@/components/modryn/sidebar';
@@ -9,6 +9,9 @@ import type { View } from '@/components/modryn/sidebar';
 const tabs: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
+  { id: 'threads', label: 'Threads', icon: MessagesSquare },
+  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { id: 'calendar', label: 'Cal', icon: Calendar },
 ];
 
 interface MobileTabBarProps {

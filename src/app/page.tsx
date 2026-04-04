@@ -10,37 +10,7 @@ import { MobileHeader } from '@/components/modryn/mobile-header';
 import { MobileDrawer } from '@/components/modryn/mobile-drawer';
 import { MobileTabBar } from '@/components/modryn/mobile-tab-bar';
 import { MobileContextFab } from '@/components/modryn/mobile-context-fab';
-
-const AI_MEMBERS: Record<
-  string,
-  {
-    name: string;
-    role: string;
-    initials: string;
-    decisions: { text: string }[];
-    tasks: { text: string; due?: string }[];
-    notes: { text: string }[];
-  }
-> = {
-  'peter-thiel': {
-    name: 'Peter Thiel',
-    role: 'AI Strategist',
-    initials: 'PT',
-    decisions: [
-      { text: 'Focus on B2B enterprise segment first' },
-      { text: 'Avoid Series A until product-market fit is certain' },
-      { text: 'Do not compete on price — compete on indispensability' },
-    ],
-    tasks: [
-      { text: 'Refine the monopoly thesis', due: 'Due today' },
-      { text: 'Review go-to-market assumptions', due: 'Due Fri' },
-    ],
-    notes: [
-      { text: 'Discussed the difference between 0 → 1 and 1 → N' },
-      { text: 'Challenged the assumption that competition validates the market' },
-    ],
-  },
-};
+import { useMembers } from '@/hooks/use-members';
 
 export default function ModrynStudio() {
   const [activeView, setActiveView] = useState<View>('chat');
@@ -48,13 +18,15 @@ export default function ModrynStudio() {
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
+  const { members } = useMembers();
 
-  const activeMember = AI_MEMBERS[activeChat] ?? AI_MEMBERS['peter-thiel'];
+  const activeMember = members.find((m) => m.id === activeChat) ?? members[0];
 
   const mainContent = (
     <>
-      {activeView === 'chat' && (
+      {activeView === 'chat' && activeMember && (
         <ChatView
+          key={activeChat}
           memberId={activeChat}
           memberName={activeMember.name}
           memberRole={activeMember.role}
@@ -96,6 +68,7 @@ export default function ModrynStudio() {
         <Sidebar
           activeView={activeView}
           activeChat={activeChat}
+          members={members}
           onViewChange={setActiveView}
           onChatSelect={setActiveChat}
         />
@@ -104,12 +77,12 @@ export default function ModrynStudio() {
       {/* Center + Right panels — desktop */}
       <div className="hidden min-w-0 flex-1 overflow-hidden md:flex">
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{mainContent}</main>
-        {activeView === 'chat' && (
+        {activeView === 'chat' && activeMember && (
           <ContextPanel
             memberName={activeMember.name}
-            decisions={activeMember.decisions}
-            tasks={activeMember.tasks}
-            notes={activeMember.notes}
+            decisions={[]}
+            tasks={[]}
+            notes={[]}
             collapsed={contextCollapsed}
           />
         )}
@@ -147,6 +120,7 @@ export default function ModrynStudio() {
       <MobileDrawer
         open={mobileDrawerOpen}
         activeChat={activeChat}
+        members={members}
         onClose={() => setMobileDrawerOpen(false)}
         onChatSelect={(id) => {
           setActiveChat(id);
@@ -156,14 +130,14 @@ export default function ModrynStudio() {
       />
 
       {/* Mobile briefing pull-tab + sheet — only in chat view */}
-      {activeView === 'chat' && (
+      {activeView === 'chat' && activeMember && (
         <MobileContextFab
           open={mobileContextOpen}
           onToggle={() => setMobileContextOpen((v) => !v)}
           memberName={activeMember.name}
-          decisions={activeMember.decisions}
-          tasks={activeMember.tasks}
-          notes={activeMember.notes}
+          decisions={[]}
+          tasks={[]}
+          notes={[]}
         />
       )}
     </div>
