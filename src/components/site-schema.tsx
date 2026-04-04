@@ -22,10 +22,6 @@ export function SiteSchema() {
             url: site.url,
             logo: `${site.url}/icon.png`,
             description: site.description,
-            founder: {
-              '@type': 'Person',
-              name: site.founder,
-            },
           },
         ]),
       }}
