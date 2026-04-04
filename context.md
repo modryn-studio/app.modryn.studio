@@ -66,7 +66,7 @@ basePath:
 
 ## Stack Additions
 
-- Neon (serverless Postgres — database + Neon Auth)
+- Neon (serverless Postgres — database only, no auth for now)
 - Anthropic API (claude-sonnet-4-6 for AI member responses)
 - Vercel SSE (Server-Sent Events for real-time streaming responses)
 - Vercel Hobby tier (hosting + serverless functions)
@@ -74,9 +74,14 @@ basePath:
 ## Project Structure Additions
 
 - /members — AI member configs, system prompts, personality definitions
-- /conversations — conversation threads and message history
-- /tasks — task assignments and outputs per member
-- /memory — summarized context per member, updated after each session
+- /migrations — Neon SQL migration files (schema source of truth)
+
+## Data Layer Notes
+
+- All persistent state lives in Neon: conversations, messages, tasks, member memory, decisions
+- Memory summarization: after each session, compress conversation into structured summary and store in member_memory; inject as system context on next session
+- Member-to-member orchestration: each member response gets injected as context into the next member's API call (sequenced Claude calls, each with their own system prompt)
+- Proactive messaging governor: members can initiate messages, rate-limited by per-member cooldown (default 24h) or event trigger, to prevent runaway activity
 
 ## Route Map
 
