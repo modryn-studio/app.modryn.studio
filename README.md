@@ -6,4 +6,4 @@ A company operating system where AI team members hold strategy, push back, and r
 
 ---
 
-Next.js · TypeScript · Tailwind CSS · Vercel
+Next.js · TypeScript · Tailwind CSS · Vercel · Anthropic · AI SDK

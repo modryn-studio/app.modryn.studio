@@ -1,6 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { useProfile } from '@/lib/use-profile';
 
 interface Member {
   id: string;
@@ -9,26 +12,18 @@ interface Member {
   status: 'online' | 'analyzing' | 'away';
   isAI: boolean;
   initials: string;
+  avatarDataUrl?: string;
 }
-
-const TEAM_MEMBERS: Member[] = [
-  { id: 'founder', name: 'Founder', role: 'CEO', status: 'online', isAI: false, initials: 'F' },
-];
 
 const AI_MEMBERS: Member[] = [
   {
     id: 'peter-thiel',
     name: 'Peter Thiel',
     role: 'AI Strategist',
-    status: 'online',
+    status: 'analyzing',
     isAI: true,
     initials: 'PT',
   },
-];
-
-const FUTURE_AI: { name: string; role: string }[] = [
-  { name: 'AI Member 2', role: 'Coming soon' },
-  { name: 'AI Member 3', role: 'Coming soon' },
 ];
 
 const statusColors: Record<string, string> = {
@@ -61,17 +56,28 @@ function MemberRow({
         active ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/60'
       )}
     >
-      <div className="relative flex-shrink-0">
-        <div
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-sm font-mono text-xs font-semibold',
-            member.isAI
-              ? 'bg-sidebar-accent text-sidebar-foreground'
-              : 'bg-sidebar-accent text-sidebar-foreground'
-          )}
-        >
-          {member.initials}
-        </div>
+      <div className="relative shrink-0">
+        {member.avatarDataUrl ? (
+          <Image
+            src={member.avatarDataUrl}
+            alt={member.name}
+            width={36}
+            height={36}
+            unoptimized
+            className="h-9 w-9 rounded-sm object-cover"
+          />
+        ) : (
+          <div
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-sm font-mono text-xs font-semibold',
+              member.isAI
+                ? 'bg-sidebar-accent text-sidebar-foreground'
+                : 'bg-sidebar-accent text-sidebar-foreground'
+            )}
+          >
+            {member.initials}
+          </div>
+        )}
         <span
           className={cn(
             'border-sidebar absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border',
@@ -83,24 +89,35 @@ function MemberRow({
         <div className="flex items-center gap-2">
           <p className="text-sidebar-foreground truncate text-sm font-medium">{member.name}</p>
           {member.isAI && (
-            <span className="bg-sidebar-accent text-sidebar-muted flex-shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[8px]">
+            <ChromeLabel className="bg-sidebar-border text-sidebar-muted rounded-sm px-1 py-0.5 leading-none tracking-[0.08em]">
               AI
-            </span>
+            </ChromeLabel>
           )}
         </div>
-        <p className="text-sidebar-muted truncate text-xs">{member.role}</p>
+        {member.role && <p className="text-sidebar-muted truncate text-xs">{member.role}</p>}
       </div>
     </button>
   );
 }
 
 export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: MobileDrawerProps) {
+  const { profile } = useProfile();
+  const founder: Member = {
+    id: 'founder',
+    name: profile.name,
+    role: profile.description,
+    status: 'online',
+    isAI: false,
+    initials: profile.initials,
+    avatarDataUrl: profile.avatarDataUrl,
+  };
+
   return (
     <>
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          className="bg-background/60 fixed inset-0 z-40 md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -118,35 +135,37 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
       >
         {/* Header */}
         <div className="border-sidebar-border flex items-center gap-2 border-b px-5 pt-5 pb-4">
-          <span className="text-sidebar-foreground font-mono text-sm font-bold tracking-tight">
-            M
-          </span>
-          <span className="text-sidebar-muted font-mono text-[10px] tracking-[0.2em] uppercase">
+          <Image
+            src="/brand/logomark.png"
+            alt="Modryn Studio"
+            width={16}
+            height={16}
+            className="h-4 w-4 shrink-0 object-contain opacity-80"
+          />
+          <ChromeLabel className="text-sidebar-muted text-[10px] tracking-[0.2em]">
             Modryn Studio
-          </span>
+          </ChromeLabel>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
           {/* Team */}
-          <p className="text-sidebar-ring px-5 pt-3 pb-2 font-mono text-[9px] tracking-[0.18em] uppercase">
+          <ChromeLabel as="p" className="text-sidebar-ring px-5 pt-3 pb-2">
             Team
-          </p>
-          {TEAM_MEMBERS.map((m) => (
-            <MemberRow
-              key={m.id}
-              member={m}
-              active={activeChat === m.id}
-              onClick={() => {
-                onChatSelect(m.id);
-                onClose();
-              }}
-            />
-          ))}
+          </ChromeLabel>
+          <MemberRow
+            key={founder.id}
+            member={founder}
+            active={activeChat === founder.id}
+            onClick={() => {
+              onChatSelect(founder.id);
+              onClose();
+            }}
+          />
 
           {/* AI Members */}
-          <p className="text-sidebar-ring px-5 pt-4 pb-2 font-mono text-[9px] tracking-[0.18em] uppercase">
+          <ChromeLabel as="p" className="text-sidebar-ring px-5 pt-4 pb-2">
             AI Members
-          </p>
+          </ChromeLabel>
           {AI_MEMBERS.map((m) => (
             <MemberRow
               key={m.id}
@@ -158,28 +177,12 @@ export function MobileDrawer({ open, activeChat, onClose, onChatSelect }: Mobile
               }}
             />
           ))}
-
-          {/* Future slots */}
-          {FUTURE_AI.map((item, i) => (
-            <div
-              key={i}
-              className="flex cursor-default items-center gap-3 px-5 py-3 opacity-30 select-none"
-            >
-              <div className="border-sidebar-ring flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-dashed">
-                <span className="text-sidebar-ring text-xs">+</span>
-              </div>
-              <div>
-                <p className="text-sidebar-muted truncate text-sm">{item.name}</p>
-                <p className="text-sidebar-ring truncate text-xs">{item.role}</p>
-              </div>
-            </div>
-          ))}
         </div>
 
         <div className="border-sidebar-border border-t px-5 py-3">
-          <p className="text-sidebar-ring font-mono text-[9px] tracking-widest uppercase">
+          <ChromeLabel as="p" className="text-sidebar-ring tracking-widest">
             v0.1 — prototype
-          </p>
+          </ChromeLabel>
         </div>
       </div>
     </>

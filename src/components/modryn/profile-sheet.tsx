@@ -2,9 +2,11 @@
 
 import { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
+import Image from 'next/image';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Profile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
+import { ChromeLabel } from '@/components/modryn/chrome-label';
 
 interface ProfileSheetProps {
   open: boolean;
@@ -112,18 +114,21 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
               aria-label="Change profile photo"
             >
               {profile.avatarDataUrl ? (
-                <img
+                <Image
                   src={profile.avatarDataUrl}
                   alt={profile.name}
-                  className="ring-sidebar-border h-20 w-20 rounded-full object-cover ring-2"
+                  width={80}
+                  height={80}
+                  unoptimized
+                  className="ring-sidebar-border h-20 w-20 rounded-sm object-cover ring-2"
                 />
               ) : (
-                <div className="bg-sidebar-accent text-sidebar-foreground ring-sidebar-border flex h-20 w-20 items-center justify-center rounded-full font-mono text-xl font-semibold ring-2">
+                <div className="bg-sidebar-accent text-sidebar-foreground ring-sidebar-border flex h-20 w-20 items-center justify-center rounded-sm font-mono text-xl font-semibold ring-2">
                   {profile.initials}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-                <Camera className="h-5 w-5 text-white" strokeWidth={1.5} />
+              <div className="bg-sidebar/72 absolute inset-0 flex items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100">
+                <Camera className="text-sidebar-foreground h-5 w-5" strokeWidth={1.5} />
               </div>
             </button>
             <input
@@ -133,15 +138,14 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
               className="hidden"
               onChange={handleAvatarChange}
             />
-            <p className="text-sidebar-muted text-[11px]">Click to change</p>
           </div>
 
           {/* Fields */}
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sidebar-muted text-[10px] font-medium tracking-widest uppercase">
+              <ChromeLabel as="label" className="text-sidebar-muted">
                 Name
-              </label>
+              </ChromeLabel>
               <EditableText
                 value={profile.name}
                 placeholder="Your name"
@@ -151,9 +155,9 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sidebar-muted text-[10px] font-medium tracking-widest uppercase">
+              <ChromeLabel as="label" className="text-sidebar-muted">
                 Description
-              </label>
+              </ChromeLabel>
               <EditableText
                 value={profile.description}
                 placeholder="A line about you or your focus"
@@ -163,10 +167,6 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
               />
             </div>
           </div>
-
-          <p className="text-sidebar-ring mt-10 text-[11px]">
-            Click any field to edit. Saves automatically.
-          </p>
         </div>
       </SheetContent>
     </Sheet>

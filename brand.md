@@ -37,29 +37,39 @@ Two distinct zones with different palettes:
 
 ### Dark chrome (sidebar, nav rail, mobile header/tabs)
 
-| Name           | Token                        | Value                 | Role                                   |
-| -------------- | ---------------------------- | --------------------- | -------------------------------------- |
-| Sidebar bg     | `--color-sidebar`            | `oklch(0.10 0 0)`     | Leftmost chrome, darkest surface       |
-| Sidebar accent | `--color-sidebar-accent`     | `oklch(0.18 0 0)`     | Hover + active row highlight in roster |
-| Sidebar border | `--color-sidebar-border`     | `oklch(0.18 0 0)`     | Rail + roster dividers                 |
-| Sidebar text   | `--color-sidebar-foreground` | `oklch(0.85 0 0)`     | Primary member names, nav labels       |
-| Sidebar muted  | component zinc scale         | `zinc-500/600`        | Secondary labels, roles, timestamps    |
-| Status active  | `--color-status-active`      | `oklch(0.72 0.12 75)` | Analyzing / unread / streaming dot     |
-| Status online  | component utility            | `emerald-500`         | Online presence dot                    |
+| Name              | Token                        | Value                  | Role                                   |
+| ----------------- | ---------------------------- | ---------------------- | -------------------------------------- |
+| Sidebar bg        | `--color-sidebar`            | `oklch(0.10 0 0)`      | Leftmost chrome, darkest surface       |
+| Sidebar accent    | `--color-sidebar-accent`     | `oklch(0.28 0 0)`      | Hover + active row highlight in roster |
+| Sidebar border    | `--color-sidebar-border`     | `oklch(0.18 0 0)`      | Rail + roster dividers                 |
+| Sidebar text      | `--color-sidebar-foreground` | `oklch(0.85 0 0)`      | Primary member names, nav labels       |
+| Sidebar muted     | component zinc scale         | `zinc-500/600`         | Secondary labels, roles, timestamps    |
+| Status active     | `--color-status-active`      | `#d4922a`              | Analyzing / unread / streaming dot     |
+| Status online     | `--color-status-online`      | `oklch(0.72 0.19 160)` | Online presence dot                    |
+| Status generating | `--color-status-generating`  | `oklch(0.55 0.08 80)`  | "generating" label during streaming    |
 
 ### Warm cream panels (chat, inbox, context pane)
 
-| Name           | Token                      | Value                   | Role                                       |
-| -------------- | -------------------------- | ----------------------- | ------------------------------------------ |
-| Chat bg        | `--color-panel`            | `oklch(0.965 0.004 80)` | Main reading surface, warm off-white       |
-| AI surface     | `--color-ai-surface`       | `oklch(0.94 0.004 80)`  | AI message rows, slightly darker than chat |
-| Context bg     | `--color-context`          | `oklch(0.955 0.004 80)` | Right context panel background             |
-| Input surface  | `--color-panel-input`      | `oklch(0.945 0.003 80)` | Textarea/input background                  |
-| Panel border   | `--color-panel-border`     | `oklch(0.88 0.004 80)`  | Row dividers, input borders in chat/inbox  |
-| Context border | `--color-context-border`   | `oklch(0.87 0.004 80)`  | Context panel border + inner cards         |
-| Panel text     | `--color-panel-foreground` | `oklch(0.15 0 0)`       | Primary body text on cream                 |
-| Panel muted    | `--color-panel-muted`      | `oklch(0.5 0 0)`        | Timestamps, secondary labels               |
-| Panel faint    | `--color-panel-faint`      | `oklch(0.6 0 0)`        | Placeholder / low-priority metadata        |
+| Name                 | Token                             | Value                   | Role                                        |
+| -------------------- | --------------------------------- | ----------------------- | ------------------------------------------- |
+| Chat bg              | `--color-panel`                   | `oklch(0.965 0.004 80)` | Main reading surface, warm off-white        |
+| AI surface           | `--color-ai-surface`              | `oklch(0.94 0.004 80)`  | AI message rows, slightly darker than chat  |
+| Context bg           | `--color-context`                 | `oklch(0.955 0.004 80)` | Right context panel background              |
+| Input surface        | `--color-panel-input`             | `oklch(0.945 0.003 80)` | Textarea/input background                   |
+| Selected row         | `--color-panel-selected`          | `oklch(0.93 0.004 80)`  | Active inbox/list row highlight             |
+| Panel border         | `--color-panel-border`            | `oklch(0.88 0.004 80)`  | Row dividers, input borders in chat/inbox   |
+| AI message border    | `--color-ai-border`               | `oklch(0.85 0.005 80)`  | AI message row bottom border                |
+| Context border       | `--color-context-border`          | `oklch(0.87 0.004 80)`  | Context panel border + inner cards          |
+| Panel text           | `--color-panel-foreground`        | `oklch(0.15 0 0)`       | Primary body text on cream                  |
+| Panel text secondary | `--color-panel-text`              | `oklch(0.25 0 0)`       | Secondary body text                         |
+| Panel text tertiary  | `--color-panel-text-secondary`    | `oklch(0.4 0 0)`        | Tertiary / dimmer labels                    |
+| Panel muted          | `--color-panel-muted`             | `oklch(0.5 0 0)`        | Timestamps, secondary labels                |
+| Panel faint          | `--color-panel-faint`             | `oklch(0.6 0 0)`        | Placeholder / low-priority metadata         |
+| Panel inverse        | `--color-panel-inverse`           | `oklch(0.9 0 0)`        | Light text on dark chips within cream zone  |
+| In-panel avatar bg   | `--color-panel-chrome`            | `oklch(0.82 0 0)`       | Founder avatar chip background              |
+| In-panel avatar dark | `--color-panel-chrome-strong`     | `oklch(0.65 0 0)`       | AI member avatar chip background            |
+| In-panel avatar text | `--color-panel-chrome-foreground` | `oklch(0.4 0 0)`        | Initials text inside avatar chips           |
+| AI badge bg          | `--color-panel-badge`             | `oklch(0.9 0.002 80)`   | "AI" badge background in chat/inbox headers |
 
 ### Brand tokens (shared)
 
@@ -85,7 +95,7 @@ Color rules:
 - Warm cream panels read as "paper" - ambient temperature is warm, not cool gray.
 - The chat background is `--color-panel` and the right context panel is `--color-context`. Those values are intentional and should not drift during UI work.
 - Use the logomark palette only as cool detailing inside the dark chrome zone. Do not pull those cool neutrals into the cream reading surfaces.
-- The accent blue `#4B57D8` is for interaction and emphasis, not for filling large surfaces.
+- Do not introduce a separate blue interaction color into the product UI. The neutral accent and amber status system already define emphasis.
 - Notion owns purple-gray. Avoid entirely.
 - No pure black (#000000) or pure white (#ffffff) anywhere.
 - No gradients anywhere in the product UI.

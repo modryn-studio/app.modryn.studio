@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, MessagesSquare, Inbox, CheckSquare, Calendar } from 'lucide-react';
+import { MessageSquare, Inbox, Pencil } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/use-profile';
 import { ProfileSheet } from '@/components/modryn/profile-sheet';
+import { ChromeLabel } from '@/components/modryn/chrome-label';
 
 export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar';
 
@@ -42,25 +43,6 @@ const AI_MEMBERS: Member[] = [
   },
 ];
 
-const FUTURE_AI: Member[] = [
-  {
-    id: 'ai-member-2',
-    name: 'AI Member 2',
-    role: 'AI Strategist',
-    status: 'analyzing',
-    isAI: true,
-    initials: 'A2',
-  },
-  {
-    id: 'ai-member-3',
-    name: 'AI Member 3',
-    role: 'AI Strategist',
-    status: 'analyzing',
-    isAI: true,
-    initials: 'A3',
-  },
-];
-
 interface SidebarProps {
   activeView: View;
   activeChat: string;
@@ -81,17 +63,14 @@ const statusTextColors: Record<MemberStatus, string> = {
 };
 
 const statusLabels: Record<MemberStatus, string> = {
-  online: 'Online',
-  analyzing: 'Analyzing',
-  away: 'Away',
+  online: 'online',
+  analyzing: 'analyzing',
+  away: 'away',
 };
 
 const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare },
-  { id: 'threads', label: 'Threads', icon: MessagesSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'calendar', label: 'Calendar', icon: Calendar },
 ];
 
 function FounderAvatar({
@@ -106,9 +85,16 @@ function FounderAvatar({
   return (
     <div className="relative shrink-0">
       {avatarDataUrl ? (
-        <img src={avatarDataUrl} alt={name} className="h-8 w-8 rounded-full object-cover" />
+        <Image
+          src={avatarDataUrl}
+          alt={name}
+          width={32}
+          height={32}
+          unoptimized
+          className="h-8 w-8 rounded-sm object-cover"
+        />
       ) : (
-        <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-semibold">
+        <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold">
           {initials}
         </div>
       )}
@@ -125,10 +111,13 @@ function MemberAvatar({ member }: { member: Member }) {
   if (member.id === 'peter-thiel') {
     return (
       <div className="relative shrink-0">
-        <img
+        <Image
           src="https://upload.wikimedia.org/wikipedia/commons/4/4b/Peter_Thiel_2018.jpg"
           alt={member.name}
-          className="h-8 w-8 rounded-full object-cover"
+          width={32}
+          height={32}
+          unoptimized
+          className="h-8 w-8 rounded-sm object-cover"
         />
       </div>
     );
@@ -138,7 +127,7 @@ function MemberAvatar({ member }: { member: Member }) {
     <div className="relative shrink-0">
       <div
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-semibold',
+          'flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold',
           member.isAI
             ? 'bg-sidebar-accent text-sidebar-foreground'
             : 'bg-sidebar-accent text-sidebar-foreground'
@@ -160,7 +149,7 @@ function MemberMeta({ member }: { member: Member }) {
         <span className={cn('h-1.5 w-1.5 rounded-full', statusColors[member.status])} />
         <span
           className={cn(
-            'text-[10px] leading-none font-medium tracking-wide',
+            'font-mono text-[9px] leading-none tracking-[0.08em]',
             statusTextColors[member.status]
           )}
         >
@@ -189,9 +178,9 @@ function MemberRow({
             {member.name}
           </p>
           {member.isAI && (
-            <span className="bg-sidebar-accent text-sidebar-muted rounded px-1 py-0.5 font-mono text-[9px] font-medium">
+            <ChromeLabel className="bg-sidebar-border text-sidebar-muted rounded-sm px-1 py-0.5 leading-none tracking-[0.08em]">
               AI
-            </span>
+            </ChromeLabel>
           )}
         </div>
         <MemberMeta member={member} />
@@ -213,8 +202,8 @@ function MemberRow({
       className={cn(
         'rounded-card flex w-full items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
         selected
-          ? 'bg-sidebar-accent border-white/5 shadow-sm'
-          : 'hover:bg-sidebar-accent/60 border-transparent'
+          ? 'bg-sidebar-accent border-white/10 shadow-sm'
+          : 'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
       )}
     >
       {content}
@@ -234,7 +223,7 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
         profile={profile}
         save={save}
       />
-      <aside className="bg-sidebar flex h-full">
+      <aside className="bg-sidebar border-sidebar-border flex h-full border-r">
         {/* Icon rail */}
         <nav className="border-sidebar-border bg-sidebar-rail flex w-18 flex-col items-center border-r">
           <div className="flex h-18 w-full items-center justify-center">
@@ -258,15 +247,15 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
                   className={cn(
                     'rounded-card flex w-full flex-col items-center justify-center gap-1 py-1.5 transition-colors',
                     activeView === id
-                      ? 'bg-sidebar-accent text-sidebar-primary border border-white/5 shadow-sm'
-                      : 'text-sidebar-muted hover:text-sidebar-foreground border border-transparent'
+                      ? 'bg-sidebar-accent text-sidebar-primary border border-white/10 shadow-sm'
+                      : 'text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground border border-transparent hover:border-white/5'
                   )}
                   title={label}
                 >
                   <Icon className="h-5 w-5" strokeWidth={1.5} />
-                  <span className="text-[10px] leading-none font-normal tracking-wide">
+                  <ChromeLabel className="leading-none tracking-[0.08em] normal-case">
                     {label}
-                  </span>
+                  </ChromeLabel>
                 </button>
               </div>
             ))}
@@ -282,71 +271,61 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
           </div>
 
           <div className="mb-6 px-2 pt-2">
-            <p className="text-sidebar-muted mb-2 px-2 text-[10px] font-medium tracking-widest uppercase">
+            <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               Team
-            </p>
-            {/* Founder row — uses live profile data, avatar click opens ProfileSheet */}
-            <button
-              onClick={() => {
-                onViewChange('chat');
-                onChatSelect('founder');
-              }}
-              className={cn(
-                'rounded-card flex w-full items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
-                activeChat === 'founder' && activeView === 'chat'
-                  ? 'bg-sidebar-accent border-white/5 shadow-sm'
-                  : 'hover:bg-sidebar-accent/60 border-transparent'
-              )}
-            >
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProfileOpen(true);
+            </ChromeLabel>
+            {/* Founder row + separate profile edit action */}
+            <div className="flex items-stretch gap-2">
+              <button
+                onClick={() => {
+                  onViewChange('chat');
+                  onChatSelect('founder');
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setProfileOpen(true);
-                  }
-                }}
-                className="group relative shrink-0 cursor-pointer"
-                aria-label="Edit profile"
+                className={cn(
+                  'rounded-card flex flex-1 items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
+                  activeChat === 'founder' && activeView === 'chat'
+                    ? 'bg-sidebar-accent border-white/10 shadow-sm'
+                    : 'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
+                )}
               >
                 <FounderAvatar
                   name={profile.name}
                   avatarDataUrl={profile.avatarDataUrl}
                   initials={profile.initials}
                 />
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="text-[8px] font-medium text-white">Edit</span>
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sidebar-primary truncate text-[13px] font-medium tracking-tight">
-                  {profile.name}
-                </p>
-                {profile.description && (
-                  <p className="text-sidebar-muted truncate text-[11px] leading-tight">
-                    {profile.description}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sidebar-primary truncate text-[13px] font-medium tracking-tight">
+                    {profile.name}
                   </p>
-                )}
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  <span className="bg-status-online h-1.5 w-1.5 rounded-full" />
-                  <span className="text-status-online text-[10px] leading-none font-medium tracking-wide">
-                    Online
-                  </span>
+                  {profile.description && (
+                    <p className="text-sidebar-muted truncate text-[11px] leading-tight">
+                      {profile.description}
+                    </p>
+                  )}
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span className="bg-status-online h-1.5 w-1.5 rounded-full" />
+                    <ChromeLabel className="text-status-online leading-none tracking-[0.08em] normal-case">
+                      online
+                    </ChromeLabel>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="rounded-card text-sidebar-muted hover:text-sidebar-foreground border-sidebar-border hover:border-sidebar-accent flex h-11.5 w-11.5 items-center justify-center border transition-colors"
+                aria-label="Edit profile"
+                title="Edit profile"
+              >
+                <Pencil className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 px-2">
-            <p className="text-sidebar-muted mb-2 px-2 text-[10px] font-medium tracking-widest uppercase">
+            <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               AI Members
-            </p>
+            </ChromeLabel>
             {AI_MEMBERS.map((member) => (
               <MemberRow
                 key={member.id}
@@ -357,10 +336,6 @@ export function Sidebar({ activeView, activeChat, onViewChange, onChatSelect }: 
                   onChatSelect(member.id);
                 }}
               />
-            ))}
-
-            {FUTURE_AI.map((member) => (
-              <MemberRow key={member.id} member={member} selected={false} />
             ))}
           </div>
         </div>

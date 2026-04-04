@@ -2,8 +2,11 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Send, CornerDownLeft } from 'lucide-react';
+import { Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
 
 interface ChatViewProps {
@@ -11,6 +14,8 @@ interface ChatViewProps {
   memberName: string;
   memberRole: string;
   memberInitials: string;
+  contextCollapsed?: boolean;
+  onToggleContext?: () => void;
 }
 
 function getMessageText(message: {
@@ -40,15 +45,42 @@ function ThinkingDots() {
   );
 }
 
-function FounderMessage({ text, timestamp }: { text: string; timestamp: string }) {
+function FounderMessage({
+  text,
+  timestamp,
+  founderName,
+  founderInitials,
+  founderAvatarDataUrl,
+}: {
+  text: string;
+  timestamp: string;
+  founderName: string;
+  founderInitials: string;
+  founderAvatarDataUrl: string;
+}) {
   return (
     <div className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <div className="bg-panel-chrome flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm">
-          <span className="text-panel-chrome-foreground font-mono text-[9px] font-bold">F</span>
-        </div>
-        <span className="text-panel-foreground text-xs font-semibold">Founder</span>
-        <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
+        {founderAvatarDataUrl ? (
+          <Image
+            src={founderAvatarDataUrl}
+            alt={founderName}
+            width={24}
+            height={24}
+            unoptimized
+            className="h-6 w-6 shrink-0 rounded-sm object-cover"
+          />
+        ) : (
+          <div className="bg-panel-chrome flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
+            <span className="text-panel-chrome-foreground font-mono text-[9px] font-bold">
+              {founderInitials}
+            </span>
+          </div>
+        )}
+        <span className="text-panel-foreground text-xs font-semibold">{founderName}</span>
+        <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
+          {timestamp}
+        </ChromeLabel>
       </div>
       <p className="text-panel-foreground pl-8.5 text-sm leading-relaxed whitespace-pre-wrap">
         {text}
@@ -73,27 +105,27 @@ function AIMessage({
   return (
     <div className="group bg-ai-surface border-ai-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <div className="bg-panel-chrome-strong flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm">
+        <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
           <span className="text-panel-inverse font-mono text-[9px] font-bold">
             {memberInitials}
           </span>
         </div>
         <span className="text-panel-foreground text-xs font-semibold">{memberName}</span>
-        <span className="bg-panel-badge text-panel-muted rounded-sm px-1.5 py-0.5 font-mono text-[9px]">
+        <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
           AI
-        </span>
-        <span className="text-panel-faint font-mono text-[10px]">{timestamp}</span>
+        </ChromeLabel>
+        <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
+          {timestamp}
+        </ChromeLabel>
         {isStreaming && (
-          <span className="text-status-generating font-mono text-[9px] tracking-wide">
-            â€" generating
-          </span>
+          <ChromeLabel className="text-status-generating tracking-[0.08em] normal-case">
+            — generating
+          </ChromeLabel>
         )}
       </div>
       <div className="pl-8.5">
         {text ? (
-          <p className="text-panel-foreground font-mono text-sm leading-relaxed whitespace-pre-wrap">
-            {text}
-          </p>
+          <p className="text-panel-text text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
         ) : (
           <ThinkingDots />
         )}
@@ -102,17 +134,15 @@ function AIMessage({
   );
 }
 
-function EmptyState({ memberName }: { memberName: string }) {
+function EmptyState({ memberName, memberRole }: { memberName: string; memberRole: string }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-      <div className="border-panel-border flex h-12 w-12 items-center justify-center rounded-sm border border-dashed">
-        <span className="text-panel-faint font-mono text-sm">PT</span>
-      </div>
-      <div className="max-w-xs text-center">
-        <p className="text-panel-text text-sm font-medium">{memberName}</p>
-        <p className="text-panel-muted mt-1 text-xs leading-relaxed">
-          Start a conversation. Ask anything — strategy, decisions, first principles.
-        </p>
+    <div className="flex flex-1 flex-col items-center justify-end px-6 pt-6 pb-3 md:p-8 md:pb-4">
+      <div className="w-full max-w-prose text-center">
+        <p className="text-panel-foreground text-sm font-semibold">{memberName}</p>
+        <p className="text-panel-muted mt-0.5 text-xs">{memberRole}</p>
+        <ChromeLabel as="p" className="text-panel-faint mt-4 text-[10px] tracking-widest">
+          Conversation begins here
+        </ChromeLabel>
       </div>
     </div>
   );
@@ -122,10 +152,20 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function ChatView({ memberId, memberName, memberRole, memberInitials }: ChatViewProps) {
+export function ChatView({
+  memberId,
+  memberName,
+  memberRole,
+  memberInitials,
+  contextCollapsed,
+  onToggleContext,
+}: ChatViewProps) {
+  const { profile } = useProfile();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputValue, setInputValue] = useState('');
+  const [messageTimestamps, setMessageTimestamps] = useState<Record<string, string>>({});
+  const [pendingTimestamp, setPendingTimestamp] = useState<string | null>(null);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
@@ -143,13 +183,38 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
   const isStreaming = status === 'streaming' || status === 'submitted';
 
   useEffect(() => {
+    setMessageTimestamps((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      messages.forEach((message, idx) => {
+        const key = message.id ?? `idx-${idx}`;
+        if (next[key]) return;
+
+        const createdAt = (message as { createdAt?: Date | string }).createdAt;
+        next[key] = formatTime(createdAt ? new Date(createdAt) : new Date());
+        changed = true;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [messages]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isStreaming]);
 
+  useEffect(() => {
+    if (status !== 'submitted' && pendingTimestamp) {
+      setPendingTimestamp(null);
+    }
+  }, [status, pendingTimestamp]);
+
   const handleSend = () => {
     if (!inputValue.trim() || isStreaming) return;
+    setPendingTimestamp(formatTime(new Date()));
     sendMessage({ text: inputValue });
     setInputValue('');
   };
@@ -163,10 +228,10 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
 
   return (
     <div className="bg-panel flex h-full flex-col">
-      {/* Header â€" hidden on mobile (handled by MobileHeader) */}
+      {/* Header - hidden on mobile (handled by MobileHeader) */}
       <div className="border-panel-border bg-panel hidden items-center justify-between border-b px-6 py-3.5 md:flex">
         <div className="flex items-center gap-3">
-          <div className="bg-panel-chrome flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm">
+          <div className="bg-panel-chrome flex h-7 w-7 shrink-0 items-center justify-center rounded-sm">
             <span className="text-panel-chrome-foreground font-mono text-[10px] font-bold">
               {memberInitials}
             </span>
@@ -174,9 +239,9 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
           <div>
             <div className="flex items-center gap-2">
               <span className="text-panel-foreground text-sm font-semibold">{memberName}</span>
-              <span className="bg-panel-badge text-panel-muted rounded-sm px-1.5 py-0.5 font-mono text-[9px]">
+              <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
                 AI
-              </span>
+              </ChromeLabel>
             </div>
             <p className="text-panel-muted text-[10px]">{memberRole}</p>
           </div>
@@ -188,57 +253,89 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
               isStreaming ? 'bg-status-active animate-pulse' : 'bg-status-online'
             )}
           />
-          <span className="text-panel-muted font-mono text-[10px]">
+          <ChromeLabel className="text-panel-muted mr-2 text-[10px] tracking-[0.08em] normal-case">
             {isStreaming ? 'analyzing' : 'online'}
-          </span>
+          </ChromeLabel>
+          {onToggleContext && (
+            <button
+              onClick={onToggleContext}
+              className="text-panel-muted hover:text-panel-text p-1 transition-colors"
+              aria-label={contextCollapsed ? 'Show context' : 'Hide context'}
+            >
+              {contextCollapsed ? (
+                <PanelRightOpen className="h-4 w-4" />
+              ) : (
+                <PanelRightClose className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto">
         {messages.length === 0 ? (
-          <EmptyState memberName={memberName} />
+          <EmptyState memberName={memberName} memberRole={memberRole} />
         ) : (
-          <div>
-            {messages.map((message, idx) => {
-              const text = getMessageText(message);
-              const timestamp = formatTime(new Date());
-              const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
+          <div className="flex min-h-full flex-col justify-end">
+            <div>
+              {messages.map((message, idx) => {
+                const text = getMessageText(message);
+                const key = message.id ?? `idx-${idx}`;
+                const createdAt = (message as { createdAt?: Date | string }).createdAt;
+                const timestamp =
+                  messageTimestamps[key] ??
+                  formatTime(createdAt ? new Date(createdAt) : new Date());
+                const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
 
-              if (message.role === 'user') {
-                return <FounderMessage key={message.id ?? idx} text={text} timestamp={timestamp} />;
-              }
+                if (message.role === 'user') {
+                  return (
+                    <FounderMessage
+                      key={message.id ?? idx}
+                      text={text}
+                      timestamp={timestamp}
+                      founderName={profile.name}
+                      founderInitials={profile.initials}
+                      founderAvatarDataUrl={profile.avatarDataUrl}
+                    />
+                  );
+                }
 
-              return (
+                return (
+                  <AIMessage
+                    key={message.id ?? idx}
+                    text={text}
+                    memberName={memberName}
+                    memberInitials={memberInitials}
+                    timestamp={timestamp}
+                    isStreaming={isLastAI && isStreaming}
+                  />
+                );
+              })}
+
+              {/* Streaming placeholder when submitted but no AI message yet */}
+              {status === 'submitted' && (
                 <AIMessage
-                  key={message.id ?? idx}
-                  text={text}
+                  text=""
                   memberName={memberName}
                   memberInitials={memberInitials}
-                  timestamp={timestamp}
-                  isStreaming={isLastAI && isStreaming}
+                  timestamp={pendingTimestamp ?? formatTime(new Date())}
+                  isStreaming
                 />
-              );
-            })}
-
-            {/* Streaming placeholder when submitted but no AI message yet */}
-            {status === 'submitted' && (
-              <AIMessage
-                text=""
-                memberName={memberName}
-                memberInitials={memberInitials}
-                timestamp={formatTime(new Date())}
-                isStreaming
-              />
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="border-panel-border bg-panel border-t px-6 py-4">
-        <div className="bg-panel-input border-panel-border flex items-end gap-3 rounded-sm border px-4 py-3">
+      <div className="border-panel-border bg-panel border-t px-6 py-6">
+        <label htmlFor="chat-input" className="sr-only">
+          Message {memberName}
+        </label>
+        <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-4 transition-colors focus-within:ring-4">
           <textarea
+            id="chat-input"
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -246,7 +343,7 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
             placeholder={`Message ${memberName}...`}
             rows={1}
             disabled={isStreaming}
-            className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-[20px] flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
+            className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
             style={{
               height: 'auto',
             }}
@@ -256,24 +353,17 @@ export function ChatView({ memberId, memberName, memberRole, memberInitials }: C
               target.style.height = Math.min(target.scrollHeight, 128) + 'px';
             }}
           />
-          <div className="flex flex-shrink-0 items-center gap-2 pb-0.5">
-            <span className="text-panel-faint hidden items-center gap-1 font-mono text-[9px] sm:flex">
-              <CornerDownLeft className="h-2.5 w-2.5" /> send
-            </span>
+          <div className="flex shrink-0 items-center gap-2 pb-0.5">
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || isStreaming}
-              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-7 w-7 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
+              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-11 w-11 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
               aria-label="Send message"
             >
-              <Send className="text-panel-inverse h-3 w-3" />
+              <Send className="text-panel-inverse h-4 w-4" />
             </button>
           </div>
         </div>
-        <p className="text-panel-faint mt-2 text-center font-mono text-[9px]">
-          Shift+Enter for new line — responses reflect AI modeling only, not the views of real
-          individuals
-        </p>
       </div>
     </div>
   );

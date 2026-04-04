@@ -10,6 +10,7 @@ export interface Profile {
 }
 
 const STORAGE_KEY = 'modryn:profile';
+const PROFILE_UPDATED_EVENT = 'modryn:profile-updated';
 
 export function getInitials(name: string): string {
   return (
@@ -33,10 +34,33 @@ export function useProfile() {
   const [profile, setProfile] = useState<Profile>(DEFAULT);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setProfile(JSON.parse(raw) as Profile);
-    } catch {}
+    const readProfile = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        setProfile(raw ? (JSON.parse(raw) as Profile) : DEFAULT);
+      } catch {
+        setProfile(DEFAULT);
+      }
+    };
+
+    readProfile();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && event.key !== STORAGE_KEY) return;
+      readProfile();
+    };
+
+    const handleProfileUpdated = () => {
+      readProfile();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    };
   }, []);
 
   function save(updates: Partial<Omit<Profile, 'initials'>>) {
@@ -45,6 +69,7 @@ export function useProfile() {
     setProfile(next);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
     } catch {}
   }
 

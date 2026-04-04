@@ -12,7 +12,7 @@ The app is a single full-screen workspace with three zones:
 2. **Main panel** (center) — chat, inbox, or placeholder views
 3. **Context panel** (right, desktop only) — member decisions, tasks, notes
 
-On mobile, the sidebar is replaced by a slide-out drawer, a bottom tab bar, and a floating action button for the context panel.
+On mobile, the sidebar is replaced by a slide-out drawer, a bottom tab bar, and a pull-up sheet for the context panel (briefing).
 
 ---
 
@@ -76,7 +76,7 @@ On desktop, the right panel shows context for the active AI member:
 - **Active Tasks** — assigned tasks with due dates
 - **Conversation Notes** — session notes
 
-On mobile, tap the floating action button (bottom-right) to open the context panel as a slide-up sheet.
+On mobile, the bottom tab bar shows a docked **Briefing** strip above the nav tabs when you're in a DM. Tap it — or swipe up from it — to open the context panel as a slide-up sheet. Swipe down on the handle or tap the backdrop to close it.
 
 Context data is currently hardcoded per member.
 
@@ -90,7 +90,7 @@ Click your avatar in the sidebar roster to open the profile sheet (slides in fro
 - **Name** — click to edit inline. Saves on blur or Enter.
 - **Description** — click to edit inline. Multi-line supported.
 
-All profile data persists in localStorage.
+All profile data persists in localStorage. Changes are reflected immediately across all founder surfaces — sidebar avatar, mobile header, mobile drawer, and chat message blocks — without a page reload.
 
 ---
 
@@ -121,23 +121,23 @@ Enter a message (required) and optionally an email for a reply. Submissions are 
 
 ## Status
 
-| Feature                                    | Status                                |
-| ------------------------------------------ | ------------------------------------- |
-| DM chat with Peter Thiel (streaming)       | ✅ Works                              |
-| Peter Thiel persona + system prompt        | ✅ Works                              |
-| Sidebar navigation (5 views)               | ✅ Works                              |
-| Profile editor (name, description, avatar) | ✅ Works                              |
-| Inbox (demo messages)                      | ✅ Works (hardcoded data)             |
-| Context panel (decisions, tasks, notes)    | ✅ Works (hardcoded data)             |
-| Mobile layout (drawer, tab bar, FAB)       | ✅ Works                              |
-| Feedback widget                            | ✅ Works (requires Gmail credentials) |
-| Threads view                               | ⏳ Placeholder                        |
-| Tasks view                                 | ⏳ Placeholder                        |
-| Calendar view                              | ⏳ Placeholder                        |
-| Additional AI members                      | ⏳ Slots exist, no personas           |
-| Database persistence (Neon)                | ❌ Not built                          |
-| Conversation history persistence           | ❌ Not built (in-memory only)         |
-| Member memory across sessions              | ❌ Not built                          |
-| Task assignment and tracking               | ❌ Not built                          |
-| Group threads (multi-member)               | ❌ Not built                          |
-| Stripe checkout flow                       | ❌ Not active                         |
+| Feature                                         | Status                                |
+| ----------------------------------------------- | ------------------------------------- |
+| DM chat with Peter Thiel (streaming)            | ✅ Works                              |
+| Peter Thiel persona + system prompt             | ✅ Works                              |
+| Sidebar navigation (5 views)                    | ✅ Works                              |
+| Profile editor (name, description, avatar)      | ✅ Works                              |
+| Inbox (demo messages)                           | ✅ Works (hardcoded data)             |
+| Context panel (decisions, tasks, notes)         | ✅ Works (hardcoded data)             |
+| Mobile layout (drawer, tab bar, briefing strip) | ✅ Works                              |
+| Feedback widget                                 | ✅ Works (requires Gmail credentials) |
+| Threads view                                    | ⏳ Placeholder                        |
+| Tasks view                                      | ⏳ Placeholder                        |
+| Calendar view                                   | ⏳ Placeholder                        |
+| Additional AI members                           | ⏳ Slots exist, no personas           |
+| Database persistence (Neon)                     | ❌ Not built                          |
+| Conversation history persistence                | ❌ Not built (in-memory only)         |
+| Member memory across sessions                   | ❌ Not built                          |
+| Task assignment and tracking                    | ❌ Not built                          |
+| Group threads (multi-member)                    | ❌ Not built                          |
+| Stripe checkout flow                            | ❌ Not active                         |

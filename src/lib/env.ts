@@ -17,7 +17,7 @@ const schema = z.object({
   RESEND_FROM_EMAIL: z.string().optional(),
   RESEND_SEGMENT_ID: z.string().optional(),
 
-  NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SITE_URL: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

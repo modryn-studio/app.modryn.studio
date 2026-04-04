@@ -29,14 +29,14 @@ const AI_MEMBERS: Record<
     decisions: [
       { text: 'Focus on B2B enterprise segment first' },
       { text: 'Avoid Series A until product-market fit is certain' },
-      { text: 'Do not compete on price â€” compete on indispensability' },
+      { text: 'Do not compete on price — compete on indispensability' },
     ],
     tasks: [
       { text: 'Refine the monopoly thesis', due: 'Due today' },
       { text: 'Review go-to-market assumptions', due: 'Due Fri' },
     ],
     notes: [
-      { text: 'Discussed the difference between 0â†’1 and 1â†’N' },
+      { text: 'Discussed the difference between 0 → 1 and 1 → N' },
       { text: 'Challenged the assumption that competition validates the market' },
     ],
   },
@@ -45,7 +45,7 @@ const AI_MEMBERS: Record<
 export default function ModrynStudio() {
   const [activeView, setActiveView] = useState<View>('chat');
   const [activeChat, setActiveChat] = useState('peter-thiel');
-  const [contextCollapsed, setContextCollapsed] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
 
@@ -59,6 +59,8 @@ export default function ModrynStudio() {
           memberName={activeMember.name}
           memberRole={activeMember.role}
           memberInitials={activeMember.initials}
+          contextCollapsed={contextCollapsed}
+          onToggleContext={() => setContextCollapsed((v) => !v)}
         />
       )}
       {activeView === 'inbox' && <InboxView />}
@@ -66,21 +68,21 @@ export default function ModrynStudio() {
         <PlaceholderView
           label="///"
           title="Group Threads"
-          description="Async conversation threads across the entire team â€” coming in the next release."
+          description="Async conversation threads across the entire team — coming in the next release."
         />
       )}
       {activeView === 'tasks' && (
         <PlaceholderView
           label="[ ]"
           title="Task Board"
-          description="Shared task management with AI assignment and tracking â€” coming in the next release."
+          description="Shared task management with AI assignment and tracking — coming in the next release."
         />
       )}
       {activeView === 'calendar' && (
         <PlaceholderView
           label="##"
           title="Team Calendar"
-          description="Scheduling, milestones, and AI-coordinated meeting prep â€” coming in the next release."
+          description="Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
         />
       )}
     </>
@@ -88,8 +90,8 @@ export default function ModrynStudio() {
 
   return (
     <div className="bg-background flex h-screen w-screen overflow-hidden">
-      {/* â”€â”€ Desktop layout â”€â”€ */}
-      {/* Left sidebar â€” hidden on mobile */}
+      {/* —— Desktop layout —— */}
+      {/* Left sidebar — hidden on mobile */}
       <div className="hidden md:flex">
         <Sidebar
           activeView={activeView}
@@ -99,19 +101,16 @@ export default function ModrynStudio() {
         />
       </div>
 
-      {/* Center + Right panels â€” desktop */}
+      {/* Center + Right panels — desktop */}
       <div className="hidden min-w-0 flex-1 overflow-hidden md:flex">
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{mainContent}</main>
         {activeView === 'chat' && (
           <ContextPanel
             memberName={activeMember.name}
-            memberRole={activeMember.role}
-            memberInitials={activeMember.initials}
             decisions={activeMember.decisions}
             tasks={activeMember.tasks}
             notes={activeMember.notes}
             collapsed={contextCollapsed}
-            onToggle={() => setContextCollapsed((v) => !v)}
           />
         )}
       </div>
@@ -121,8 +120,10 @@ export default function ModrynStudio() {
         {/* Top header bar */}
         <MobileHeader
           drawerOpen={mobileDrawerOpen}
-          onToggleDrawer={() => setMobileDrawerOpen((v) => !v)}
-          activeViewLabel={activeView}
+          onToggleDrawer={() => {
+            setMobileDrawerOpen((v) => !v);
+            setMobileContextOpen(false);
+          }}
         />
 
         {/* Main content */}
@@ -131,9 +132,13 @@ export default function ModrynStudio() {
         {/* Bottom tab bar */}
         <MobileTabBar
           activeView={activeView}
+          showBriefingStrip={activeView === 'chat'}
+          briefingOpen={mobileContextOpen}
+          onOpenBriefing={() => setMobileContextOpen(true)}
           onViewChange={(v) => {
             setActiveView(v);
             setMobileDrawerOpen(false);
+            setMobileContextOpen(false);
           }}
         />
       </div>
@@ -146,17 +151,16 @@ export default function ModrynStudio() {
         onChatSelect={(id) => {
           setActiveChat(id);
           setActiveView('chat');
+          setMobileContextOpen(false);
         }}
       />
 
-      {/* Mobile context FAB + sheet â€” only in chat view */}
+      {/* Mobile briefing pull-tab + sheet — only in chat view */}
       {activeView === 'chat' && (
         <MobileContextFab
           open={mobileContextOpen}
           onToggle={() => setMobileContextOpen((v) => !v)}
           memberName={activeMember.name}
-          memberRole={activeMember.role}
-          memberInitials={activeMember.initials}
           decisions={activeMember.decisions}
           tasks={activeMember.tasks}
           notes={activeMember.notes}
