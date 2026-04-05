@@ -6,6 +6,7 @@ type Role = 'admin' | 'member';
 
 export function useRole() {
   const [role, setRole] = useState<Role | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/me')
@@ -13,8 +14,9 @@ export function useRole() {
       .then((data: { role?: Role } | null) => {
         if (data?.role) setRole(data.role);
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => setIsLoading(false));
   }, []);
 
-  return { role, isAdmin: role === 'admin' };
+  return { role, isAdmin: role === 'admin', isLoading };
 }

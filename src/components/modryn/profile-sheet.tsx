@@ -21,12 +21,14 @@ function EditableText({
   placeholder,
   className,
   multiline,
+  id,
 }: {
   value: string;
   onSave: (v: string) => void;
   placeholder: string;
   className?: string;
   multiline?: boolean;
+  id?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -39,6 +41,7 @@ function EditableText({
 
   if (editing) {
     const shared = {
+      id,
       autoFocus: true,
       value: draft,
       placeholder,
@@ -65,6 +68,7 @@ function EditableText({
 
   return (
     <span
+      id={id}
       role="button"
       tabIndex={0}
       onClick={() => {
@@ -143,10 +147,11 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
           {/* Fields */}
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-1.5">
-              <ChromeLabel as="label" className="text-sidebar-muted">
+              <ChromeLabel as="label" htmlFor="profile-name" className="text-sidebar-muted">
                 Name
               </ChromeLabel>
               <EditableText
+                id="profile-name"
                 value={profile.name}
                 placeholder="Your name"
                 onSave={(v) => save({ name: v })}
@@ -155,10 +160,11 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <ChromeLabel as="label" className="text-sidebar-muted">
+              <ChromeLabel as="label" htmlFor="profile-description" className="text-sidebar-muted">
                 Description
               </ChromeLabel>
               <EditableText
+                id="profile-description"
                 value={profile.description}
                 placeholder="A line about you or your focus"
                 onSave={(v) => save({ description: v })}

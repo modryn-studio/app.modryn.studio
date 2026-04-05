@@ -59,7 +59,10 @@ export async function PATCH(req: Request): Promise<Response> {
     if (typeof avatarDataUrl === 'string') {
       // Limit avatar data URL to ~500 KB to prevent DB bloat
       if (avatarDataUrl.length > 512_000) {
-        return log.end(ctx, Response.json({ error: 'Avatar image is too large (max 500 KB)' }, { status: 413 }));
+        return log.end(
+          ctx,
+          Response.json({ error: 'Avatar image is too large (max 500 KB)' }, { status: 413 })
+        );
       }
       updates.avatar_url = avatarDataUrl;
     }

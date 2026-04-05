@@ -76,14 +76,15 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded }: AddMemberS
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" className="text-sidebar-muted">
+            <ChromeLabel as="label" htmlFor="member-name" className="text-sidebar-muted">
               Name
             </ChromeLabel>
             <input
+              id="member-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Peter Thiel"
+              placeholder="Name"
               autoFocus
               required
               className={FIELD_CLASS}
@@ -91,10 +92,11 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded }: AddMemberS
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" className="text-sidebar-muted">
+            <ChromeLabel as="label" htmlFor="member-role" className="text-sidebar-muted">
               Role
             </ChromeLabel>
             <input
+              id="member-role"
               type="text"
               value={role}
               onChange={(e) => setRole(e.target.value)}
@@ -105,10 +107,11 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded }: AddMemberS
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" className="text-sidebar-muted">
+            <ChromeLabel as="label" htmlFor="member-system-prompt" className="text-sidebar-muted">
               System prompt
             </ChromeLabel>
             <textarea
+              id="member-system-prompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               placeholder="You are… Define this member's thinking style, tone, and context."
@@ -119,11 +122,12 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded }: AddMemberS
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <ChromeLabel as="label" className="text-sidebar-muted">
+            <ChromeLabel as="label" htmlFor="member-personality-notes" className="text-sidebar-muted">
               Personality notes
               <span className="text-sidebar-ring ml-1 normal-case">(optional)</span>
             </ChromeLabel>
             <textarea
+              id="member-personality-notes"
               value={personalityNotes}
               onChange={(e) => setPersonalityNotes(e.target.value)}
               placeholder="Human-readable notes about strengths, blind spots, use cases."

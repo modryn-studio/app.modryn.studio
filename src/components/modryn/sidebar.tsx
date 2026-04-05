@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, Inbox, Pencil, Plus, UserPlus } from 'lucide-react';
+import { MessageSquare, Inbox, Pencil, Plus, UserPlus, LogOut } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/use-profile';
 import { useRole } from '@/hooks/use-role';
+import { authClient } from '@/lib/auth/client';
 import { ProfileSheet } from '@/components/modryn/profile-sheet';
 import { AddMemberSheet } from '@/components/modryn/add-member-sheet';
 import { InviteMemberSheet } from '@/components/modryn/invite-member-sheet';
@@ -89,9 +91,7 @@ function FounderAvatar({
 function MemberAvatar({ member }: { member: Member }) {
   return (
     <div className="relative shrink-0">
-      <div
-        className="flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold bg-sidebar-accent text-sidebar-foreground"
-      >
+      <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold">
         {member.initials}
       </div>
     </div>
@@ -179,10 +179,16 @@ export function Sidebar({
   onMemberAdded,
 }: SidebarProps) {
   const { profile, save } = useProfile();
-  const { isAdmin } = useRole();
+  const { isAdmin, isLoading: roleLoading } = useRole();
+  const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push('/auth/sign-in');
+  }
 
   return (
     <>
@@ -237,6 +243,17 @@ export function Sidebar({
                 </button>
               </div>
             ))}
+          </div>
+
+          <div className="mt-auto flex w-full flex-col items-center pb-4 px-2">
+            <button
+              onClick={handleSignOut}
+              className="rounded-card text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground border border-transparent hover:border-white/5 flex w-full flex-col items-center justify-center gap-1 py-1.5 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="h-5 w-5" strokeWidth={1.5} />
+              <ChromeLabel className="leading-none tracking-[0.08em] normal-case">Out</ChromeLabel>
+            </button>
           </div>
         </nav>
 
@@ -331,7 +348,7 @@ export function Sidebar({
                 );
               })
             )}
-            {isAdmin && (
+            {!roleLoading && isAdmin && (
               <button
                 onClick={() => setAddMemberOpen(true)}
                 className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-2 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
@@ -340,7 +357,7 @@ export function Sidebar({
                 <ChromeLabel className="tracking-[0.05em] normal-case">Add AI member</ChromeLabel>
               </button>
             )}
-            {isAdmin && (
+            {!roleLoading && isAdmin && (
               <button
                 onClick={() => setInviteOpen(true)}
                 className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-1 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
