@@ -112,21 +112,21 @@ Color rules:
 
 Two font families. Utility-dense scale. No headings — this is workspace UI, not a marketing page.
 
-| Font | Family | Usage |
-| ---- | ------ | ----- |
-| Sans | Inter | All UI text: names, roles, labels, body |
+| Font | Family         | Usage                                                           |
+| ---- | -------------- | --------------------------------------------------------------- |
+| Sans | Inter          | All UI text: names, roles, labels, body                         |
 | Mono | JetBrains Mono | System labels, section headers, status text, timestamps, badges |
 
 ### Type scale (sidebar / dark chrome)
 
-| Element | Size | Weight | Family | Class notes |
-| ------- | ---- | ------ | ------ | ----------- |
-| App logotype ("MODRYN STUDIO") | 14px | medium | Inter | `tracking-[0.05em]` uppercase |
-| Member names | 14px | medium | Inter | `tracking-tight` |
-| Role subtitles, empty state text | 12px | normal | Inter | |
-| Section labels ("TEAM", "AI MEMBERS") | 10px | normal | JetBrains Mono | `tracking-[0.15em]` uppercase — use `ChromeLabel` component |
-| Status labels ("online", "analyzing") | 10px | normal | JetBrains Mono | `tracking-[0.08em]` |
-| Avatar initials | 10px | semibold | JetBrains Mono | |
+| Element                               | Size | Weight   | Family         | Class notes                                                 |
+| ------------------------------------- | ---- | -------- | -------------- | ----------------------------------------------------------- |
+| App logotype ("MODRYN STUDIO")        | 14px | medium   | Inter          | `tracking-[0.05em]` uppercase                               |
+| Member names                          | 14px | medium   | Inter          | `tracking-tight`                                            |
+| Role subtitles, empty state text      | 12px | normal   | Inter          |                                                             |
+| Section labels ("TEAM", "AI MEMBERS") | 10px | normal   | JetBrains Mono | `tracking-[0.15em]` uppercase — use `ChromeLabel` component |
+| Status labels ("online", "analyzing") | 10px | normal   | JetBrains Mono | `tracking-[0.08em]`                                         |
+| Avatar initials                       | 10px | semibold | JetBrains Mono |                                                             |
 
 `ChromeLabel` (`src/components/modryn/chrome-label.tsx`) is the single source of truth for all section labels in the dark chrome zone. Use it instead of writing raw Tailwind classes.
 
