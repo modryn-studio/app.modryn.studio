@@ -4,7 +4,7 @@
 export const site = {
   name: 'Modryn Studio',
   shortName: 'Modryn',
-  url: 'https://app-modryn-studio.vercel.app',
+  url: 'https://app.modrynstudio.com',
   // Base description — used in <meta description>, manifest, JSON-LD
   description:
     'An AI company operating system. Chat with AI team members, assign tasks, log decisions, and run async threads.',

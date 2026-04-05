@@ -57,7 +57,7 @@ A full-stack solo founder — analytical, visionary, building a digital studio �
 mode: standalone-subdomain
 
 modrynstudio.com has a verified **Domain property** in Google Search Console. All tools under that domain are covered automatically. Never walk through domain verification steps — just submit the tool sitemap to the existing property.
-url: private
+url: https://app.modrynstudio.com
 basePath:
 
 ## Minimum Money Loop
@@ -66,7 +66,7 @@ basePath:
 
 ## Stack Additions
 
-- Neon (serverless Postgres — database only, no auth for now)
+- Neon (serverless Postgres + Neon Auth via @neondatabase/auth)
 - Anthropic API (claude-sonnet-4-6 for AI member responses)
 - Vercel SSE (Server-Sent Events for real-time streaming responses)
 - Vercel Hobby tier (hosting + serverless functions)
