@@ -21,6 +21,7 @@ const schema = z.object({
   RESEND_SEGMENT_ID: z.string().optional(),
 
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
