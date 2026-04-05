@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 
 export default function GlobalError({
   error,
@@ -14,14 +15,17 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="bg-background flex h-screen w-screen flex-col items-center justify-center gap-4">
-      <p className="text-foreground font-mono text-sm">Something went wrong.</p>
-      <button
+    <div className="bg-panel flex h-screen w-screen flex-col items-center justify-center gap-4">
+      <p className="text-panel-foreground font-mono text-[13px]">Something went wrong.</p>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
         onClick={reset}
-        className="font-mono text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-300"
+        className="text-panel-muted font-mono text-[11px] underline underline-offset-2 hover:text-panel-foreground"
       >
         Try again
-      </button>
+      </Button>
     </div>
   );
 }

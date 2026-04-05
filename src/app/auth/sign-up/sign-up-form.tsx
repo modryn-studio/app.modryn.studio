@@ -29,7 +29,7 @@ export function SignUpForm({ token }: { token?: string }) {
           </span>
         </div>
 
-        <p className="text-panel-muted mb-6 font-mono text-[9px] tracking-[0.18em] uppercase">
+        <p className="text-panel-muted mb-6 font-mono text-[10px] tracking-[0.15em] uppercase">
           {token ? 'Accept Invite' : 'Sign Up'}
         </p>
 
@@ -37,7 +37,7 @@ export function SignUpForm({ token }: { token?: string }) {
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="name"
-              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+              className="text-panel-muted font-mono text-[10px] tracking-[0.15em] uppercase"
             >
               Name
             </label>
@@ -55,7 +55,7 @@ export function SignUpForm({ token }: { token?: string }) {
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="email"
-              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+              className="text-panel-muted font-mono text-[10px] tracking-[0.15em] uppercase"
             >
               Email
             </label>
@@ -72,7 +72,7 @@ export function SignUpForm({ token }: { token?: string }) {
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="password"
-              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+              className="text-panel-muted font-mono text-[10px] tracking-[0.15em] uppercase"
             >
               Password
             </label>
