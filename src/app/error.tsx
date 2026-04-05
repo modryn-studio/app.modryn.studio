@@ -22,7 +22,7 @@ export default function GlobalError({
         variant="ghost"
         size="sm"
         onClick={reset}
-        className="text-panel-muted font-mono text-[11px] underline underline-offset-2 hover:text-panel-foreground"
+        className="text-panel-muted hover:text-panel-foreground font-mono text-[11px] underline underline-offset-2"
       >
         Try again
       </Button>
