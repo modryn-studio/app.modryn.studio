@@ -14,13 +14,14 @@ export async function GET(): Promise<Response> {
   }
   try {
     const rows =
-      await sql`SELECT name, description, avatar_url, initials FROM founder_profile WHERE id = 'founder' LIMIT 1`;
+      await sql`SELECT name, role, description, avatar_url, initials FROM founder_profile WHERE id = 'founder' LIMIT 1`;
     const row = rows[0];
     if (!row) {
       return log.end(
         ctx,
         Response.json({
           name: '',
+          role: '',
           description: '',
           avatarDataUrl: '',
           initials: '',
@@ -31,6 +32,7 @@ export async function GET(): Promise<Response> {
       ctx,
       Response.json({
         name: row.name,
+        role: row.role,
         description: row.description,
         avatarDataUrl: row.avatar_url,
         initials: row.initials,
@@ -50,11 +52,12 @@ export async function PATCH(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { name, description, avatarDataUrl } = body;
+    const { name, role, description, avatarDataUrl } = body;
 
     // Build only the fields that were sent
     const updates: Record<string, string> = {};
     if (typeof name === 'string') updates.name = name.trim();
+    if (typeof role === 'string') updates.role = role.trim();
     if (typeof description === 'string') updates.description = description;
     if (typeof avatarDataUrl === 'string') {
       // Limit avatar data URL to ~500 KB to prevent DB bloat
@@ -82,6 +85,7 @@ export async function PATCH(req: Request): Promise<Response> {
     await sql`
       UPDATE founder_profile SET
         name = COALESCE(${updates.name ?? null}, name),
+        role = COALESCE(${updates.role ?? null}, role),
         description = COALESCE(${updates.description ?? null}, description),
         avatar_url = COALESCE(${updates.avatar_url ?? null}, avatar_url),
         initials = COALESCE(${updates.initials ?? null}, initials),
@@ -91,11 +95,12 @@ export async function PATCH(req: Request): Promise<Response> {
 
     // Return the full updated profile
     const rows =
-      await sql`SELECT name, description, avatar_url, initials FROM founder_profile WHERE id = 'founder' LIMIT 1`;
+      await sql`SELECT name, role, description, avatar_url, initials FROM founder_profile WHERE id = 'founder' LIMIT 1`;
     const row = rows[0]!;
 
     const profile = {
       name: row.name,
+      role: row.role,
       description: row.description,
       avatarDataUrl: row.avatar_url,
       initials: row.initials,

@@ -9,6 +9,8 @@ export interface AIMember {
   initials: string;
   status: 'online' | 'analyzing' | 'away';
   avatarUrl: string;
+  systemPrompt: string;
+  personalityNotes: string;
 }
 
 export function useMembers() {

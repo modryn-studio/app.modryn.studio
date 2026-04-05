@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 
 export interface Profile {
   name: string;
+  role: string;
   description: string;
   avatarDataUrl: string;
   initials: string;
@@ -13,18 +14,17 @@ const CACHE_KEY = 'modryn:profile';
 const PROFILE_UPDATED_EVENT = 'modryn:profile-updated';
 
 export function getInitials(name: string): string {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .slice(0, 2)
-      .join('')
-  );
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .slice(0, 2)
+    .join('');
 }
 
 const DEFAULT: Profile = {
   name: '',
+  role: '',
   description: '',
   avatarDataUrl: '',
   initials: '',

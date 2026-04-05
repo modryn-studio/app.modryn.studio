@@ -7,7 +7,6 @@ import { useProfile } from '@/lib/use-profile';
 export function SetupView() {
   const { save } = useProfile();
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -15,7 +14,7 @@ export function SetupView() {
     const trimmed = name.trim();
     if (!trimmed) return;
     setSaving(true);
-    await save({ name: trimmed, description: description.trim() });
+    await save({ name: trimmed });
     // profile.name is now truthy — parent unmounts this view
   }
 
@@ -46,24 +45,6 @@ export function SetupView() {
               placeholder="Your name"
               autoFocus
               required
-              className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-text w-full rounded-sm border px-3 py-2 text-[13px] outline-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="setup-description"
-              className="text-panel-muted font-mono text-[9px] tracking-[0.18em] uppercase"
-            >
-              What you&apos;re building
-              <span className="text-panel-faint ml-1 normal-case">(optional)</span>
-            </label>
-            <input
-              id="setup-description"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="A line about your studio or focus"
               className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-text w-full rounded-sm border px-3 py-2 text-[13px] outline-none"
             />
           </div>

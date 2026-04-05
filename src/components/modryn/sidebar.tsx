@@ -12,6 +12,7 @@ import { ProfileSheet } from '@/components/modryn/profile-sheet';
 import { AddMemberSheet } from '@/components/modryn/add-member-sheet';
 import { InviteMemberSheet } from '@/components/modryn/invite-member-sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { site } from '@/config/site';
 import type { AIMember } from '@/hooks/use-members';
 
 export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar';
@@ -183,6 +184,7 @@ export function Sidebar({
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<AIMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   async function handleSignOut() {
@@ -205,6 +207,17 @@ export function Sidebar({
           onMemberAdded();
           setAddMemberOpen(false);
         }}
+      />
+      <AddMemberSheet
+        open={!!editingMember}
+        onOpenChange={(v) => {
+          if (!v) setEditingMember(null);
+        }}
+        onMemberAdded={() => {
+          onMemberAdded();
+          setEditingMember(null);
+        }}
+        member={editingMember ?? undefined}
       />
       <InviteMemberSheet open={inviteOpen} onOpenChange={setInviteOpen} />
       <aside className="bg-sidebar border-sidebar-border flex h-full border-r">
@@ -245,10 +258,10 @@ export function Sidebar({
             ))}
           </div>
 
-          <div className="mt-auto flex w-full flex-col items-center pb-4 px-2">
+          <div className="mt-auto flex w-full flex-col items-center px-2 pb-4">
             <button
               onClick={handleSignOut}
-              className="rounded-card text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground border border-transparent hover:border-white/5 flex w-full flex-col items-center justify-center gap-1 py-1.5 transition-colors"
+              className="rounded-card text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground flex w-full flex-col items-center justify-center gap-1 border border-transparent py-1.5 transition-colors hover:border-white/5"
               title="Sign out"
             >
               <LogOut className="h-5 w-5" strokeWidth={1.5} />
@@ -261,7 +274,7 @@ export function Sidebar({
         <div className="flex w-60 flex-col overflow-y-auto">
           <div className="flex h-18 items-center px-4">
             <span className="text-sidebar-foreground truncate text-[13px] font-medium tracking-[0.05em] uppercase">
-              {profile.name || 'Studio'}
+              {site.name}
             </span>
           </div>
 
@@ -292,9 +305,9 @@ export function Sidebar({
                   <p className="text-sidebar-primary truncate text-[13px] font-medium tracking-tight">
                     {profile.name}
                   </p>
-                  {profile.description && (
+                  {profile.role && (
                     <p className="text-sidebar-muted truncate text-[11px] leading-tight">
-                      {profile.description}
+                      {profile.role}
                     </p>
                   )}
                   <div className="mt-0.5 flex items-center gap-1.5">
@@ -336,15 +349,28 @@ export function Sidebar({
                   isAI: true,
                 };
                 return (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    selected={activeChat === member.id && activeView === 'chat'}
-                    onClick={() => {
-                      onViewChange('chat');
-                      onChatSelect(member.id);
-                    }}
-                  />
+                  <div key={member.id} className="flex items-stretch gap-2">
+                    <div className="min-w-0 flex-1">
+                      <MemberRow
+                        member={member}
+                        selected={activeChat === member.id && activeView === 'chat'}
+                        onClick={() => {
+                          onViewChange('chat');
+                          onChatSelect(member.id);
+                        }}
+                      />
+                    </div>
+                    {!roleLoading && isAdmin && (
+                      <button
+                        onClick={() => setEditingMember(m)}
+                        className="rounded-card text-sidebar-muted hover:text-sidebar-foreground border-sidebar-border hover:border-sidebar-accent flex h-11.5 w-11.5 shrink-0 items-center justify-center border transition-colors"
+                        aria-label={`Edit ${member.name}`}
+                        title={`Edit ${member.name}`}
+                      >
+                        <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </div>
                 );
               })
             )}

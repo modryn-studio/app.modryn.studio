@@ -21,7 +21,7 @@ After saving, the main workspace loads. You will not see this screen again unles
 
 **Sign up:** New accounts require an invite link from the admin. The link format is `/auth/sign-up?token=...`. Without a valid token, sign-up is blocked. The admin (luke@modrynstudio.com) can always create an account without a token.
 
-**Sign out:** Not yet exposed in the UI — use Neon Auth session management directly.
+**Sign out:** Click the sign-out button at the bottom of the sidebar icon rail.
 
 ---
 

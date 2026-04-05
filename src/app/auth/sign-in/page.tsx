@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,13 +74,6 @@ export default function SignInPage() {
           >
             {isPending ? 'Signing in...' : 'Sign in'}
           </Button>
-
-          <p className="text-panel-faint text-center font-mono text-[10px]">
-            Need an account?{' '}
-            <Link href="/auth/sign-up" className="text-panel-muted underline underline-offset-2">
-              Create account
-            </Link>
-          </p>
         </div>
       </form>
     </div>

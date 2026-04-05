@@ -160,16 +160,15 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <ChromeLabel as="label" htmlFor="profile-description" className="text-sidebar-muted">
-                Description
+              <ChromeLabel as="label" htmlFor="profile-role" className="text-sidebar-muted">
+                Role
               </ChromeLabel>
               <EditableText
-                id="profile-description"
-                value={profile.description}
-                placeholder="A line about you or your focus"
-                onSave={(v) => save({ description: v })}
-                className="text-[13px] leading-relaxed"
-                multiline
+                id="profile-role"
+                value={profile.role}
+                placeholder="Founder"
+                onSave={(v) => save({ role: v })}
+                className="text-[13px]"
               />
             </div>
           </div>

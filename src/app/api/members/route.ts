@@ -30,7 +30,7 @@ export async function GET(): Promise<Response> {
   }
   try {
     const rows = await sql`
-      SELECT id, name, role, initials, status, avatar_url
+      SELECT id, name, role, initials, status, avatar_url, system_prompt, personality_notes
       FROM members
       ORDER BY created_at ASC
     `;
@@ -42,6 +42,8 @@ export async function GET(): Promise<Response> {
       initials: r.initials,
       status: r.status,
       avatarUrl: r.avatar_url,
+      systemPrompt: r.system_prompt,
+      personalityNotes: r.personality_notes ?? '',
     }));
 
     return log.end(ctx, Response.json(members));
