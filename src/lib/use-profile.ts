@@ -19,15 +19,15 @@ export function getInitials(name: string): string {
       .split(/\s+/)
       .map((w) => w[0]?.toUpperCase() ?? '')
       .slice(0, 2)
-      .join('') || 'FO'
+      .join('')
   );
 }
 
 const DEFAULT: Profile = {
-  name: 'Founder',
+  name: '',
   description: '',
   avatarDataUrl: '',
-  initials: 'FO',
+  initials: '',
 };
 
 function readCache(): Profile {
@@ -89,7 +89,7 @@ export function useProfile() {
   const save = useCallback(
     async (updates: Partial<Omit<Profile, 'initials'>>) => {
       // Optimistic update
-      const name = (updates.name ?? profile.name).trim() || 'Founder';
+      const name = (updates.name ?? profile.name).trim();
       const next: Profile = { ...profile, ...updates, name, initials: getInitials(name) };
       setProfile(next);
       writeCache(next);

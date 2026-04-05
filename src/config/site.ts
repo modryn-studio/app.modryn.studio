@@ -4,16 +4,15 @@
 export const site = {
   name: 'Modryn Studio',
   shortName: 'Modryn',
-  url: 'https://app-modryn-studio.vercel.app',
+  url: 'https://app.modrynstudio.com',
   // Base description — used in <meta description>, manifest, JSON-LD
   description:
-    'Internal AI company operating system for Modryn Studio. Chat with AI team members, assign tasks, log decisions, and run async threads.',
+    'An AI company operating system. Chat with AI team members, assign tasks, log decisions, and run async threads.',
   // Used as the <title> tag (homepage + fallback) AND social card title.
   ogTitle: 'Modryn Studio — AI Company Operating System',
   ogDescription:
-    'An internal operating system where AI team members modeled after real thinkers hold strategy, push back, and run alongside you.',
+    'An operating system where AI team members hold strategy, push back, and run alongside you.',
   cta: 'Open the studio →', // used in OG images
-  founder: 'Luke Hanner',
   email: 'hello@modryn.studio',
   // Waitlist section copy — not used (monetization: none)
   waitlist: {
@@ -26,10 +25,6 @@ export const site = {
   bg: '#171717',
   // Social profiles — used in footer links and Twitter card metadata.
   social: {
-    twitter: 'https://x.com/lukehanner',
-    twitterHandle: '@lukehanner',
     github: 'https://github.com/modryn-studio/app.modryn.studio',
-    devto: 'https://dev.to/lukehanner',
-    shipordie: 'https://shipordie.club/lukehanner',
   },
 } as const;

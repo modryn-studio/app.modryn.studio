@@ -6,19 +6,22 @@ import { ChatView } from '@/components/modryn/chat-view';
 import { ContextPanel } from '@/components/modryn/context-panel';
 import { InboxView } from '@/components/modryn/inbox-view';
 import { PlaceholderView } from '@/components/modryn/placeholder-view';
+import { SetupView } from '@/components/modryn/setup-view';
 import { MobileHeader } from '@/components/modryn/mobile-header';
 import { MobileDrawer } from '@/components/modryn/mobile-drawer';
 import { MobileTabBar } from '@/components/modryn/mobile-tab-bar';
 import { MobileContextFab } from '@/components/modryn/mobile-context-fab';
 import { useMembers } from '@/hooks/use-members';
+import { useProfile } from '@/lib/use-profile';
 
 export default function ModrynStudio() {
   const [activeView, setActiveView] = useState<View>('chat');
-  const [activeChat, setActiveChat] = useState('peter-thiel');
+  const [activeChat, setActiveChat] = useState('');
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
-  const { members } = useMembers();
+  const { members, refetch } = useMembers();
+  const { profile } = useProfile();
 
   const activeMember = members.find((m) => m.id === activeChat) ?? members[0];
 
@@ -34,6 +37,11 @@ export default function ModrynStudio() {
           contextCollapsed={contextCollapsed}
           onToggleContext={() => setContextCollapsed((v) => !v)}
         />
+      )}
+      {activeView === 'chat' && !activeMember && (
+        <div className="bg-panel flex flex-1 flex-col items-center justify-center p-8">
+          <p className="text-panel-muted text-[13px]">Add a team member to start a conversation.</p>
+        </div>
       )}
       {activeView === 'inbox' && <InboxView />}
       {activeView === 'threads' && (
@@ -60,6 +68,8 @@ export default function ModrynStudio() {
     </>
   );
 
+  const centreContent = profile.name === '' ? <SetupView /> : mainContent;
+
   return (
     <div className="bg-background flex h-screen w-screen overflow-hidden">
       {/* —— Desktop layout —— */}
@@ -71,12 +81,13 @@ export default function ModrynStudio() {
           members={members}
           onViewChange={setActiveView}
           onChatSelect={setActiveChat}
+          onMemberAdded={refetch}
         />
       </div>
 
       {/* Center + Right panels — desktop */}
       <div className="hidden min-w-0 flex-1 overflow-hidden md:flex">
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{mainContent}</main>
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{centreContent}</main>
         {activeView === 'chat' && activeMember && (
           <ContextPanel
             memberName={activeMember.name}
@@ -100,7 +111,7 @@ export default function ModrynStudio() {
         />
 
         {/* Main content */}
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{mainContent}</main>
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{centreContent}</main>
 
         {/* Bottom tab bar */}
         <MobileTabBar
