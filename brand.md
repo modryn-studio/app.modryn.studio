@@ -45,7 +45,7 @@ Two distinct zones with different palettes:
 | Sidebar border      | `--color-sidebar-border`     | `oklch(0.18 0 0)`      | Rail + roster dividers                      |
 | Sidebar text        | `--color-sidebar-foreground` | `oklch(0.85 0 0)`      | Body text — member names, nav labels        |
 | Sidebar active text | `--color-sidebar-primary`    | `oklch(0.93 0 0)`      | Near-white — selected names, active UI text |
-| Sidebar muted       | `--color-sidebar-muted`      | `oklch(0.55 0 0)`      | Secondary labels, roles, timestamps         |
+| Sidebar muted       | `--color-sidebar-muted`      | `oklch(0.65 0 0)`      | Secondary labels, roles, timestamps         |
 | Status active       | `--color-status-active`      | `#d4922a`              | Analyzing / unread / streaming dot          |
 | Status online       | `--color-status-online`      | `oklch(0.72 0.19 160)` | Online presence dot                         |
 | Status generating   | `--color-status-generating`  | `oklch(0.55 0.08 80)`  | "generating" label during streaming         |
@@ -105,6 +105,30 @@ Color rules:
 - No pure black (#000000) or pure white (#ffffff) anywhere.
 - No gradients anywhere in the product UI.
 - Zinc is the neutral scale for dark chrome (zinc-200 for text, zinc-500/600 for muted, zinc-700 for AI badge backgrounds).
+
+---
+
+## Typography
+
+Two font families. Utility-dense scale. No headings — this is workspace UI, not a marketing page.
+
+| Font | Family | Usage |
+| ---- | ------ | ----- |
+| Sans | Inter | All UI text: names, roles, labels, body |
+| Mono | JetBrains Mono | System labels, section headers, status text, timestamps, badges |
+
+### Type scale (sidebar / dark chrome)
+
+| Element | Size | Weight | Family | Class notes |
+| ------- | ---- | ------ | ------ | ----------- |
+| App logotype ("MODRYN STUDIO") | 14px | medium | Inter | `tracking-[0.05em]` uppercase |
+| Member names | 14px | medium | Inter | `tracking-tight` |
+| Role subtitles, empty state text | 12px | normal | Inter | |
+| Section labels ("TEAM", "AI MEMBERS") | 10px | normal | JetBrains Mono | `tracking-[0.15em]` uppercase — use `ChromeLabel` component |
+| Status labels ("online", "analyzing") | 10px | normal | JetBrains Mono | `tracking-[0.08em]` |
+| Avatar initials | 10px | semibold | JetBrains Mono | |
+
+`ChromeLabel` (`src/components/modryn/chrome-label.tsx`) is the single source of truth for all section labels in the dark chrome zone. Use it instead of writing raw Tailwind classes.
 
 ---
 

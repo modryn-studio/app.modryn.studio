@@ -1,10 +1,19 @@
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
-import { getInitials } from '@/lib/use-profile';
 import '@/lib/env';
 
 const log = createRouteLogger('profile');
+
+// Inline — avoids importing from 'use client' module into server bundle
+function deriveInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .slice(0, 2)
+    .join('');
+}
 
 export async function GET(): Promise<Response> {
   const ctx = log.begin();
@@ -71,7 +80,7 @@ export async function PATCH(req: Request): Promise<Response> {
     }
 
     const newName = updates.name ?? undefined;
-    const newInitials = newName ? getInitials(newName) : undefined;
+    const newInitials = newName ? deriveInitials(newName) : undefined;
 
     if (newName !== undefined) {
       updates.initials = newInitials!;
