@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { SignUpForm } from './sign-up-form';
 
 // Server component — reads searchParams so the invite token is available in
@@ -8,5 +9,6 @@ export default async function SignUpPage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const { token } = await searchParams;
+  if (!token) redirect('/auth/sign-in');
   return <SignUpForm token={token} />;
 }
