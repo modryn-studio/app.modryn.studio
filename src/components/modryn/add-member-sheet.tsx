@@ -188,4 +188,3 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
     </Sheet>
   );
 }
-

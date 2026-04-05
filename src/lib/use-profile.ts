@@ -46,7 +46,12 @@ function writeCache(p: Profile) {
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile>(readCache);
+  const [profile, setProfile] = useState<Profile>(DEFAULT);
+
+  // Hydrate from localStorage after mount (avoids SSR/client mismatch)
+  useEffect(() => {
+    setProfile(readCache());
+  }, []);
 
   // Fetch from API on mount, update cache if different
   useEffect(() => {

@@ -273,7 +273,7 @@ export function Sidebar({
         {/* Team roster */}
         <div className="flex w-60 flex-col overflow-y-auto">
           <div className="flex h-18 items-center px-4">
-            <span className="text-sidebar-foreground truncate text-[13px] font-medium tracking-[0.05em] uppercase">
+            <span className="text-sidebar-primary truncate text-[13px] font-medium tracking-[0.05em] uppercase">
               {site.name}
             </span>
           </div>
