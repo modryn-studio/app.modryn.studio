@@ -1,9 +1,11 @@
 import { auth } from '@/lib/auth/server';
 
-export default auth.middleware({ loginUrl: '/auth/sign-up' });
+export default auth.middleware({ loginUrl: '/auth/sign-in' });
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|brand|icon|opengraph-image|manifest|auth).*)',
+    // Protect all app routes except static assets, public files, and auth/api routes.
+    // API routes handle their own session checks and should return 401, not be redirected.
+    '/((?!_next/static|_next/image|favicon.ico|brand|icon|opengraph-image|manifest|auth|api).*)',
   ],
 };

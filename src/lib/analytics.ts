@@ -4,7 +4,6 @@
 
 type EventProps = Record<string, string | number | boolean | undefined>;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function track(_eventName: string, _props?: EventProps): void {
   // no-op
 }

@@ -2,7 +2,7 @@
 
 ## Project
 
-Internal company OS for Luke Hanner (solo founder). Luke converses with AI team members modeled after real thinkers (starting with Peter Thiel), assigns tasks, logs decisions, and runs async group threads. Internal tool only — not a public product. Target user is Luke: analytical, framework-driven, wants strategic challenge not agreement.
+Internal company OS for Luke Hanner (solo founder). Luke converses with AI team members modeled after real thinkers, assigns tasks, logs decisions, and runs async group threads. Internal tool only — not a public product. Target user is Luke: analytical, framework-driven, wants strategic challenge not agreement.
 
 ## Deployment
 
@@ -16,17 +16,17 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 - `@/lib/analytics.ts` — no-op stub; wire a real provider here if needed
 - lucide-react icons
 - `ai` 6.x · `@ai-sdk/react` 3.x · `@ai-sdk/anthropic` 3.x — streaming via `/api/chat`
-- Resend installed, not yet wired · Stripe installed, not yet active
-- Planned: Neon (serverless Postgres + Neon Auth)
+- Neon (serverless Postgres) · `@neondatabase/auth` — Neon Auth active, invite-gated access
 
 ## Project Structure
 
 ```
 src/app/              → App Router pages + API routes
 src/components/       → UI primitives (ui/) and app components (modryn/)
-src/lib/              → Utilities, analytics stub, route logger
+src/lib/              → Utilities, analytics stub, route logger, auth
 src/config/           → site.ts
 members/              → AI member configs and system prompts
+migrations/           → Neon SQL migration files (schema source of truth)
 ```
 
 ## Routes
@@ -37,6 +37,8 @@ members/              → AI member configs and system prompts
 - `/inbox` — Member-initiated async messages
 - `/tasks` — Task assignments and outputs
 - `/calendar` — Scheduled sessions
+- `/auth/sign-in` — Sign in (Neon Auth)
+- `/auth/sign-up` — Accept invite + create account (invite-gated)
 
 ## Brand & Voice
 

@@ -2,6 +2,7 @@ import { streamText, convertToModelMessages } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
+import { auth } from '@/lib/auth/server';
 import '@/lib/env'; // validate required env vars on cold start
 
 const log = createRouteLogger('chat');
@@ -10,6 +11,10 @@ const FALLBACK_SYSTEM = 'You are a helpful AI advisor inside Modryn Studio.';
 
 export async function POST(req: Request): Promise<Response> {
   const ctx = log.begin();
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
   try {
     const { messages, memberId, conversationId } = await req.json();
 

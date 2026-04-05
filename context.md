@@ -26,7 +26,7 @@ Your angle: A real company operating system where AI team members have distinct,
 
 ## Product
 
-An internal AI team communication system for Modryn Studio. The founder converses one-on-one or in group threads with AI personalities modeled after real public figures (starting with Peter Thiel). Members have persistent memory, can be assigned tasks, send async messages, and participate in scheduled group discussions — operating like a real company team.
+An internal AI team communication system for Modryn Studio. The founder converses one-on-one or in group threads with AI personalities modeled after real public figures. Members have persistent memory, can be assigned tasks, send async messages, and participate in scheduled group discussions — operating like a real company team.
 
 ## Target User
 

@@ -1,6 +1,27 @@
 # Modryn Studio — User Guide
 
-This is the internal AI company operating system for Modryn Studio. One user: the founder.
+This is the internal AI company operating system for Modryn Studio. One user: the founder (Luke). Additional human members can be invited by the admin.
+
+---
+
+## First Launch — Setup
+
+When you first sign in and no profile exists, the app shows a setup screen instead of the main workspace:
+
+1. **Your name** (required) — enter your name and press Enter or click "Save"
+2. **Company description** (optional) — a one-line description of the studio
+
+After saving, the main workspace loads. You will not see this screen again unless the profile is cleared from the database.
+
+---
+
+## Authentication
+
+**Sign in:** Go to `/auth/sign-in`. Enter your email and password. Redirects to the main workspace on success.
+
+**Sign up:** New accounts require an invite link from the admin. The link format is `/auth/sign-up?token=...`. Without a valid token, sign-up is blocked. The admin (luke@modrynstudio.com) can always create an account without a token.
+
+**Sign out:** Not yet exposed in the UI — use Neon Auth session management directly.
 
 ---
 
@@ -12,7 +33,7 @@ The app is a single full-screen workspace with three zones:
 2. **Main panel** (center) — chat, inbox, or placeholder views
 3. **Context panel** (right, desktop only) — member decisions, tasks, notes
 
-On mobile, the sidebar is replaced by a slide-out drawer, a bottom tab bar, and a pull-up sheet for the context panel (briefing).
+On mobile: the sidebar becomes a slide-out drawer (tap the menu icon in the header), a bottom tab bar handles navigation, and the context panel opens as a pull-up sheet via the "Briefing" strip above the tab bar.
 
 ---
 
@@ -20,44 +41,144 @@ On mobile, the sidebar is replaced by a slide-out drawer, a bottom tab bar, and 
 
 ### Icon rail
 
-Five navigation icons stacked vertically:
+Two active navigation icons:
 
-- **DMs** — one-on-one chat (default view)
-- **Threads** — group threads (placeholder)
-- **Inbox** — async messages from members
-- **Tasks** — task board (placeholder)
-- **Calendar** — scheduling (placeholder)
-
-The active icon has a left border indicator and highlighted background.
+- **DMs** (`MessageSquare` icon) — one-on-one chat (default view)
+- **Inbox** (`Inbox` icon) — async messages from members
 
 ### Team roster
 
-Below the icon rail, the roster lists:
+The roster lists all members fetched from the database. Each row shows:
 
-- **Founder** — your profile. Click the avatar to open the profile editor (name, description, photo).
-- **Peter Thiel** — AI Strategist. The only active AI member. Click to open a DM.
-- **AI Member 2, AI Member 3** — future slots, grayed out.
+- Avatar (initials chip, `rounded-sm` square)
+- Name and role
+- Status dot + label (`online` / `analyzing` / `away`)
+
+Click any AI member row to open a DM with them.
+
+### Footer actions (admin only)
+
+Two icon buttons appear at the bottom of the sidebar for admin users only:
+
+- **`Plus` icon** — "Add AI member" — opens the Add Member sheet
+- **`UserPlus` icon** — "Invite person" — opens the Invite Member sheet
+
+These buttons are hidden for non-admin users.
+
+### Your profile
+
+Your avatar appears at the very bottom of the sidebar. Click it to open the Profile sheet.
 
 ---
 
 ## DM Chat
 
-Click an AI member in the roster (or tap DMs on mobile) to open a one-on-one conversation.
+Click an AI member in the roster to open a conversation.
 
-- Type a message in the input field at the bottom and press Enter (or tap the send button).
-- The AI responds in real-time via streaming. A green "online" dot shows when idle; an amber pulsing dot and "analyzing" label show during generation.
-- AI messages display on a slightly darker cream surface. Each AI message has a mono "AI" badge.
-- The disclaimer at the bottom reads: "Responses reflect AI modeling only, not the views of real individuals."
+- Type in the input at the bottom. Press **Enter** to send (Shift+Enter for a new line).
+- The AI responds in real-time via streaming. The status dot pulses amber + shows "analyzing" during generation.
+- AI messages appear on a slightly darker cream surface with a mono "AI" badge.
+- Your messages appear on the standard panel background.
+- Conversation history is fetched from the database on load. Messages persist across sessions.
+- The disclaimer at the bottom: "Responses reflect AI modeling only, not the views of real individuals."
 
-Peter Thiel's persona is contrarian, Socratic, and first-principles driven. He pushes back on assumptions and asks hard questions.
+The context panel on the right (desktop) shows **Recent Decisions**, **Active Tasks**, and **Conversation Notes** for the active member. Each section is expandable/collapsible. Data is currently hardcoded per member — not yet persisted from conversations.
 
 ---
 
 ## Inbox
 
-Switch to Inbox via the sidebar icon (or mobile tab bar).
+Switch to Inbox via the sidebar icon or mobile tab bar.
 
-The inbox shows async messages from AI members. Each message has:
+The inbox is currently empty — `INBOX_MESSAGES` is an empty array. The list and detail view are fully wired but have no data source yet (member-initiated async messages are not yet implemented).
+
+---
+
+## Placeholder Views
+
+Threads, Tasks, and Calendar show placeholder screens. These are not functional:
+
+- **Threads (`///`)** — "Async conversation threads across the entire team — coming in the next release."
+- **Tasks (`[ ]`)** — "Shared task management with AI assignment and tracking — coming in the next release."
+- **Calendar (`##`)** — "Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
+
+---
+
+## Profile Editor
+
+Click your avatar at the bottom of the sidebar to open the profile sheet.
+
+- **Avatar** — click to upload a photo. Stored as base64 in the database (`founder_profile.avatar_url`).
+- **Name** — click to edit inline. Saves on blur or Enter.
+- **Description** — click to edit inline. Multi-line supported.
+
+Profile data is stored in the Neon database (`founder_profile` table). Changes persist across devices and sessions.
+
+---
+
+## Add AI Member (admin only)
+
+Click the **`+` icon** at the bottom of the sidebar. A slide-in sheet (dark chrome zone) opens with four fields:
+
+- **Name** (required)
+- **Role / title** (required)
+- **System prompt** (required) — the personality and behavioral instructions for this member
+- **Personality notes** (optional) — supplemental context
+
+Click **Add member** to save to the database. The roster updates immediately.
+
+---
+
+## Invite a Person (admin only)
+
+Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
+
+- **Email (optional)** — lock the invite to a specific email address, or leave blank for open invite
+- Click **Generate invite link** — calls `/api/invites`, returns a one-time URL
+- Copy the link and send it to the person manually
+- Links expire after 7 days. Each token is single-use.
+
+---
+
+## API Routes
+
+| Route                        | Method | What it does                                                                                             |
+| ---------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `/api/chat`                  | POST   | Streams AI response via Anthropic (Claude). Reads member system prompt + memory from DB. Saves messages. |
+| `/api/members`               | GET    | Returns all members from DB                                                                              |
+| `/api/members`               | POST   | Creates a new AI member. Admin only.                                                                     |
+| `/api/conversations/dm/[id]` | GET    | Returns conversation history for a DM                                                                    |
+| `/api/profile`               | GET    | Returns founder profile from DB                                                                          |
+| `/api/profile`               | PATCH  | Updates founder profile (name, description, avatar)                                                      |
+| `/api/me`                    | GET    | Returns current user's role (`admin` or `member`)                                                        |
+| `/api/invites`               | GET    | Lists all invite tokens. Admin only.                                                                     |
+| `/api/invites`               | POST   | Creates a new invite token. Admin only.                                                                  |
+| `/api/auth/[...path]`        | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                         |
+
+---
+
+## Status
+
+| Feature                                           | Status                         |
+| ------------------------------------------------- | ------------------------------ |
+| Sign in / sign out (Neon Auth)                    | ✅ Works                       |
+| Invite-gated sign up                              | ✅ Works                       |
+| Admin role gate (add member, invite)              | ✅ Works                       |
+| Setup screen (first launch)                       | ✅ Works                       |
+| DM chat with AI members (streaming)               | ✅ Works                       |
+| Conversation persistence (DB)                     | ✅ Works                       |
+| Member system prompt + memory injection           | ✅ Works                       |
+| Add AI member sheet                               | ✅ Works                       |
+| Invite person sheet                               | ✅ Works                       |
+| Founder profile editor (name, description, photo) | ✅ Works                       |
+| Sidebar navigation                                | ✅ Works                       |
+| Context panel (decisions, tasks, notes)           | ⏳ UI only — data is hardcoded |
+| Inbox                                             | ⏳ UI only — no messages yet   |
+| Member-initiated async messages                   | ❌ Not built                   |
+| Group threads                                     | ❌ Not built                   |
+| Task board                                        | ❌ Not built                   |
+| Calendar                                          | ❌ Not built                   |
+| Memory summarization (post-session)               | ❌ Not built                   |
 
 - Unread indicator (amber dot)
 - Sender name and AI badge
@@ -65,79 +186,3 @@ The inbox shows async messages from AI members. Each message has:
 - Full message body when selected
 
 Messages are currently hardcoded demo data — not generated dynamically.
-
----
-
-## Context Panel
-
-On desktop, the right panel shows context for the active AI member:
-
-- **Recent Decisions** — logged strategic decisions
-- **Active Tasks** — assigned tasks with due dates
-- **Conversation Notes** — session notes
-
-On mobile, the bottom tab bar shows a docked **Briefing** strip above the nav tabs when you're in a DM. Tap it — or swipe up from it — to open the context panel as a slide-up sheet. Swipe down on the handle or tap the backdrop to close it.
-
-Context data is currently hardcoded per member.
-
----
-
-## Profile Editor
-
-Click your avatar in the sidebar roster to open the profile sheet (slides in from the right).
-
-- **Avatar** — click to upload a photo. Stored as base64 in localStorage.
-- **Name** — click to edit inline. Saves on blur or Enter.
-- **Description** — click to edit inline. Multi-line supported.
-
-All profile data persists in localStorage. Changes are reflected immediately across all founder surfaces — sidebar avatar, mobile header, mobile drawer, and chat message blocks — without a page reload.
-
----
-
-## Placeholder Views
-
-Threads, Tasks, and Calendar show placeholder screens with a "Coming in next release" label. These views are not functional.
-
----
-
-## Feedback Widget
-
-- **Desktop:** a "Feedback" tab on the right edge of the screen slides out a form.
-- **Mobile:** a "Feedback" link in the footer opens a slide-up sheet.
-
-Enter a message (required) and optionally an email for a reply. Submissions are sent to `/api/feedback`, which emails the founder via Gmail SMTP.
-
----
-
-## API Routes
-
-| Route           | Method | What it does                                                                                                         |
-| --------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
-| `/api/chat`     | POST   | Streams AI responses via Anthropic (Claude Sonnet). Accepts `messages` and `memberId`.                               |
-| `/api/feedback` | POST   | Sends feedback/newsletter/bug reports via Gmail SMTP (nodemailer). Falls back gracefully if credentials are missing. |
-| `/api/checkout` | POST   | Creates a Stripe Checkout session. Not active — requires `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` env vars.         |
-
----
-
-## Status
-
-| Feature                                         | Status                                |
-| ----------------------------------------------- | ------------------------------------- |
-| DM chat with Peter Thiel (streaming)            | ✅ Works                              |
-| Peter Thiel persona + system prompt             | ✅ Works                              |
-| Sidebar navigation (5 views)                    | ✅ Works                              |
-| Profile editor (name, description, avatar)      | ✅ Works                              |
-| Inbox (demo messages)                           | ✅ Works (hardcoded data)             |
-| Context panel (decisions, tasks, notes)         | ✅ Works (hardcoded data)             |
-| Mobile layout (drawer, tab bar, briefing strip) | ✅ Works                              |
-| Feedback widget                                 | ✅ Works (requires Gmail credentials) |
-| Threads view                                    | ⏳ Placeholder                        |
-| Tasks view                                      | ⏳ Placeholder                        |
-| Calendar view                                   | ⏳ Placeholder                        |
-| Additional AI members                           | ⏳ Slots exist, no personas           |
-| Database persistence (Neon)                     | ❌ Not built                          |
-| Conversation history persistence                | ❌ Not built (in-memory only)         |
-| Member memory across sessions                   | ❌ Not built                          |
-| Task assignment and tracking                    | ❌ Not built                          |
-| Group threads (multi-member)                    | ❌ Not built                          |
-| Stripe checkout flow                            | ❌ Not active                         |

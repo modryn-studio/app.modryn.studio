@@ -1,5 +1,6 @@
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
+import { auth } from '@/lib/auth/server';
 import { getInitials } from '@/lib/use-profile';
 import '@/lib/env';
 
@@ -7,6 +8,10 @@ const log = createRouteLogger('profile');
 
 export async function GET(): Promise<Response> {
   const ctx = log.begin();
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
   try {
     const rows =
       await sql`SELECT name, description, avatar_url, initials FROM founder_profile WHERE id = 'founder' LIMIT 1`;
@@ -39,6 +44,10 @@ export async function GET(): Promise<Response> {
 
 export async function PATCH(req: Request): Promise<Response> {
   const ctx = log.begin();
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
   try {
     const body = await req.json();
     const { name, description, avatarDataUrl } = body;
@@ -47,7 +56,13 @@ export async function PATCH(req: Request): Promise<Response> {
     const updates: Record<string, string> = {};
     if (typeof name === 'string') updates.name = name.trim();
     if (typeof description === 'string') updates.description = description;
-    if (typeof avatarDataUrl === 'string') updates.avatar_url = avatarDataUrl;
+    if (typeof avatarDataUrl === 'string') {
+      // Limit avatar data URL to ~500 KB to prevent DB bloat
+      if (avatarDataUrl.length > 512_000) {
+        return log.end(ctx, Response.json({ error: 'Avatar image is too large (max 500 KB)' }, { status: 413 }));
+      }
+      updates.avatar_url = avatarDataUrl;
+    }
 
     const newName = updates.name ?? undefined;
     const newInitials = newName ? getInitials(newName) : undefined;

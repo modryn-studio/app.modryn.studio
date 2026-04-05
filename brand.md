@@ -113,7 +113,9 @@ Color rules:
 Every UI component belongs to one of two token zones. Never mix tokens across zones.
 
 ### Dark chrome zone
+
 Components: Sidebar, nav rail, mobile header/tabs, `ProfileSheet`, `AddMemberSheet`
+
 - Background: `bg-sidebar` / `bg-sidebar-rail`
 - Text: `text-sidebar-primary` (active), `text-sidebar-foreground` (body), `text-sidebar-muted` (labels)
 - Borders: `border-sidebar-border`
@@ -121,7 +123,9 @@ Components: Sidebar, nav rail, mobile header/tabs, `ProfileSheet`, `AddMemberShe
 - Hover rows: `bg-sidebar-accent`
 
 ### Warm cream zone
+
 Components: `ChatView`, `InboxView`, `ContextPanel`, `PlaceholderView`, `SetupView`
+
 - Background: `bg-panel` (chat/inbox), `bg-context` (right pane)
 - Text: `text-panel-foreground` (primary), `text-panel-text` (secondary), `text-panel-muted` (timestamps), `text-panel-faint` (placeholders)
 - Borders: `border-panel-border`
@@ -149,22 +153,12 @@ Components: `ChatView`, `InboxView`, `ContextPanel`, `PlaceholderView`, `SetupVi
 
 ---
 
-## Emotional Arc
-
-What a visitor feels at each stage - land, read, scroll, convert.
-
-- Land: <!-- TODO: Example: "Wait, this is different" -->
-- Read: <!-- TODO: Example: "This person actually builds real things" -->
-- Scroll: <!-- TODO: Example: "I want to follow this journey" -->
-- Convert: <!-- TODO: Example: "I don't want to miss the next one" -->
-
----
-
 ## Copy Examples
 
-Real copy to use as reference when writing UI text.
+Reference copy for UI text. Internal tool — no marketing copy needed.
 
-- Hero: <!-- TODO: Example: "Tools for people who don't have time for bad software." -->
-- CTA: <!-- TODO: Example: "Don't miss the drop." -->
-- Footer: <!-- TODO: Example: "Built by one person. Shipped anyway." -->
-- Error: <!-- TODO: Example: "Something went wrong. Try again." -->
+- Error: "Something went wrong. Try again."
+- Empty state: "No messages yet."
+- Pending action: "Assigning task..."
+- Auth gate: "Studio access only."
+- Status labels: `online` · `analyzing` · `generating` — never `thinking`, `loading`, `processing`

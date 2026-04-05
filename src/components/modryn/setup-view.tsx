@@ -23,7 +23,7 @@ export function SetupView() {
     <div className="bg-panel flex flex-1 flex-col items-center justify-center p-8">
       <form onSubmit={handleSubmit} className="w-full max-w-xs">
         <div className="border-panel-border mb-8 flex h-14 w-14 items-center justify-center rounded-sm border border-dashed">
-          <span className="text-panel-faint font-mono text-xs">//</span>
+          <span className="text-panel-faint font-mono text-xs">{'//'}</span>
         </div>
 
         <ChromeLabel as="p" className="text-panel-muted mb-6">
@@ -46,7 +46,7 @@ export function SetupView() {
               placeholder="Your name"
               autoFocus
               required
-              className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint w-full rounded-sm border px-3 py-2 text-[13px] outline-none focus:border-panel-text"
+              className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-text w-full rounded-sm border px-3 py-2 text-[13px] outline-none"
             />
           </div>
 
@@ -64,7 +64,7 @@ export function SetupView() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="A line about your studio or focus"
-              className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint w-full rounded-sm border px-3 py-2 text-[13px] outline-none focus:border-panel-text"
+              className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-text w-full rounded-sm border px-3 py-2 text-[13px] outline-none"
             />
           </div>
 

@@ -6,19 +6,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   NEON_AUTH_BASE_URL: z.string().min(1, 'NEON_AUTH_BASE_URL is required'),
   NEON_AUTH_COOKIE_SECRET: z.string().min(1, 'NEON_AUTH_COOKIE_SECRET is required'),
-
-  // Optional — boilerplate features, not all active at once
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
-  STRIPE_PRICE_ID: z.string().optional(),
-
-  GMAIL_USER: z.string().optional(),
-  GMAIL_APP_PASSWORD: z.string().optional(),
-  FEEDBACK_TO: z.string().optional(),
-
-  RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().optional(),
-  RESEND_SEGMENT_ID: z.string().optional(),
+  ADMIN_EMAIL: z.string().email('ADMIN_EMAIL must be a valid email'),
 
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().optional(),

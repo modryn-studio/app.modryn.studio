@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, Inbox, Pencil, Plus } from 'lucide-react';
+import { MessageSquare, Inbox, Pencil, Plus, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/use-profile';
+import { useRole } from '@/hooks/use-role';
 import { ProfileSheet } from '@/components/modryn/profile-sheet';
 import { AddMemberSheet } from '@/components/modryn/add-member-sheet';
+import { InviteMemberSheet } from '@/components/modryn/invite-member-sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import type { AIMember } from '@/hooks/use-members';
 
@@ -88,12 +90,7 @@ function MemberAvatar({ member }: { member: Member }) {
   return (
     <div className="relative shrink-0">
       <div
-        className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold',
-          member.isAI
-            ? 'bg-sidebar-accent text-sidebar-foreground'
-            : 'bg-sidebar-accent text-sidebar-foreground'
-        )}
+        className="flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold bg-sidebar-accent text-sidebar-foreground"
       >
         {member.initials}
       </div>
@@ -182,8 +179,10 @@ export function Sidebar({
   onMemberAdded,
 }: SidebarProps) {
   const { profile, save } = useProfile();
+  const { isAdmin } = useRole();
   const [profileOpen, setProfileOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   return (
     <>
@@ -201,6 +200,7 @@ export function Sidebar({
           setAddMemberOpen(false);
         }}
       />
+      <InviteMemberSheet open={inviteOpen} onOpenChange={setInviteOpen} />
       <aside className="bg-sidebar border-sidebar-border flex h-full border-r">
         {/* Icon rail */}
         <nav className="border-sidebar-border bg-sidebar-rail flex w-18 flex-col items-center border-r">
@@ -331,13 +331,24 @@ export function Sidebar({
                 );
               })
             )}
-            <button
-              onClick={() => setAddMemberOpen(true)}
-              className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-2 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-              <ChromeLabel className="normal-case tracking-[0.05em]">Add member</ChromeLabel>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setAddMemberOpen(true)}
+                className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-2 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <ChromeLabel className="tracking-[0.05em] normal-case">Add AI member</ChromeLabel>
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => setInviteOpen(true)}
+                className="rounded-card hover:bg-sidebar-accent/45 border-sidebar-border text-sidebar-muted hover:text-sidebar-foreground mt-1 flex w-full items-center gap-2 border border-dashed px-2 py-1.5 transition-colors"
+              >
+                <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <ChromeLabel className="tracking-[0.05em] normal-case">Invite person</ChromeLabel>
+              </button>
+            )}
           </div>
         </div>
       </aside>

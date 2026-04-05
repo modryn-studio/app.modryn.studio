@@ -61,9 +61,7 @@ function MemberRow({
           <div
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-sm font-mono text-xs font-semibold',
-              member.isAI
-                ? 'bg-sidebar-accent text-sidebar-foreground'
-                : 'bg-sidebar-accent text-sidebar-foreground'
+              'bg-sidebar-accent text-sidebar-foreground'
             )}
           >
             {member.initials}
