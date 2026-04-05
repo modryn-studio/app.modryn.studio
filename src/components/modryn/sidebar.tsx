@@ -103,13 +103,13 @@ function MemberMeta({ member }: { member: Member }) {
   return (
     <div className="mt-0.5 flex flex-col gap-0.5">
       {member.role && (
-        <p className="text-sidebar-muted truncate text-[11px] leading-tight">{member.role}</p>
+        <p className="text-sidebar-muted truncate text-[12px] leading-tight">{member.role}</p>
       )}
       <div className="flex items-center gap-1.5">
         <span className={cn('h-1.5 w-1.5 rounded-full', statusColors[member.status])} />
         <span
           className={cn(
-            'font-mono text-[9px] leading-none tracking-[0.08em]',
+            'font-mono text-[10px] leading-none tracking-[0.08em]',
             statusTextColors[member.status]
           )}
         >
@@ -134,7 +134,7 @@ function MemberRow({
       <MemberAvatar member={member} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-sidebar-primary truncate text-[13px] font-medium tracking-tight">
+          <p className="text-sidebar-primary truncate text-[14px] font-medium tracking-tight">
             {member.name}
           </p>
           {member.isAI && (
@@ -273,7 +273,7 @@ export function Sidebar({
         {/* Team roster */}
         <div className="flex w-60 flex-col overflow-y-auto">
           <div className="flex h-18 items-center px-4">
-            <span className="text-sidebar-primary truncate text-[13px] font-medium tracking-[0.05em] uppercase">
+            <span className="text-sidebar-primary truncate text-[14px] font-medium tracking-[0.05em] uppercase">
               {site.name}
             </span>
           </div>
@@ -302,11 +302,11 @@ export function Sidebar({
                   initials={profile.initials}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sidebar-primary truncate text-[13px] font-medium tracking-tight">
+                  <p className="text-sidebar-primary truncate text-[14px] font-medium tracking-tight">
                     {profile.name}
                   </p>
                   {profile.role && (
-                    <p className="text-sidebar-muted truncate text-[11px] leading-tight">
+                    <p className="text-sidebar-muted truncate text-[12px] leading-tight">
                       {profile.role}
                     </p>
                   )}
@@ -335,7 +335,7 @@ export function Sidebar({
               AI Members
             </ChromeLabel>
             {members.length === 0 ? (
-              <p className="text-sidebar-muted px-2 py-1 font-mono text-[11px]">
+              <p className="text-sidebar-muted px-2 py-1 font-mono text-[12px]">
                 No members — add one
               </p>
             ) : (

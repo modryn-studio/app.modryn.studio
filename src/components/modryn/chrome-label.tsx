@@ -18,7 +18,7 @@ export function ChromeLabel({
 }: ChromeLabelProps) {
   return (
     <Component
-      className={cn('font-mono text-[9px] tracking-[0.18em] uppercase', className)}
+      className={cn('font-mono text-[10px] tracking-[0.15em] uppercase', className)}
       {...rest}
     >
       {children}
