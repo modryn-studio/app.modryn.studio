@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { signUpWithEmail } from './actions';
 
@@ -81,6 +82,13 @@ export default function SignUpPage() {
           >
             {isPending ? 'Creating account...' : 'Create account'}
           </button>
+
+          <p className="text-panel-faint text-center font-mono text-[10px]">
+            Already have an account?{' '}
+            <Link href="/auth/sign-in" className="text-panel-muted underline underline-offset-2">
+              Sign in
+            </Link>
+          </p>
         </div>
       </form>
     </div>

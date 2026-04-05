@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth/server';
 
-export default auth.middleware({ loginUrl: '/auth/sign-in' });
+export default auth.middleware({ loginUrl: '/auth/sign-up' });
 
 export const config = {
   matcher: [
