@@ -1,17 +1,36 @@
 'use client';
 
 import Image from 'next/image';
-import { useActionState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { signInWithEmail } from './actions';
+import { authClient } from '@/lib/auth/client';
 
 export default function SignInPage() {
-  const [state, formAction, isPending] = useActionState(signInWithEmail, null);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const { error: signInError } = await authClient.signIn.email({
+        email: formData.get('email') as string,
+        password: formData.get('password') as string,
+      });
+      if (signInError) {
+        setError(signInError.message || 'Failed to sign in. Try again.');
+      } else {
+        router.push('/');
+      }
+    });
+  }
 
   return (
     <div className="bg-panel flex min-h-screen flex-col items-center justify-center p-8">
-      <form action={formAction} className="w-full max-w-xs">
+      <form onSubmit={handleSubmit} className="w-full max-w-xs">
         <div className="mb-8 flex items-center gap-2.5">
           <Image
             src="/brand/logomark.png"
@@ -65,7 +84,7 @@ export default function SignInPage() {
             />
           </div>
 
-          {state?.error && <p className="text-destructive font-mono text-[11px]">{state.error}</p>}
+          {error && <p className="text-destructive font-mono text-[11px]">{error}</p>}
 
           <Button
             type="submit"
