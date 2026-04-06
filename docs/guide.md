@@ -142,18 +142,18 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 
 ## API Routes
 
-| Route                        | Method | What it does                                                                                             |
-| ---------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| `/api/chat`                  | POST   | Streams AI response via Anthropic (Claude). Reads member system prompt + memory from DB. Saves messages. |
-| `/api/members`               | GET    | Returns all members from DB                                                                              |
-| `/api/members`               | POST   | Creates a new AI member. Admin only.                                                                     |
-| `/api/conversations/dm/[id]` | GET    | Returns conversation history for a DM                                                                    |
-| `/api/profile`               | GET    | Returns founder profile from DB                                                                          |
-| `/api/profile`               | PATCH  | Updates founder profile (name, description, avatar)                                                      |
-| `/api/me`                    | GET    | Returns current user's role (`admin` or `member`)                                                        |
-| `/api/invites`               | GET    | Lists all invite tokens. Admin only.                                                                     |
-| `/api/invites`               | POST   | Creates a new invite token. Admin only.                                                                  |
-| `/api/auth/[...path]`        | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                         |
+| Route                        | Method | What it does                                                                                                                                                        |
+| ---------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/chat`                  | POST   | Streams AI response via Anthropic (Claude). Assembles system prompt from: member prompt (DB) + company context (founding doc) + member memory (DB). Saves messages. |
+| `/api/members`               | GET    | Returns all members from DB                                                                                                                                         |
+| `/api/members`               | POST   | Creates a new AI member. Admin only.                                                                                                                                |
+| `/api/conversations/dm/[id]` | GET    | Returns conversation history for a DM                                                                                                                               |
+| `/api/profile`               | GET    | Returns founder profile from DB                                                                                                                                     |
+| `/api/profile`               | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                 |
+| `/api/me`                    | GET    | Returns current user's role (`admin` or `member`)                                                                                                                   |
+| `/api/invites`               | GET    | Lists all invite tokens. Admin only.                                                                                                                                |
+| `/api/invites`               | POST   | Creates a new invite token. Admin only.                                                                                                                             |
+| `/api/auth/[...path]`        | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                    |
 
 ---
 
@@ -168,6 +168,7 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | DM chat with AI members (streaming)               | ✅ Works                       |
 | Conversation persistence (DB)                     | ✅ Works                       |
 | Member system prompt + memory injection           | ✅ Works                       |
+| Company context injection (founding doc)          | ✅ Works                       |
 | Add AI member sheet                               | ✅ Works                       |
 | Invite person sheet                               | ✅ Works                       |
 | Founder profile editor (name, description, photo) | ✅ Works                       |
@@ -179,10 +180,3 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Task board                                        | ❌ Not built                   |
 | Calendar                                          | ❌ Not built                   |
 | Memory summarization (post-session)               | ❌ Not built                   |
-
-- Unread indicator (amber dot)
-- Sender name and AI badge
-- Subject line and preview
-- Full message body when selected
-
-Messages are currently hardcoded demo data — not generated dynamically.

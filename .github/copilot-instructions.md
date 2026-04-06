@@ -23,9 +23,9 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 ```
 src/app/              → App Router pages + API routes
 src/components/       → UI primitives (ui/) and app components (modryn/)
-src/lib/              → Utilities, analytics stub, route logger, auth
+src/lib/              → Utilities, analytics stub, route logger, auth, context injection
 src/config/           → site.ts
-members/              → AI member configs and system prompts
+docs/                 → Founding document + user guide (founding doc injected as company context at runtime)
 migrations/           → Neon SQL migration files (schema source of truth)
 ```
 
