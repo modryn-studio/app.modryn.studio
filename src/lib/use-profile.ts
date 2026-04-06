@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { deriveInitials } from '@/lib/initials';
 
 export interface Profile {
   name: string;
@@ -12,15 +13,6 @@ export interface Profile {
 
 const CACHE_KEY = 'modryn:profile';
 const PROFILE_UPDATED_EVENT = 'modryn:profile-updated';
-
-export function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 const DEFAULT: Profile = {
   name: '',
@@ -95,7 +87,7 @@ export function useProfile() {
     async (updates: Partial<Omit<Profile, 'initials'>>) => {
       // Optimistic update
       const name = (updates.name ?? profile.name).trim();
-      const next: Profile = { ...profile, ...updates, name, initials: getInitials(name) };
+      const next: Profile = { ...profile, ...updates, name, initials: deriveInitials(name) };
       setProfile(next);
       writeCache(next);
       window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));

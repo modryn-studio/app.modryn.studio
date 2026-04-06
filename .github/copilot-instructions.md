@@ -10,13 +10,14 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 
 ## Stack
 
-- Next.js 16 App Router · TypeScript
+- Next.js 16 App Router · TypeScript · React 19 · React Compiler (`babel-plugin-react-compiler`)
 - Tailwind CSS v4 — tokens in `@theme` inside `globals.css`, no `tailwind.config.*`
 - Vercel · `<Analytics />` in `layout.tsx` for pageviews (zero config)
 - `@/lib/analytics.ts` — no-op stub; wire a real provider here if needed
-- lucide-react icons
+- lucide-react icons · `@radix-ui/react-dialog` (Sheet) · `@radix-ui/react-slot` (Button)
 - `ai` 6.x · `@ai-sdk/react` 3.x · `@ai-sdk/anthropic` 3.x — streaming via `/api/chat`
 - Neon (serverless Postgres) · `@neondatabase/auth` — Neon Auth active, invite-gated access
+- `zod` — request body validation in API routes
 
 ## Project Structure
 

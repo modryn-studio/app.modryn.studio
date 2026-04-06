@@ -1,19 +1,10 @@
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
+import { deriveInitials } from '@/lib/initials';
 import '@/lib/env';
 
 const log = createRouteLogger('profile');
-
-// Inline — avoids importing from 'use client' module into server bundle
-function deriveInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 export async function GET(): Promise<Response> {
   const ctx = log.begin();
@@ -70,10 +61,10 @@ export async function PATCH(req: Request): Promise<Response> {
     if (typeof description === 'string') updates.description = description;
     if (typeof avatarDataUrl === 'string') {
       // Limit avatar data URL to ~500 KB to prevent DB bloat
-      if (avatarDataUrl.length > 512_000) {
+      if (avatarDataUrl.length > 1_500_000) {
         return log.end(
           ctx,
-          Response.json({ error: 'Avatar image is too large (max 500 KB)' }, { status: 413 })
+          Response.json({ error: 'Avatar image is too large (max 1 MB)' }, { status: 413 })
         );
       }
       updates.avatar_url = avatarDataUrl;

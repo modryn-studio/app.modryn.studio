@@ -1,18 +1,10 @@
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
+import { deriveInitials } from '@/lib/initials';
 import '@/lib/env';
 
 const log = createRouteLogger('members/[id]');
-
-function deriveInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 export async function PATCH(
   req: Request,
@@ -33,7 +25,14 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, role, system_prompt, personality_notes } = body;
+    const { name, role, system_prompt, personality_notes, avatar_data_url } = body;
+
+    if (typeof avatar_data_url === 'string' && avatar_data_url.length > 1_500_000) {
+      return log.end(
+        ctx,
+        Response.json({ error: 'Avatar image is too large (max 1 MB)' }, { status: 413 })
+      );
+    }
 
     const updates: Record<string, string | null> = {};
     if (typeof name === 'string') {
@@ -44,6 +43,7 @@ export async function PATCH(
     if (typeof system_prompt === 'string') updates.system_prompt = system_prompt.trim();
     if (typeof personality_notes === 'string')
       updates.personality_notes = personality_notes.trim() || null;
+    if (typeof avatar_data_url === 'string') updates.avatar_url = avatar_data_url;
 
     if (Object.keys(updates).length === 0) {
       return log.end(ctx, Response.json({ error: 'No fields to update' }, { status: 400 }));
@@ -55,6 +55,8 @@ export async function PATCH(
     const newSystemPrompt = updates.system_prompt ?? null;
     const hasPersonalityNotes = 'personality_notes' in updates;
     const newPersonalityNotes = hasPersonalityNotes ? (updates.personality_notes ?? null) : null;
+    const hasAvatar = 'avatar_url' in updates;
+    const newAvatarUrl = hasAvatar ? (updates.avatar_url ?? null) : null;
 
     const rows = await sql`
       UPDATE members SET
@@ -62,7 +64,8 @@ export async function PATCH(
         role              = COALESCE(${newRole}, role),
         initials          = COALESCE(${newInitials}, initials),
         system_prompt     = COALESCE(${newSystemPrompt}, system_prompt),
-        personality_notes = CASE WHEN ${hasPersonalityNotes} THEN ${newPersonalityNotes} ELSE personality_notes END
+        personality_notes = CASE WHEN ${hasPersonalityNotes} THEN ${newPersonalityNotes} ELSE personality_notes END,
+        avatar_url        = CASE WHEN ${hasAvatar} THEN ${newAvatarUrl} ELSE avatar_url END
       WHERE id = ${id}
       RETURNING id, name, role, initials, status, avatar_url, system_prompt, personality_notes
     `;

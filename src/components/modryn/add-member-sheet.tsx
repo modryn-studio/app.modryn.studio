@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
+import Image from 'next/image';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import type { AIMember } from '@/hooks/use-members';
@@ -23,8 +25,10 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
   const [role, setRole] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [personalityNotes, setPersonalityNotes] = useState('');
+  const [avatarDataUrl, setAvatarDataUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Sync fields when the sheet opens or the target member changes
   useEffect(() => {
@@ -33,6 +37,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
       setRole(member?.role ?? '');
       setSystemPrompt(member?.systemPrompt ?? '');
       setPersonalityNotes(member?.personalityNotes ?? '');
+      setAvatarDataUrl(member?.avatarUrl ?? '');
       setError('');
       setSaving(false);
     }
@@ -43,8 +48,18 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
     setRole('');
     setSystemPrompt('');
     setPersonalityNotes('');
+    setAvatarDataUrl('');
     setError('');
     setSaving(false);
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAvatarDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,6 +77,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
               role: role.trim(),
               system_prompt: systemPrompt.trim(),
               personality_notes: personalityNotes.trim() || '',
+              avatar_data_url: avatarDataUrl || undefined,
             }),
           })
         : await fetch('/api/members', {
@@ -72,6 +88,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
               role: role.trim(),
               system_prompt: systemPrompt.trim(),
               personality_notes: personalityNotes.trim() || undefined,
+              avatar_data_url: avatarDataUrl || undefined,
             }),
           });
 
@@ -109,6 +126,48 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
           onSubmit={handleSubmit}
           className="flex flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6"
         >
+          {/* Avatar */}
+          <div className="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="group relative"
+              aria-label="Set member photo"
+            >
+              {avatarDataUrl ? (
+                <Image
+                  src={avatarDataUrl}
+                  alt={name || 'Member'}
+                  width={80}
+                  height={80}
+                  unoptimized
+                  className="ring-sidebar-border h-20 w-20 rounded-sm object-cover ring-2"
+                />
+              ) : (
+                <div className="bg-sidebar-accent text-sidebar-foreground ring-sidebar-border flex h-20 w-20 items-center justify-center rounded-sm font-mono text-xl font-semibold ring-2">
+                  {name
+                    ? name
+                        .trim()
+                        .split(/\s+/)
+                        .map((w) => w[0]?.toUpperCase() ?? '')
+                        .slice(0, 2)
+                        .join('')
+                    : '?'}
+                </div>
+              )}
+              <div className="bg-sidebar/72 absolute inset-0 flex items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100">
+                <Camera className="text-sidebar-foreground h-5 w-5" strokeWidth={1.5} />
+              </div>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <ChromeLabel as="label" htmlFor="member-name" className="text-sidebar-muted">
               Name

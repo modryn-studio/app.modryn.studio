@@ -36,7 +36,7 @@ export async function POST(req: Request): Promise<Response> {
       `,
     ]);
 
-    let memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
+    const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
 
     const companyContext = getCompanyContext();
 
@@ -140,10 +140,23 @@ export async function POST(req: Request): Promise<Response> {
               temperature: 0.3,
             });
 
-            await sql`
-              INSERT INTO member_memory (member_id, conversation_id, summary)
-              VALUES (${memberId}, ${conversationId}, ${summary})
+            // Upsert — one summary per conversation, updated as it grows.
+            // Prevents accumulating near-identical rows and injecting redundant context.
+            const existingMemory = await sql`
+              SELECT id FROM member_memory WHERE conversation_id = ${conversationId} LIMIT 1
             `;
+            if (existingMemory.length > 0) {
+              await sql`
+                UPDATE member_memory
+                SET summary = ${summary}, created_at = now()
+                WHERE id = ${existingMemory[0].id}
+              `;
+            } else {
+              await sql`
+                INSERT INTO member_memory (member_id, conversation_id, summary)
+                VALUES (${memberId}, ${conversationId}, ${summary})
+              `;
+            }
 
             log.info(ctx.reqId, 'Memory written', {
               memberId,

@@ -29,11 +29,12 @@ export default function ModrynStudio() {
     <>
       {activeView === 'chat' && activeMember && (
         <ChatView
-          key={activeChat}
-          memberId={activeChat}
+          key={activeMember.id}
+          memberId={activeMember.id}
           memberName={activeMember.name}
           memberRole={activeMember.role}
           memberInitials={activeMember.initials}
+          memberAvatarUrl={activeMember.avatarUrl}
           contextCollapsed={contextCollapsed}
           onToggleContext={() => setContextCollapsed((v) => !v)}
         />
@@ -82,6 +83,7 @@ export default function ModrynStudio() {
           onViewChange={setActiveView}
           onChatSelect={setActiveChat}
           onMemberAdded={refetch}
+          onMembersReorder={refetch}
         />
       </div>
 
@@ -108,6 +110,16 @@ export default function ModrynStudio() {
             setMobileDrawerOpen((v) => !v);
             setMobileContextOpen(false);
           }}
+          activeMember={
+            activeView === 'chat' && activeMember
+              ? {
+                  name: activeMember.name,
+                  initials: activeMember.initials,
+                  role: activeMember.role,
+                  avatarUrl: activeMember.avatarUrl,
+                }
+              : undefined
+          }
         />
 
         {/* Main content */}

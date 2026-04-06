@@ -14,6 +14,7 @@ interface ChatViewProps {
   memberName: string;
   memberRole: string;
   memberInitials: string;
+  memberAvatarUrl?: string;
   contextCollapsed?: boolean;
   onToggleContext?: () => void;
 }
@@ -93,23 +94,36 @@ function AIMessage({
   text,
   memberName,
   memberInitials,
+  memberAvatarUrl,
   timestamp,
   isStreaming,
 }: {
   text: string;
   memberName: string;
   memberInitials: string;
+  memberAvatarUrl?: string;
   timestamp: string;
   isStreaming?: boolean;
 }) {
   return (
     <div className="group bg-ai-surface border-ai-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
-        <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
-          <span className="text-panel-inverse font-mono text-[9px] font-bold">
-            {memberInitials}
-          </span>
-        </div>
+        {memberAvatarUrl ? (
+          <Image
+            src={memberAvatarUrl}
+            alt={memberName}
+            width={24}
+            height={24}
+            unoptimized
+            className="h-6 w-6 shrink-0 rounded-sm object-cover"
+          />
+        ) : (
+          <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
+            <span className="text-panel-inverse font-mono text-[9px] font-bold">
+              {memberInitials}
+            </span>
+          </div>
+        )}
         <span className="text-panel-foreground text-xs font-semibold">{memberName}</span>
         <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
           AI
@@ -157,6 +171,7 @@ export function ChatView({
   memberName,
   memberRole,
   memberInitials,
+  memberAvatarUrl,
   contextCollapsed,
   onToggleContext,
 }: ChatViewProps) {
@@ -186,6 +201,7 @@ export function ChatView({
 
   // Load conversation history on mount
   useEffect(() => {
+    if (!memberId) return;
     let cancelled = false;
     async function loadHistory() {
       try {
@@ -243,7 +259,8 @@ export function ChatView({
     };
   }, []);
 
-  const isStreaming = status === 'streaming' || status === 'submitted';
+  const isSubmitted = status === 'submitted';
+  const isStreaming = status === 'streaming' || isSubmitted;
 
   useEffect(() => {
     setMessageTimestamps((prev) => {
@@ -294,11 +311,22 @@ export function ChatView({
       {/* Header - hidden on mobile (handled by MobileHeader) */}
       <div className="border-panel-border bg-panel hidden items-center justify-between border-b px-6 py-3.5 md:flex">
         <div className="flex items-center gap-3">
-          <div className="bg-panel-chrome flex h-7 w-7 shrink-0 items-center justify-center rounded-sm">
-            <span className="text-panel-chrome-foreground font-mono text-[10px] font-bold">
-              {memberInitials}
-            </span>
-          </div>
+          {memberAvatarUrl ? (
+            <Image
+              src={memberAvatarUrl}
+              alt={memberName}
+              width={28}
+              height={28}
+              unoptimized
+              className="h-7 w-7 shrink-0 rounded-sm object-cover"
+            />
+          ) : (
+            <div className="bg-panel-chrome flex h-7 w-7 shrink-0 items-center justify-center rounded-sm">
+              <span className="text-panel-chrome-foreground font-mono text-[10px] font-bold">
+                {memberInitials}
+              </span>
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <span className="text-panel-foreground text-sm font-semibold">{memberName}</span>
@@ -313,11 +341,15 @@ export function ChatView({
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full',
-              isStreaming ? 'bg-status-active animate-pulse' : 'bg-status-online'
+              isSubmitted
+                ? 'bg-status-active animate-pulse'
+                : status === 'streaming'
+                  ? 'bg-status-generating animate-pulse'
+                  : 'bg-status-online'
             )}
           />
           <ChromeLabel className="text-panel-muted mr-2 text-[10px] tracking-[0.08em] normal-case">
-            {isStreaming ? 'analyzing' : 'online'}
+            {isSubmitted ? 'analyzing' : status === 'streaming' ? 'generating' : 'online'}
           </ChromeLabel>
           {onToggleContext && (
             <button
@@ -370,6 +402,7 @@ export function ChatView({
                     text={text}
                     memberName={memberName}
                     memberInitials={memberInitials}
+                    memberAvatarUrl={memberAvatarUrl}
                     timestamp={timestamp}
                     isStreaming={isLastAI && isStreaming}
                   />
@@ -382,6 +415,7 @@ export function ChatView({
                   text=""
                   memberName={memberName}
                   memberInitials={memberInitials}
+                  memberAvatarUrl={memberAvatarUrl}
                   timestamp={pendingTimestamp ?? formatTime(new Date())}
                   isStreaming
                 />
@@ -393,13 +427,13 @@ export function ChatView({
 
       {/* Input */}
       <div
-        className="border-panel-border bg-panel border-t px-6 py-6 transition-[padding]"
+        className="border-panel-border bg-panel border-t px-4 py-3 transition-[padding]"
         style={{ paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined }}
       >
         <label htmlFor="chat-input" className="sr-only">
           Message {memberName}
         </label>
-        <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-4 transition-colors focus-within:ring-4">
+        <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-2.5 transition-colors focus-within:ring-4">
           <textarea
             id="chat-input"
             ref={inputRef}
@@ -408,7 +442,7 @@ export function ChatView({
             onKeyDown={handleKeyDown}
             placeholder={`Message ${memberName}...`}
             rows={1}
-            disabled={isStreaming}
+            disabled={isStreaming || !historyLoaded}
             className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
             style={{
               height: 'auto',
@@ -419,14 +453,14 @@ export function ChatView({
               target.style.height = Math.min(target.scrollHeight, 128) + 'px';
             }}
           />
-          <div className="flex shrink-0 items-center gap-2 pb-0.5">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
-              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-11 w-11 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
+              disabled={!inputValue.trim() || isStreaming || !historyLoaded}
+              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-8 w-8 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
               aria-label="Send message"
             >
-              <Send className="text-panel-inverse h-4 w-4" />
+              <Send className="text-panel-inverse h-3.5 w-3.5" />
             </button>
           </div>
         </div>

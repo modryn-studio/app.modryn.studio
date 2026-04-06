@@ -1,6 +1,7 @@
 import { createRouteLogger } from '@/lib/route-logger';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
+import { deriveInitials } from '@/lib/initials';
 import '@/lib/env';
 
 const log = createRouteLogger('members');
@@ -13,15 +14,6 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-function deriveInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
-
 export async function GET(): Promise<Response> {
   const ctx = log.begin();
   const { data: session } = await auth.getSession();
@@ -30,9 +22,9 @@ export async function GET(): Promise<Response> {
   }
   try {
     const rows = await sql`
-      SELECT id, name, role, initials, status, avatar_url, system_prompt, personality_notes
+      SELECT id, name, role, initials, status, avatar_url, system_prompt, personality_notes, sort_order
       FROM members
-      ORDER BY created_at ASC
+      ORDER BY sort_order ASC, created_at ASC
     `;
 
     const members = rows.map((r) => ({
@@ -68,7 +60,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const body = await req.json();
-    const { name, role, system_prompt, personality_notes } = body;
+    const { name, role, system_prompt, personality_notes, avatar_data_url } = body;
 
     if (!name?.trim() || !role?.trim() || !system_prompt?.trim()) {
       return log.end(
@@ -77,15 +69,23 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
+    if (typeof avatar_data_url === 'string' && avatar_data_url.length > 1_500_000) {
+      return log.end(
+        ctx,
+        Response.json({ error: 'Avatar image is too large (max 1 MB)' }, { status: 413 })
+      );
+    }
+
     const baseId = slugify(name.trim());
     // Ensure uniqueness: append a short suffix if slug already exists
     const existing = await sql`SELECT id FROM members WHERE id LIKE ${baseId + '%'}`;
     const id = existing.length === 0 ? baseId : `${baseId}-${existing.length}`;
     const initials = deriveInitials(name.trim());
+    const avatarUrl = typeof avatar_data_url === 'string' ? avatar_data_url : '';
 
     const rows = await sql`
-      INSERT INTO members (id, name, role, initials, system_prompt, personality_notes)
-      VALUES (${id}, ${name.trim()}, ${role.trim()}, ${initials}, ${system_prompt.trim()}, ${personality_notes?.trim() ?? null})
+      INSERT INTO members (id, name, role, initials, system_prompt, personality_notes, avatar_url)
+      VALUES (${id}, ${name.trim()}, ${role.trim()}, ${initials}, ${system_prompt.trim()}, ${personality_notes?.trim() ?? null}, ${avatarUrl})
       RETURNING id, name, role, initials, status, avatar_url
     `;
 

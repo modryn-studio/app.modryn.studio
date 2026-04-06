@@ -169,6 +169,7 @@ export function MobileDrawer({
               initials: m.initials,
               status: m.status,
               isAI: true,
+              avatarDataUrl: m.avatarUrl,
             };
             return (
               <MemberRow

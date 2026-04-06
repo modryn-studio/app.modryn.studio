@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { MessageSquare, Inbox, Pencil, Plus, UserPlus, LogOut } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { MessageSquare, Inbox, Plus, UserPlus, LogOut, GripVertical } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,7 @@ interface Member {
   status: MemberStatus;
   isAI: boolean;
   initials: string;
+  avatarUrl: string;
 }
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ interface SidebarProps {
   onViewChange: (view: View) => void;
   onChatSelect: (memberId: string) => void;
   onMemberAdded: () => void;
+  onMembersReorder: (orderedIds: string[]) => void;
 }
 
 const statusColors: Record<MemberStatus, string> = {
@@ -60,21 +62,23 @@ const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox },
 ];
 
-function FounderAvatar({
-  name,
-  avatarDataUrl,
-  initials,
+function MemberAvatar({
+  member,
+  isAdmin,
+  isDragging,
+  onEdit,
 }: {
-  name: string;
-  avatarDataUrl: string;
-  initials: string;
+  member: Member;
+  isAdmin?: boolean;
+  isDragging?: boolean;
+  onEdit?: () => void;
 }) {
   return (
-    <div className="relative shrink-0">
-      {avatarDataUrl ? (
+    <div className="group/avatar relative shrink-0">
+      {member.avatarUrl ? (
         <Image
-          src={avatarDataUrl}
-          alt={name}
+          src={member.avatarUrl}
+          alt={member.name}
           width={32}
           height={32}
           unoptimized
@@ -82,19 +86,23 @@ function FounderAvatar({
         />
       ) : (
         <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold">
-          {initials}
+          {member.initials}
         </div>
       )}
-    </div>
-  );
-}
-
-function MemberAvatar({ member }: { member: Member }) {
-  return (
-    <div className="relative shrink-0">
-      <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold">
-        {member.initials}
-      </div>
+      {isAdmin && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit?.();
+          }}
+          className="bg-sidebar/80 absolute inset-0 flex cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/avatar:opacity-100"
+          aria-label={`Edit ${member.name}`}
+          title={`Edit ${member.name}`}
+          role="button"
+        >
+          <GripVertical className="text-sidebar-foreground h-3.5 w-3.5" strokeWidth={1.5} />
+        </div>
+      )}
     </div>
   );
 }
@@ -123,15 +131,19 @@ function MemberMeta({ member }: { member: Member }) {
 function MemberRow({
   member,
   selected,
+  isAdmin,
+  onEdit,
   onClick,
 }: {
   member: Member;
   selected: boolean;
+  isAdmin?: boolean;
+  onEdit?: () => void;
   onClick?: () => void;
 }) {
   const content = (
     <>
-      <MemberAvatar member={member} />
+      <MemberAvatar member={member} isAdmin={isAdmin} onEdit={onEdit} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="text-sidebar-primary truncate text-[14px] font-medium tracking-tight">
@@ -178,6 +190,7 @@ export function Sidebar({
   onViewChange,
   onChatSelect,
   onMemberAdded,
+  onMembersReorder,
 }: SidebarProps) {
   const { profile, save } = useProfile();
   const { isAdmin, isLoading: roleLoading } = useRole();
@@ -186,6 +199,65 @@ export function Sidebar({
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<AIMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [orderedMembers, setOrderedMembers] = useState<AIMember[]>(members);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+
+  // Keep orderedMembers in sync when members prop changes (e.g. after refetch)
+  const prevMembersRef = useRef<AIMember[]>(members);
+  if (prevMembersRef.current !== members) {
+    prevMembersRef.current = members;
+    setOrderedMembers(members);
+  }
+
+  const handleDragStart = useCallback((id: string, e: React.DragEvent) => {
+    dragIdRef.current = id;
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((index: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+    setDropIndex(insertBefore ? index : index + 1);
+  }, []);
+
+  const handleDrop = useCallback(() => {
+    const srcId = dragIdRef.current;
+    dragIdRef.current = null;
+    setDropIndex((insertAt) => {
+      if (srcId === null || insertAt === null) return null;
+      setOrderedMembers((prev) => {
+        const srcIdx = prev.findIndex((m) => m.id === srcId);
+        if (srcIdx === -1) return prev;
+        const next = [...prev];
+        const [item] = next.splice(srcIdx, 1);
+        // Adjust insertion point since we removed the source item first
+        const adjusted = insertAt > srcIdx ? insertAt - 1 : insertAt;
+        next.splice(adjusted, 0, item);
+        // Persist asynchronously — fire and forget
+        fetch('/api/members/reorder', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderedIds: next.map((m) => m.id) }),
+        })
+          .then((res) => {
+            if (res.ok) onMembersReorder(next.map((m) => m.id));
+          })
+          .catch(() => {
+            /* silent — UI already reflects new order */
+          });
+        return next;
+      });
+      return null;
+    });
+  }, [onMembersReorder]);
+
+  const handleDragEnd = useCallback(() => {
+    dragIdRef.current = null;
+    setDropIndex(null);
+  }, []);
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -282,52 +354,63 @@ export function Sidebar({
             <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               Team
             </ChromeLabel>
-            {/* Founder row + separate profile edit action */}
-            <div className="flex items-stretch gap-2">
-              <button
-                onClick={() => {
-                  onViewChange('chat');
-                  onChatSelect('founder');
-                }}
-                className={cn(
-                  'rounded-card flex flex-1 items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
-                  activeChat === 'founder' && activeView === 'chat'
-                    ? 'bg-sidebar-accent border-white/10 shadow-sm'
-                    : 'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
-                )}
-              >
-                <FounderAvatar
-                  name={profile.name}
-                  avatarDataUrl={profile.avatarDataUrl}
-                  initials={profile.initials}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sidebar-primary truncate text-[14px] font-medium tracking-tight">
-                    {profile.name}
-                  </p>
-                  {profile.role && (
-                    <p className="text-sidebar-muted truncate text-[12px] leading-tight">
-                      {profile.role}
-                    </p>
-                  )}
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <span className="bg-status-online h-1.5 w-1.5 rounded-full" />
-                    <ChromeLabel className="text-status-online leading-none tracking-[0.08em] normal-case">
-                      online
-                    </ChromeLabel>
+            {/* Founder row — avatar click opens profile sheet */}
+            <button
+              onClick={() => {
+                onViewChange('chat');
+                onChatSelect('founder');
+              }}
+              className={cn(
+                'rounded-card flex w-full items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
+                activeChat === 'founder' && activeView === 'chat'
+                  ? 'bg-sidebar-accent border-white/10 shadow-sm'
+                  : 'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
+              )}
+            >
+              <div className="group/avatar relative shrink-0">
+                {profile.avatarDataUrl ? (
+                  <Image
+                    src={profile.avatarDataUrl}
+                    alt={profile.name}
+                    width={32}
+                    height={32}
+                    unoptimized
+                    className="h-8 w-8 rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="bg-sidebar-accent text-sidebar-foreground flex h-8 w-8 items-center justify-center rounded-sm font-mono text-[10px] font-semibold">
+                    {profile.initials}
                   </div>
+                )}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileOpen(true);
+                  }}
+                  className="bg-sidebar/80 absolute inset-0 flex cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/avatar:opacity-100"
+                  aria-label="Edit profile"
+                  role="button"
+                >
+                  <GripVertical className="text-sidebar-foreground h-3.5 w-3.5" strokeWidth={1.5} />
                 </div>
-              </button>
-
-              <button
-                onClick={() => setProfileOpen(true)}
-                className="rounded-card text-sidebar-muted hover:text-sidebar-foreground border-sidebar-border hover:border-sidebar-accent flex h-11.5 w-11.5 items-center justify-center border transition-colors"
-                aria-label="Edit profile"
-                title="Edit profile"
-              >
-                <Pencil className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sidebar-primary truncate text-[14px] font-medium tracking-tight">
+                  {profile.name}
+                </p>
+                {profile.role && (
+                  <p className="text-sidebar-muted truncate text-[12px] leading-tight">
+                    {profile.role}
+                  </p>
+                )}
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className="bg-status-online h-1.5 w-1.5 rounded-full" />
+                  <ChromeLabel className="text-status-online leading-none tracking-[0.08em] normal-case">
+                    online
+                  </ChromeLabel>
+                </div>
+              </div>
+            </button>
           </div>
 
           <div className="flex-1 px-2">
@@ -339,40 +422,47 @@ export function Sidebar({
                 No members — add one
               </p>
             ) : (
-              members.map((m) => {
-                const member: Member = {
-                  id: m.id,
-                  name: m.name,
-                  role: m.role,
-                  initials: m.initials,
-                  status: m.status,
-                  isAI: true,
-                };
-                return (
-                  <div key={member.id} className="flex items-stretch gap-2">
-                    <div className="min-w-0 flex-1">
-                      <MemberRow
-                        member={member}
-                        selected={activeChat === member.id && activeView === 'chat'}
-                        onClick={() => {
-                          onViewChange('chat');
-                          onChatSelect(member.id);
-                        }}
-                      />
-                    </div>
-                    {!roleLoading && isAdmin && (
-                      <button
-                        onClick={() => setEditingMember(m)}
-                        className="rounded-card text-sidebar-muted hover:text-sidebar-foreground border-sidebar-border hover:border-sidebar-accent flex h-11.5 w-11.5 shrink-0 items-center justify-center border transition-colors"
-                        aria-label={`Edit ${member.name}`}
-                        title={`Edit ${member.name}`}
+              <>
+                {orderedMembers.map((m, index) => {
+                  const member: Member = {
+                    id: m.id,
+                    name: m.name,
+                    role: m.role,
+                    initials: m.initials,
+                    status: m.status,
+                    isAI: true,
+                    avatarUrl: m.avatarUrl,
+                  };
+                  return (
+                    <div key={member.id}>
+                      {dropIndex === index && (
+                        <div className="bg-sidebar-foreground/50 mx-2 my-0.5 h-0.5 rounded-full" />
+                      )}
+                      <div
+                        draggable={isAdmin && !roleLoading}
+                        onDragStart={(e) => handleDragStart(member.id, e)}
+                        onDragOver={(e) => handleDragOver(index, e)}
+                        onDrop={handleDrop}
+                        onDragEnd={handleDragEnd}
                       >
-                        <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
+                        <MemberRow
+                          member={member}
+                          selected={activeChat === member.id && activeView === 'chat'}
+                          isAdmin={!roleLoading && isAdmin}
+                          onEdit={() => setEditingMember(m)}
+                          onClick={() => {
+                            onViewChange('chat');
+                            onChatSelect(member.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {dropIndex === orderedMembers.length && (
+                  <div className="bg-sidebar-foreground/50 mx-2 my-0.5 h-0.5 rounded-full" />
+                )}
+              </>
             )}
             {!roleLoading && isAdmin && (
               <button

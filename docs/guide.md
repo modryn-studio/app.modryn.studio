@@ -35,6 +35,8 @@ The app is a single full-screen workspace with three zones:
 
 On mobile: the sidebar becomes a slide-out drawer (tap the menu icon in the header), a bottom tab bar handles navigation, and the context panel opens as a pull-up sheet via the "Briefing" strip above the tab bar.
 
+When in DM chat view, the mobile header shows the active member's name and role in the center, with their avatar on the right. In all other views, it shows the Modryn Studio logo centered and your founder avatar on the right.
+
 ---
 
 ## Sidebar
@@ -53,8 +55,13 @@ The roster lists all members fetched from the database. Each row shows:
 - Avatar (initials chip, `rounded-sm` square)
 - Name and role
 - Status dot + label (`online` / `analyzing` / `away`)
+- A `GripVertical` drag handle on the left (admin only)
 
 Click any AI member row to open a DM with them.
+
+**Reorder members (admin only):** Drag a row using the grip handle. A thin insertion line appears between rows to show the drop position. Release to confirm. The new order is saved to the database immediately.
+
+**Edit a member (admin only):** Hover a member row to reveal a pencil icon on the right side of the avatar. Click it to open the member in edit mode — the same Add Member sheet but pre-filled with that member's data. Saves via PATCH to `/api/members/[id]`.
 
 ### Footer actions (admin only)
 
@@ -147,6 +154,8 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | `/api/chat`                  | POST   | Streams AI response via Anthropic (Claude). Assembles system prompt from: member prompt (DB) + company context (founding doc) + member memory (DB). Saves messages. |
 | `/api/members`               | GET    | Returns all members from DB                                                                                                                                         |
 | `/api/members`               | POST   | Creates a new AI member. Admin only.                                                                                                                                |
+| `/api/members/[id]`          | PATCH  | Updates an AI member (name, role, system prompt, avatar). Admin only.                                                                                               |
+| `/api/members/reorder`       | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                          |
 | `/api/conversations/dm/[id]` | GET    | Returns conversation history for a DM                                                                                                                               |
 | `/api/profile`               | GET    | Returns founder profile from DB                                                                                                                                     |
 | `/api/profile`               | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                 |
@@ -170,6 +179,8 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Member system prompt + memory injection           | ✅ Works                       |
 | Company context injection (founding doc)          | ✅ Works                       |
 | Add AI member sheet                               | ✅ Works                       |
+| Edit AI member sheet (hover row → pencil icon)    | ✅ Works                       |
+| Drag-to-reorder members                           | ✅ Works                       |
 | Invite person sheet                               | ✅ Works                       |
 | Founder profile editor (name, description, photo) | ✅ Works                       |
 | Sidebar navigation                                | ✅ Works                       |
