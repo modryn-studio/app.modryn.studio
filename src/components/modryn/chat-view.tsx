@@ -8,6 +8,9 @@ import { Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
+import { ChatContainerRoot, ChatContainerContent } from '@/components/prompt-kit/chat-container';
+import { Markdown } from '@/components/prompt-kit/markdown';
+import { ScrollButton } from '@/components/prompt-kit/scroll-button';
 
 interface ChatViewProps {
   memberId: string;
@@ -15,6 +18,7 @@ interface ChatViewProps {
   memberRole: string;
   memberInitials: string;
   memberAvatarUrl?: string;
+  surface?: 'dm' | 'inbox' | 'thread' | 'task';
   contextCollapsed?: boolean;
   onToggleContext?: () => void;
 }
@@ -97,6 +101,7 @@ function AIMessage({
   memberAvatarUrl,
   timestamp,
   isStreaming,
+  messageId,
 }: {
   text: string;
   memberName: string;
@@ -104,9 +109,10 @@ function AIMessage({
   memberAvatarUrl?: string;
   timestamp: string;
   isStreaming?: boolean;
+  messageId?: string;
 }) {
   return (
-    <div className="group bg-ai-surface border-ai-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
+    <div className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
         {memberAvatarUrl ? (
           <Image
@@ -139,7 +145,9 @@ function AIMessage({
       </div>
       <div className="pl-8.5">
         {text ? (
-          <p className="text-panel-text text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
+          <div className="prose prose-sm max-w-none">
+            <Markdown id={messageId}>{text}</Markdown>
+          </div>
         ) : (
           <ThinkingDots />
         )}
@@ -172,11 +180,11 @@ export function ChatView({
   memberRole,
   memberInitials,
   memberAvatarUrl,
+  surface = 'dm',
   contextCollapsed,
   onToggleContext,
 }: ChatViewProps) {
   const { profile } = useProfile();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputValue, setInputValue] = useState('');
   const [messageTimestamps, setMessageTimestamps] = useState<Record<string, string>>({});
@@ -194,6 +202,7 @@ export function ChatView({
           messages,
           memberId,
           conversationId: conversationIdRef.current,
+          surface,
         },
       }),
     }),
@@ -281,12 +290,6 @@ export function ChatView({
   }, [messages]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isStreaming]);
-
-  useEffect(() => {
     if (status !== 'submitted' && pendingTimestamp) {
       setPendingTimestamp(null);
     }
@@ -368,62 +371,68 @@ export function ChatView({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto">
-        {messages.length === 0 ? (
-          <EmptyState memberName={memberName} memberRole={memberRole} />
-        ) : (
-          <div className="flex min-h-full flex-col justify-end">
-            <div>
-              {messages.map((message, idx) => {
-                const text = getMessageText(message);
-                const key = message.id ?? `idx-${idx}`;
-                const createdAt = (message as { createdAt?: Date | string }).createdAt;
-                const timestamp =
-                  messageTimestamps[key] ??
-                  formatTime(createdAt ? new Date(createdAt) : new Date());
-                const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
+      <ChatContainerRoot className="relative flex-1">
+        <ChatContainerContent>
+          {messages.length === 0 ? (
+            <EmptyState memberName={memberName} memberRole={memberRole} />
+          ) : (
+            <div className="flex min-h-full flex-col justify-end">
+              <div>
+                {messages.map((message, idx) => {
+                  const text = getMessageText(message);
+                  const key = message.id ?? `idx-${idx}`;
+                  const createdAt = (message as { createdAt?: Date | string }).createdAt;
+                  const timestamp =
+                    messageTimestamps[key] ??
+                    formatTime(createdAt ? new Date(createdAt) : new Date());
+                  const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
 
-                if (message.role === 'user') {
+                  if (message.role === 'user') {
+                    return (
+                      <FounderMessage
+                        key={message.id ?? idx}
+                        text={text}
+                        timestamp={timestamp}
+                        founderName={profile.name}
+                        founderInitials={profile.initials}
+                        founderAvatarDataUrl={profile.avatarDataUrl}
+                      />
+                    );
+                  }
+
                   return (
-                    <FounderMessage
+                    <AIMessage
                       key={message.id ?? idx}
                       text={text}
+                      memberName={memberName}
+                      memberInitials={memberInitials}
+                      memberAvatarUrl={memberAvatarUrl}
                       timestamp={timestamp}
-                      founderName={profile.name}
-                      founderInitials={profile.initials}
-                      founderAvatarDataUrl={profile.avatarDataUrl}
+                      isStreaming={isLastAI && isStreaming}
+                      messageId={message.id ?? `idx-${idx}`}
                     />
                   );
-                }
+                })}
 
-                return (
+                {/* Streaming placeholder when submitted but no AI message yet */}
+                {status === 'submitted' && (
                   <AIMessage
-                    key={message.id ?? idx}
-                    text={text}
+                    text=""
                     memberName={memberName}
                     memberInitials={memberInitials}
                     memberAvatarUrl={memberAvatarUrl}
-                    timestamp={timestamp}
-                    isStreaming={isLastAI && isStreaming}
+                    timestamp={pendingTimestamp ?? formatTime(new Date())}
+                    isStreaming
                   />
-                );
-              })}
-
-              {/* Streaming placeholder when submitted but no AI message yet */}
-              {status === 'submitted' && (
-                <AIMessage
-                  text=""
-                  memberName={memberName}
-                  memberInitials={memberInitials}
-                  memberAvatarUrl={memberAvatarUrl}
-                  timestamp={pendingTimestamp ?? formatTime(new Date())}
-                  isStreaming
-                />
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </ChatContainerContent>
+        <div className="absolute right-4 bottom-4 z-10">
+          <ScrollButton className="bg-panel-input border-panel-border text-panel-muted hover:text-panel-foreground" />
+        </div>
+      </ChatContainerRoot>
 
       {/* Input */}
       <div

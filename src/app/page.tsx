@@ -35,6 +35,7 @@ export default function ModrynStudio() {
           memberRole={activeMember.role}
           memberInitials={activeMember.initials}
           memberAvatarUrl={activeMember.avatarUrl}
+          surface="dm"
           contextCollapsed={contextCollapsed}
           onToggleContext={() => setContextCollapsed((v) => !v)}
         />

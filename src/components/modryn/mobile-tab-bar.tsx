@@ -6,12 +6,12 @@ import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { cn } from '@/lib/utils';
 import type { View } from '@/components/modryn/sidebar';
 
-const tabs: { id: View; label: string; icon: React.ElementType }[] = [
-  { id: 'chat', label: 'DMs', icon: MessageSquare },
-  { id: 'inbox', label: 'Inbox', icon: Inbox },
-  { id: 'threads', label: 'Threads', icon: MessagesSquare },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'calendar', label: 'Cal', icon: Calendar },
+const tabs: { id: View; label: string; icon: React.ElementType; built: boolean }[] = [
+  { id: 'chat', label: 'DMs', icon: MessageSquare, built: true },
+  { id: 'inbox', label: 'Inbox', icon: Inbox, built: true },
+  { id: 'threads', label: 'Threads', icon: MessagesSquare, built: false },
+  { id: 'tasks', label: 'Tasks', icon: CheckSquare, built: false },
+  { id: 'calendar', label: 'Cal', icon: Calendar, built: false },
 ];
 
 interface MobileTabBarProps {
@@ -60,7 +60,7 @@ export function MobileTabBar({
       )}
 
       <nav className="flex items-stretch" aria-label="Main navigation">
-        {tabs.map(({ id, label, icon: Icon }) => {
+        {tabs.map(({ id, label, icon: Icon, built }) => {
           const active = activeView === id;
           return (
             <button
@@ -68,7 +68,8 @@ export function MobileTabBar({
               onClick={() => onViewChange(id)}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 py-3 transition-colors',
-                active ? 'text-sidebar-primary' : 'text-sidebar-ring hover:text-sidebar-muted'
+                active ? 'text-sidebar-primary' : 'text-sidebar-ring hover:text-sidebar-muted',
+                !built && !active && 'opacity-40'
               )}
               aria-label={label}
               aria-current={active ? 'page' : undefined}

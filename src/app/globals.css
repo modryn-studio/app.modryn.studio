@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@plugin '@tailwindcss/typography';
 
 @theme {
   /* -- Brand -- */
@@ -89,4 +90,24 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Prose overrides — map Tailwind Typography defaults to warm cream panel tokens */
+.prose {
+  --tw-prose-body: var(--color-panel-text);
+  --tw-prose-bold: var(--color-panel-foreground);
+  --tw-prose-headings: var(--color-panel-foreground);
+  --tw-prose-lead: var(--color-panel-muted);
+  --tw-prose-links: var(--color-panel-foreground);
+  --tw-prose-code: var(--color-panel-foreground);
+  --tw-prose-pre-code: var(--color-panel-text);
+  --tw-prose-pre-bg: var(--color-panel-input);
+  --tw-prose-bullets: var(--color-panel-muted);
+  --tw-prose-counters: var(--color-panel-muted);
+  --tw-prose-hr: var(--color-panel-border);
+  --tw-prose-quotes: var(--color-panel-text);
+  --tw-prose-quote-borders: var(--color-panel-border);
+  --tw-prose-captions: var(--color-panel-muted);
+  --tw-prose-th-borders: var(--color-panel-border);
+  --tw-prose-td-borders: var(--color-panel-border);
 }

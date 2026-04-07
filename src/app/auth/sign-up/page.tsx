@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SignUpForm } from './sign-up-form';
+
+export const metadata: Metadata = {
+  title: 'Accept Invite — Modryn Studio',
+  description: 'Accept your invite to join Modryn Studio.',
+};
 
 // Server component — reads searchParams so the invite token is available in
 // the client form without requiring useSearchParams() + a Suspense boundary.

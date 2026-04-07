@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageSquare, Inbox, Plus, UserPlus, LogOut, GripVertical } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -204,11 +204,9 @@ export function Sidebar({
   const dragIdRef = useRef<string | null>(null);
 
   // Keep orderedMembers in sync when members prop changes (e.g. after refetch)
-  const prevMembersRef = useRef<AIMember[]>(members);
-  if (prevMembersRef.current !== members) {
-    prevMembersRef.current = members;
+  useEffect(() => {
     setOrderedMembers(members);
-  }
+  }, [members]);
 
   const handleDragStart = useCallback((id: string, e: React.DragEvent) => {
     dragIdRef.current = id;

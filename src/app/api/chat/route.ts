@@ -1,10 +1,25 @@
 import { streamText, generateText, convertToModelMessages } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
+import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
 import { getCompanyContext } from '@/lib/context';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
 import '@/lib/env'; // validate required env vars on cold start
+
+// Route-aware format contracts — injected into system prompt at call time.
+// Edit here to adjust format constraints across all members at once.
+// NOTE: 'thread' is a placeholder. Rewrite from scratch when multi-member orchestration ships.
+const ROUTE_CONTEXT = {
+  dm: 'You are in a direct message conversation. Keep responses under 150 words. One main point. One question maximum. Provide depth only when explicitly requested.',
+  inbox:
+    'You are composing an async inbox message. Be self-contained: 150–300 words. Include context, your observation, and a clear ask or next step.',
+  thread:
+    'You are contributing to a group thread. Reference prior contributions explicitly. Build on or directly challenge what others have said.',
+  task: 'You are completing an assigned task. Produce a structured deliverable. Include finding, reasoning, and recommendation. Length appropriate to the task scope.',
+} as const;
+
+const surfaceSchema = z.enum(['dm', 'inbox', 'thread', 'task']).optional();
 
 const log = createRouteLogger('chat');
 
@@ -17,7 +32,9 @@ export async function POST(req: Request): Promise<Response> {
     return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
   }
   try {
-    const { messages, memberId, conversationId } = await req.json();
+    const body = await req.json();
+    const { messages, memberId, conversationId } = body;
+    const surface = surfaceSchema.parse(body.surface);
 
     log.info(ctx.reqId, 'Chat request', {
       memberId,
@@ -48,7 +65,10 @@ export async function POST(req: Request): Promise<Response> {
             .join('\n\n---\n\n')
         : null;
 
+    const formatInstruction = surface ? ROUTE_CONTEXT[surface] : null;
+
     const systemPrompt = [
+      formatInstruction && `## Format Instructions\n\n${formatInstruction}`,
       memberSystemPrompt,
       companyContext && `## Company Context\n\n${companyContext}`,
       memorySegments &&
@@ -129,14 +149,14 @@ export async function POST(req: Request): Promise<Response> {
             ].join('\n\n');
 
             const { text: summary } = await generateText({
-              model: anthropic('claude-3-5-haiku-20241022'),
+              model: anthropic('claude-haiku-4-5'),
               messages: [
                 {
                   role: 'user',
                   content: `Summarize this conversation in 3–5 bullet points for future context. Focus on: decisions made, tasks assigned, observations flagged, open questions. Be specific. Use plain bullets, no headers.\n\n${transcript}`,
                 },
               ],
-              maxOutputTokens: 300,
+              maxOutputTokens: 600,
               temperature: 0.3,
             });
 
