@@ -51,7 +51,7 @@ export async function extractAndStoreOrgFacts(
   text: string,
   conversationId: string,
   memberId: string
-): Promise<void> {
+): Promise<number> {
   try {
     const { output } = await generateText({
       model: anthropic('claude-haiku-4-5-20251001'),
@@ -72,7 +72,7 @@ export async function extractAndStoreOrgFacts(
     });
 
     const facts = output?.facts ?? [];
-    if (facts.length === 0) return;
+    if (facts.length === 0) return 0;
 
     for (const content of facts) {
       await sql`
@@ -80,10 +80,11 @@ export async function extractAndStoreOrgFacts(
         VALUES (${content}, ${conversationId}, ${memberId}, 'auto')
       `;
     }
+    return facts.length;
   } catch (err) {
     if (err instanceof NoObjectGeneratedError) {
       // Extraction failed to produce a valid object — degrade gracefully, don't surface to user
-      return;
+      return 0;
     }
     throw err;
   }

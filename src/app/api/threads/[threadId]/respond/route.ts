@@ -203,7 +203,15 @@ export async function POST(
     // Org-level fact extraction is handled by /extract endpoint called by the
     // client after the full sequence completes — not here per-member.
 
-    log.info(ctx.reqId, 'Response inserted', { threadId, memberId, messageId: inserted.id });
+    log.info(ctx.reqId, 'Response inserted', {
+      threadId,
+      memberId,
+      messageId: inserted.id,
+      // How much context the member saw — useful for spotting transcript bloat
+      transcriptMessages: threadMessages.length,
+      // Word count vs 150–300 word format target
+      wordCount: text.split(/\s+/).filter(Boolean).length,
+    });
 
     return log.end(
       ctx,

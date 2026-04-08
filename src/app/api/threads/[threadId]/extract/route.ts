@@ -67,11 +67,11 @@ export async function POST(
       })
       .join('\n\n---\n\n');
 
-    await extractAndStoreOrgFacts(transcript, threadId, memberId);
+    const factsExtracted = await extractAndStoreOrgFacts(transcript, threadId, memberId);
 
-    log.info(ctx.reqId, 'Extraction complete', { threadId, memberId });
+    log.info(ctx.reqId, 'Extraction complete', { threadId, memberId, factsExtracted });
 
-    return log.end(ctx, Response.json({ ok: true }));
+    return log.end(ctx, Response.json({ ok: true, factsExtracted }));
   } catch (error) {
     if (error instanceof z.ZodError) {
       return log.end(ctx, Response.json({ error: error.issues }, { status: 400 }));

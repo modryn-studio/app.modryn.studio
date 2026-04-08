@@ -1,7 +1,8 @@
 'use client';
 
-import { ArrowLeft, MessageSquarePlus, Send } from 'lucide-react';
+import { ArrowLeft, ChevronDown, FileText, MessageSquarePlus, Paperclip, Send } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useDraft } from '@/hooks/use-draft';
 import Image from 'next/image';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { LogDecisionButton } from '@/components/modryn/log-decision-button';
@@ -47,6 +48,7 @@ const PRESET_NAME_ORDERS: Record<string, string[]> = {
   technical: ['Michelle', 'Munger', 'Marc', 'Jobs', 'Rams'],
   design: ['Rams', 'Jobs', 'Michelle', 'Marc', 'Munger'],
   launch: ['Marc', 'Jobs', 'Michelle', 'Munger', 'Rams'],
+  brainstorm: ['Marc', 'Jobs', 'Munger', 'Michelle', 'Rams'],
 };
 
 const PRESET_LABELS: Record<string, string> = {
@@ -54,6 +56,7 @@ const PRESET_LABELS: Record<string, string> = {
   technical: 'Technical',
   design: 'Design',
   launch: 'Launch',
+  brainstorm: 'Brainstorm',
   custom: 'Custom',
 };
 
@@ -96,6 +99,57 @@ function ThinkingDots() {
   );
 }
 
+function parseMessageContent(text: string): {
+  body: string;
+  attachments: { name: string; content: string }[];
+} {
+  const re = /\n\n---\n\*\*(.+?)\*\*\n\n/g;
+  const matches: { index: number; name: string; contentStart: number }[] = [];
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    matches.push({ index: match.index, name: match[1], contentStart: re.lastIndex });
+  }
+  if (matches.length === 0) return { body: text, attachments: [] };
+  const body = text.slice(0, matches[0].index);
+  const attachments = matches.map((m, i) => ({
+    name: m.name,
+    content: text.slice(
+      m.contentStart,
+      i + 1 < matches.length ? matches[i + 1].index : text.length
+    ),
+  }));
+  return { body, attachments };
+}
+
+function AttachmentChip({ name, content }: { name: string; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-sidebar-ring overflow-hidden rounded-sm border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="hover:bg-sidebar-hover flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
+      >
+        <FileText className="text-sidebar-muted h-3 w-3 shrink-0" />
+        <span className="text-sidebar-muted font-mono text-[10px]">{name}</span>
+        <ChevronDown
+          className={cn(
+            'text-sidebar-muted ml-auto h-3 w-3 transition-transform',
+            open && 'rotate-180'
+          )}
+        />
+      </button>
+      {open && (
+        <div className="border-sidebar-ring max-h-64 overflow-y-auto border-t px-3 py-2">
+          <pre className="text-sidebar-muted font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+            {content}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ——— Main component ———
 
 export function ThreadsView() {
@@ -107,7 +161,7 @@ export function ThreadsView() {
   const [loading, setLoading] = useState(false);
   const [respondingMemberId, setRespondingMemberId] = useState<string | null>(null);
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
-  const [replyValue, setReplyValue] = useState('');
+  const [replyValue, setReplyValue] = useDraft(`thread-${selected?.thread.id ?? 'none'}`);
   const [sendingReply, setSendingReply] = useState(false);
 
   // New thread form
@@ -115,13 +169,15 @@ export function ThreadsView() {
   const [newTitle, setNewTitle] = useState('');
   const [newBrief, setNewBrief] = useState('');
   const [threadType, setThreadType] = useState<
-    'strategy' | 'technical' | 'design' | 'launch' | 'custom'
+    'strategy' | 'technical' | 'design' | 'launch' | 'brainstorm' | 'custom'
   >('strategy');
   const [dragOrder, setDragOrder] = useState<string[]>([]);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const dragSource = useRef<number | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [keyboardOffset, setKeyboardOffset] = useState(0);
 
@@ -311,9 +367,7 @@ export function ThreadsView() {
     // Auto-resume respond sequence if last message is from founder.
     // Determine which members have already responded since the last founder message
     // so re-opening mid-sequence doesn't double-fire completed members.
-    const lastFounderIdx = [...data.messages]
-      .reverse()
-      .findIndex((m) => m.sender_id === 'founder');
+    const lastFounderIdx = [...data.messages].reverse().findIndex((m) => m.sender_id === 'founder');
     const lastMsg = data.messages[data.messages.length - 1];
     if (lastMsg && lastMsg.sender_id === 'founder') {
       // All members need to respond — fire full sequence
@@ -321,9 +375,7 @@ export function ThreadsView() {
     } else if (lastFounderIdx !== -1) {
       // Some members may have already responded after the last founder message.
       // Resume from the first member who hasn't responded yet.
-      const afterFounder = data.messages.slice(
-        data.messages.length - lastFounderIdx
-      );
+      const afterFounder = data.messages.slice(data.messages.length - lastFounderIdx);
       const respondedIds = new Set(afterFounder.map((m) => m.sender_id));
       const remaining = data.memberOrder.filter((id) => !respondedIds.has(id));
       if (remaining.length > 0) {
@@ -369,17 +421,22 @@ export function ThreadsView() {
   // ——— New thread creation ———
 
   async function handleCreateThread() {
-    if (!newTitle.trim() || !newBrief.trim()) return;
+    if (!newTitle.trim() || (!newBrief.trim() && attachedFiles.length === 0)) return;
     setCreating(true);
     setCreateError('');
     try {
       const memberOrder = getEffectiveOrder();
+      const parts = [
+        newBrief.trim(),
+        ...attachedFiles.map((f) => `---\n**${f.name}**\n\n${f.content}`),
+      ].filter(Boolean);
+      const brief = parts.join('\n\n');
       const res = await fetch('/api/threads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newTitle.trim(),
-          brief: newBrief.trim(),
+          brief,
           memberOrder,
         }),
       });
@@ -401,12 +458,28 @@ export function ThreadsView() {
     }
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedFiles((prev) => [
+          ...prev,
+          { name: file.name, content: reader.result as string },
+        ]);
+      };
+      reader.readAsText(file);
+    });
+    e.target.value = '';
+  }
+
   function resetNewForm() {
     setNewTitle('');
     setNewBrief('');
     setThreadType('strategy');
     setDragOrder(members.map((m) => m.id));
     setCreateError('');
+    setAttachedFiles([]);
   }
 
   // ——— Drag-to-reorder ———
@@ -626,6 +699,9 @@ export function ThreadsView() {
             const timestamp = formatTime(msg.created_at);
 
             if (msg.sender_id === 'founder') {
+              const { body: msgBody, attachments: msgAttachments } = parseMessageContent(
+                msg.content
+              );
               return (
                 <div
                   key={msg.id}
@@ -655,9 +731,16 @@ export function ThreadsView() {
                       {timestamp}
                     </ChromeLabel>
                   </div>
-                  <p className="text-panel-foreground pl-8.5 text-sm leading-relaxed whitespace-pre-wrap">
-                    {msg.content}
-                  </p>
+                  <div className="flex flex-col gap-2 pl-8.5">
+                    {msgBody && (
+                      <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                        {msgBody}
+                      </p>
+                    )}
+                    {msgAttachments.map((a, i) => (
+                      <AttachmentChip key={i} name={a.name} content={a.content} />
+                    ))}
+                  </div>
                 </div>
               );
             }
@@ -843,6 +926,40 @@ export function ThreadsView() {
                 rows={4}
                 className={cn(FIELD_CLASS, 'resize-none')}
               />
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".md,.txt"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-sidebar-muted hover:text-sidebar-foreground flex items-center gap-1 text-[11px] transition-colors"
+                >
+                  <Paperclip className="h-3 w-3" />
+                  Attach
+                </button>
+                {attachedFiles.map((f, i) => (
+                  <span
+                    key={i}
+                    className="bg-sidebar-hover text-sidebar-foreground flex items-center gap-1 rounded-sm px-2 py-0.5 font-mono text-[10px]"
+                  >
+                    {f.name}
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-sidebar-muted hover:text-sidebar-foreground ml-0.5 leading-none"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Preset selector */}
@@ -851,7 +968,9 @@ export function ThreadsView() {
                 Thread Type
               </label>
               <div className="flex flex-wrap gap-2">
-                {(['strategy', 'technical', 'design', 'launch', 'custom'] as const).map((type) => (
+                {(
+                  ['strategy', 'technical', 'design', 'launch', 'brainstorm', 'custom'] as const
+                ).map((type) => (
                   <button
                     key={type}
                     onClick={() => {

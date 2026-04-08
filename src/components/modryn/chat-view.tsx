@@ -4,7 +4,15 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { useDraft } from '@/hooks/use-draft';
+import {
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Send,
+  PanelRightClose,
+  PanelRightOpen,
+} from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { LogDecisionButton } from '@/components/modryn/log-decision-button';
 import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
@@ -38,6 +46,57 @@ function getMessageText(message: {
   return message.content ?? '';
 }
 
+function parseMessageContent(text: string): {
+  body: string;
+  attachments: { name: string; content: string }[];
+} {
+  const re = /\n\n---\n\*\*(.+?)\*\*\n\n/g;
+  const matches: { index: number; name: string; contentStart: number }[] = [];
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    matches.push({ index: match.index, name: match[1], contentStart: re.lastIndex });
+  }
+  if (matches.length === 0) return { body: text, attachments: [] };
+  const body = text.slice(0, matches[0].index);
+  const attachments = matches.map((m, i) => ({
+    name: m.name,
+    content: text.slice(
+      m.contentStart,
+      i + 1 < matches.length ? matches[i + 1].index : text.length
+    ),
+  }));
+  return { body, attachments };
+}
+
+function AttachmentChip({ name, content }: { name: string; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-panel-border overflow-hidden rounded-sm border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="hover:bg-panel-selected/50 flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
+      >
+        <FileText className="text-panel-faint h-3 w-3 shrink-0" />
+        <span className="text-panel-muted font-mono text-[10px]">{name}</span>
+        <ChevronDown
+          className={cn(
+            'text-panel-faint ml-auto h-3 w-3 transition-transform',
+            open && 'rotate-180'
+          )}
+        />
+      </button>
+      {open && (
+        <div className="border-panel-border max-h-64 overflow-y-auto border-t px-3 py-2">
+          <pre className="text-panel-muted font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+            {content}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ThinkingDots() {
   return (
     <div className="flex items-center gap-1 py-1">
@@ -65,6 +124,7 @@ function FounderMessage({
   founderInitials: string;
   founderAvatarDataUrl: string;
 }) {
+  const { body, attachments } = parseMessageContent(text);
   return (
     <div className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
@@ -89,9 +149,16 @@ function FounderMessage({
           {timestamp}
         </ChromeLabel>
       </div>
-      <p className="text-panel-foreground pl-8.5 text-sm leading-relaxed whitespace-pre-wrap">
-        {text}
-      </p>
+      <div className="flex flex-col gap-2 pl-8.5">
+        {body && (
+          <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
+            {body}
+          </p>
+        )}
+        {attachments.map((a, i) => (
+          <AttachmentChip key={i} name={a.name} content={a.content} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -206,12 +273,14 @@ export function ChatView({
 }: ChatViewProps) {
   const { profile } = useProfile();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useDraft(`dm-${memberId}`);
   const [messageTimestamps, setMessageTimestamps] = useState<Record<string, string>>({});
   const [pendingTimestamp, setPendingTimestamp] = useState<string | null>(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
@@ -219,7 +288,7 @@ export function ChatView({
       prepareSendMessagesRequest: ({ id, messages }) => ({
         body: {
           id,
-          messages,
+          message: messages[messages.length - 1],
           memberId,
           conversationId: conversationIdRef.current,
           surface,
@@ -315,11 +384,36 @@ export function ChatView({
     }
   }, [status, pendingTimestamp]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedFiles((prev) => [
+          ...prev,
+          { name: file.name, content: reader.result as string },
+        ]);
+      };
+      reader.readAsText(file);
+    });
+    e.target.value = '';
+  };
+
   const handleSend = () => {
-    if (!inputValue.trim() || isStreaming) return;
+    if (!inputValue.trim() && attachedFiles.length === 0) return;
+    if (isStreaming) return;
+    const parts = [
+      inputValue.trim(),
+      ...attachedFiles.map((f) => `---\n**${f.name}**\n\n${f.content}`),
+    ].filter(Boolean);
+    const text = parts.join('\n\n');
     setPendingTimestamp(formatTime(new Date()));
-    sendMessage({ text: inputValue });
+    sendMessage({ text });
     setInputValue('');
+    setAttachedFiles([]);
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -464,35 +558,78 @@ export function ChatView({
         <label htmlFor="chat-input" className="sr-only">
           Message {memberName}
         </label>
-        <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-2.5 transition-colors focus-within:ring-4">
-          <textarea
-            id="chat-input"
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Message ${memberName}...`}
-            rows={1}
-            disabled={isStreaming || !historyLoaded}
-            className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
-            style={{
-              height: 'auto',
-            }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-            }}
-          />
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming || !historyLoaded}
-              className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-8 w-8 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
-              aria-label="Send message"
-            >
-              <Send className="text-panel-inverse h-3.5 w-3.5" />
-            </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".md,.txt"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex flex-col rounded-sm border px-4 py-2.5 transition-colors focus-within:ring-4">
+          {attachedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {attachedFiles.map((f, i) => (
+                <span
+                  key={i}
+                  className="bg-panel border-panel-border text-panel-muted flex items-center gap-1 rounded-sm border px-2 py-0.5 font-mono text-[10px]"
+                >
+                  {f.name}
+                  <button
+                    type="button"
+                    onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-panel-faint hover:text-panel-muted ml-0.5 leading-none"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end gap-3">
+            <textarea
+              id="chat-input"
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`Message ${memberName}...`}
+              rows={1}
+              disabled={isStreaming || !historyLoaded}
+              className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
+              style={{
+                height: 'auto',
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+              }}
+            />
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || !historyLoaded}
+                className="text-panel-faint hover:text-panel-muted transition-colors disabled:opacity-30"
+                aria-label="Attach file"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={
+                  (!inputValue.trim() && attachedFiles.length === 0) ||
+                  isStreaming ||
+                  !historyLoaded
+                }
+                className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-8 w-8 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
+                aria-label="Send message"
+              >
+                <Send className="text-panel-inverse h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

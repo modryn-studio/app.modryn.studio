@@ -34,17 +34,18 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { messages, memberId, conversationId } = body;
+    const { message, memberId, conversationId } = body;
     const surface = surfaceSchema.parse(body.surface);
 
-    log.info(ctx.reqId, 'Chat request', {
-      memberId,
-      conversationId,
-      messageCount: messages?.length,
-    });
+    if (!message || !memberId) {
+      return log.end(
+        ctx,
+        Response.json({ error: 'message and memberId are required' }, { status: 400 })
+      );
+    }
 
-    // Pull member system prompt, recent memory (episodic + semantic), and org memory in parallel.
-    const [memberRows, episodicRows, semanticRows, orgMemory] = await Promise.all([
+    // Pull member system prompt, recent memory, and conversation history in parallel.
+    const [memberRows, episodicRows, semanticRows, orgMemory, historyRows] = await Promise.all([
       sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
       sql`
         SELECT summary FROM member_memory
@@ -59,6 +60,14 @@ export async function POST(req: Request): Promise<Response> {
         LIMIT 3
       `,
       getOrgMemory(),
+      conversationId
+        ? sql`
+            SELECT id, role, content, created_at FROM messages
+            WHERE conversation_id = ${conversationId}
+            ORDER BY created_at DESC
+            LIMIT 40
+          `
+        : Promise.resolve([]),
     ]);
 
     const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
@@ -122,47 +131,51 @@ export async function POST(req: Request): Promise<Response> {
         : []),
     ]);
 
-    // Save the user's new message to DB (last message in the array)
-    if (conversationId && messages?.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === 'user') {
-        // Extract text from parts or content
-        const text =
-          lastMsg.parts
-            ?.filter((p: { type: string }) => p.type === 'text')
-            .map((p: { text: string }) => p.text)
-            .join('') ??
-          lastMsg.content ??
-          '';
-        if (text) {
-          await sql`
-            INSERT INTO messages (conversation_id, sender_id, role, content)
-            VALUES (${conversationId}, 'founder', 'user', ${text})
-          `;
-        }
+    // Build allMessages: DB history (last 40, reversed to chronological) + the new incoming message.
+    // The server owns history — the client only sends the last message.
+    const dbMessages = (
+      historyRows as { id: string; role: string; content: string; created_at: string }[]
+    )
+      .reverse()
+      .map((row) => ({
+        id: row.id,
+        role: row.role as 'user' | 'assistant',
+        parts: [{ type: 'text' as const, text: row.content }],
+        createdAt: new Date(row.created_at),
+      }));
+    const allMessages = [...dbMessages, message];
+
+    log.info(ctx.reqId, 'Chat request', {
+      memberId,
+      conversationId,
+      messageCount: allMessages.length,
+    });
+
+    // Save the incoming user message to DB.
+    if (conversationId && message?.role === 'user') {
+      const text =
+        message.parts
+          ?.filter((p: { type: string }) => p.type === 'text')
+          .map((p: { text: string }) => p.text)
+          .join('') ??
+        message.content ??
+        '';
+      if (text) {
+        await sql`
+          INSERT INTO messages (conversation_id, sender_id, role, content)
+          VALUES (${conversationId}, 'founder', 'user', ${text})
+        `;
       }
     }
 
-    // History soft cap — estimate char count and slice to last 20 messages if over 80k chars.
-    // Keeps cost predictable for long-running conversations without losing recent context.
-    // onFinish uses the original `messages` for transcript building (full history for summarizer).
-    const historyCharCount = messages.reduce(
-      (sum: number, m: { parts?: { type: string; text: string }[]; content?: string }) => {
-        const text =
-          m.parts
-            ?.filter((p) => p.type === 'text')
-            .map((p) => p.text)
-            .join('') ?? (typeof m.content === 'string' ? m.content : '');
-        return sum + text.length;
-      },
-      0
-    );
-    const cappedMessages = historyCharCount > 80_000 ? messages.slice(-20) : messages;
+    // 20-message sliding window — only the last 20 messages are sent to the model.
+    // Full allMessages is retained in scope for the episodic memory transcript below.
+    const windowedMessages = allMessages.slice(-20);
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
-      messages: await convertToModelMessages(cappedMessages),
+      messages: await convertToModelMessages(windowedMessages),
       maxOutputTokens: 800,
       temperature: 0.7,
       async onFinish({ text, usage }) {
@@ -183,14 +196,14 @@ export async function POST(req: Request): Promise<Response> {
 
         // Memory write — only after 5 user turns. Token count alone is not a reliable
         // signal at this scale; turn count ensures the conversation has real substance.
-        const userTurns = messages.filter((m: { role: string }) => m.role === 'user').length;
+        const userTurns = allMessages.filter((m: { role: string }) => m.role === 'user').length;
         const meetsThreshold = userTurns >= 5;
 
         if (conversationId && memberId && text && meetsThreshold) {
           try {
             // Build a plain transcript for the summarizer (incoming history + this response)
             const transcript = [
-              ...messages.map(
+              ...allMessages.map(
                 (m: {
                   role: string;
                   parts?: { type: string; text: string }[];

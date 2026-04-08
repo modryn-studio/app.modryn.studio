@@ -71,6 +71,7 @@ export function LogOrgMemoryButton({
           'text-panel-faint hover:text-panel-muted rounded-sm p-0.5'
         )}
         aria-label="Log to team"
+        title="Log to team memory"
       >
         <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
       </button>

@@ -74,6 +74,7 @@ export function LogDecisionButton({
           'text-panel-faint hover:text-panel-muted rounded-sm p-0.5'
         )}
         aria-label="Log as decision"
+        title="Log as decision"
       >
         <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} />
       </button>
