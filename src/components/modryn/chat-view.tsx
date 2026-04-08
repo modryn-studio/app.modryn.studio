@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { LogDecisionButton } from '@/components/modryn/log-decision-button';
+import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
 import { ChatContainerRoot, ChatContainerContent } from '@/components/prompt-kit/chat-container';
@@ -102,6 +104,8 @@ function AIMessage({
   timestamp,
   isStreaming,
   messageId,
+  memberId,
+  conversationId,
 }: {
   text: string;
   memberName: string;
@@ -110,6 +114,8 @@ function AIMessage({
   timestamp: string;
   isStreaming?: boolean;
   messageId?: string;
+  memberId?: string;
+  conversationId?: string | null;
 }) {
   return (
     <div className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
@@ -141,6 +147,20 @@ function AIMessage({
           <ChromeLabel className="text-status-generating tracking-[0.08em] normal-case">
             — generating
           </ChromeLabel>
+        )}
+        {!isStreaming && text && memberId !== undefined && (
+          <LogDecisionButton
+            messageContent={text}
+            memberId={memberId}
+            conversationId={conversationId ?? null}
+          />
+        )}
+        {!isStreaming && text && memberId !== undefined && (
+          <LogOrgMemoryButton
+            messageContent={text}
+            memberId={memberId}
+            conversationId={conversationId ?? null}
+          />
         )}
       </div>
       <div className="pl-8.5">
@@ -410,6 +430,8 @@ export function ChatView({
                       timestamp={timestamp}
                       isStreaming={isLastAI && isStreaming}
                       messageId={message.id ?? `idx-${idx}`}
+                      memberId={memberId}
+                      conversationId={conversationIdRef.current}
                     />
                   );
                 })}

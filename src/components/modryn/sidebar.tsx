@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MessageSquare, Inbox, Plus, UserPlus, LogOut, GripVertical } from 'lucide-react';
+import {
+  MessageSquare,
+  Inbox,
+  MessagesSquare,
+  Plus,
+  UserPlus,
+  LogOut,
+  GripVertical,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -60,6 +68,7 @@ const statusLabels: Record<MemberStatus, string> = {
 const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
+  { id: 'threads', label: 'Threads', icon: MessagesSquare },
 ];
 
 function MemberAvatar({

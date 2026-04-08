@@ -9,7 +9,7 @@ import type { View } from '@/components/modryn/sidebar';
 const tabs: { id: View; label: string; icon: React.ElementType; built: boolean }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare, built: true },
   { id: 'inbox', label: 'Inbox', icon: Inbox, built: true },
-  { id: 'threads', label: 'Threads', icon: MessagesSquare, built: false },
+  { id: 'threads', label: 'Threads', icon: MessagesSquare, built: true },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare, built: false },
   { id: 'calendar', label: 'Cal', icon: Calendar, built: false },
 ];

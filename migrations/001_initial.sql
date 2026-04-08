@@ -28,7 +28,7 @@ CREATE TABLE members (
 
 CREATE TABLE conversations (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  type       TEXT        NOT NULL,   -- 'dm' | 'group' | 'async'
+  type       TEXT        NOT NULL,   -- 'dm' | 'thread' (original comment said 'group'|'async' — outdated)
   title      TEXT,                   -- display title for group threads
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

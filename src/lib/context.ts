@@ -1,5 +1,9 @@
 import fs from 'fs';
 import path from 'path';
+import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { z } from 'zod';
+import sql from '@/lib/db';
 
 // Returns the contents of the founding document as a string.
 // This is injected into every chat session between the member system prompt
@@ -12,5 +16,75 @@ export function getCompanyContext(): string {
     return fs.readFileSync(filePath, 'utf-8');
   } catch {
     return '';
+  }
+}
+
+// Returns a merged view of decisions + org_memory as a formatted string, or null if empty.
+// Lazy merge — no dual-write. Decisions are always reflected in org context via UNION.
+export async function getOrgMemory(): Promise<string | null> {
+  try {
+    const rows = await sql`
+      SELECT content
+      FROM (
+        SELECT title || COALESCE(': ' || description, '') AS content, created_at
+        FROM decisions
+        UNION ALL
+        SELECT content, created_at
+        FROM org_memory
+      ) combined
+      ORDER BY created_at DESC
+      LIMIT 20
+    `;
+    if (rows.length === 0) return null;
+    const items = rows.map((r) => `- ${r.content}`).join('\n');
+    return `## Organizational Memory\n\nFacts known across the team:\n${items}`;
+  } catch {
+    // Org memory is non-critical — degrade gracefully
+    return null;
+  }
+}
+
+// Extracts team-relevant facts from text using Haiku, inserts non-empty results into org_memory.
+// Uses Output.object() for schema-enforced structured output — no manual JSON parsing needed.
+// Called after member_memory writes (DMs) and after full respond sequence completes (threads).
+export async function extractAndStoreOrgFacts(
+  text: string,
+  conversationId: string,
+  memberId: string
+): Promise<void> {
+  try {
+    const { output } = await generateText({
+      model: anthropic('claude-haiku-4-5-20251001'),
+      output: Output.object({
+        schema: z.object({
+          facts: z
+            .array(z.string().min(11))
+            .describe(
+              'Facts that would change how another team member advises this founder. Each string is one fact. Empty array if nothing qualifies.'
+            ),
+        }),
+      }),
+      system:
+        'Extract only facts that would change how another team member advises this founder. Decisions made. Commitments stated. Constraints named. Open questions that affect company direction. Return an empty facts array if nothing qualifies.',
+      prompt: text,
+      maxOutputTokens: 400,
+      temperature: 0.2,
+    });
+
+    const facts = output?.facts ?? [];
+    if (facts.length === 0) return;
+
+    for (const content of facts) {
+      await sql`
+        INSERT INTO org_memory (content, source_conversation_id, source_member_id, extraction_type)
+        VALUES (${content}, ${conversationId}, ${memberId}, 'auto')
+      `;
+    }
+  } catch (err) {
+    if (err instanceof NoObjectGeneratedError) {
+      // Extraction failed to produce a valid object — degrade gracefully, don't surface to user
+      return;
+    }
+    throw err;
   }
 }

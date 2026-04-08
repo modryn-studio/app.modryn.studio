@@ -5,6 +5,7 @@ import { Sidebar, type View } from '@/components/modryn/sidebar';
 import { ChatView } from '@/components/modryn/chat-view';
 import { ContextPanel } from '@/components/modryn/context-panel';
 import { InboxView } from '@/components/modryn/inbox-view';
+import { ThreadsView } from '@/components/modryn/threads-view';
 import { PlaceholderView } from '@/components/modryn/placeholder-view';
 import { SetupView } from '@/components/modryn/setup-view';
 import { MobileHeader } from '@/components/modryn/mobile-header';
@@ -46,13 +47,7 @@ export default function ModrynStudio() {
         </div>
       )}
       {activeView === 'inbox' && <InboxView />}
-      {activeView === 'threads' && (
-        <PlaceholderView
-          label="///"
-          title="Group Threads"
-          description="Async conversation threads across the entire team — coming in the next release."
-        />
-      )}
+      {activeView === 'threads' && <ThreadsView />}
       {activeView === 'tasks' && (
         <PlaceholderView
           label="[ ]"

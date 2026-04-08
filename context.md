@@ -67,7 +67,7 @@ basePath:
 ## Stack Additions
 
 - Neon (serverless Postgres + Neon Auth via @neondatabase/auth)
-- Anthropic API (claude-sonnet-4-6 for AI member responses)
+- Anthropic API (claude-sonnet-4-6 for AI member responses; claude-haiku-4-5-20251001 for memory summarization and org fact extraction)
 - Vercel SSE (Server-Sent Events for real-time streaming responses)
 - Vercel Hobby tier (hosting + serverless functions)
 
@@ -79,10 +79,20 @@ basePath:
 
 ## Data Layer Notes
 
-- All persistent state lives in Neon: conversations, messages, tasks, member memory, decisions
-- Context injection stack (assembled per request in /api/chat): [member system prompt from DB] → [company context from founding doc file] → [member memory summaries from DB]
-- Memory summarization: after each session, compress conversation into structured summary and store in member_memory; inject as system context on next session
-- Member-to-member orchestration: each member response gets injected as context into the next member's API call (sequenced Claude calls, each with their own system prompt)
+- All persistent state lives in Neon: conversations, messages, tasks, member_memory, decisions, org_memory
+- Context injection stack (assembled per request via `assembleContext()` in /src/lib/tokens.ts with 12k token budget, priority-pruned):
+  1. Format instructions (surface-specific word limits) — never pruned
+  2. Member system prompt (from DB) — never pruned
+  3. Company context (founding doc from disk) — never pruned
+  4. Semantic memory (behavioural patterns, from member_memory WHERE memory_type='semantic') — prunable
+  5. Org memory (shared facts, merged from decisions + org_memory tables) — prunable
+  6. Episodic memory (per-conversation summaries, from member_memory WHERE memory_type='episodic') — most prunable
+- Memory tiers:
+  - Episodic: one summary per DM conversation (upserted), written by Haiku after 5+ user turns
+  - Semantic: behavioural patterns across all episodic summaries, written every 5th episodic entry
+  - Org memory: team-wide facts extracted from DM summaries and full thread transcripts (auto) or logged manually; merged with decisions table via UNION in getOrgMemory()
+- Org fact extraction: uses `Output.object()` with `maxSteps: 2` + `NoObjectGeneratedError` handling — schema-enforced, no manual JSON parsing
+- Member-to-member orchestration (threads): sequenced Claude calls via `/api/threads/[threadId]/respond` — each member gets full thread transcript + their own system prompt + memory context; idempotency check prevents double-responses; extraction runs post-sequence via `/api/threads/[threadId]/extract`
 - Proactive messaging governor: members can initiate messages, rate-limited by per-member cooldown (default 24h) or event trigger, to prevent runaway activity
 - Task structure: each task has { title, brief, assigned_member, deliverable_type, status (pending/in-progress/review/done), output (text), created_at, completed_at }; deliverable_type drives how the member's system prompt frames its response
 

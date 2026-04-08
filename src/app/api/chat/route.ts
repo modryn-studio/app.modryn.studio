@@ -2,7 +2,8 @@ import { streamText, generateText, convertToModelMessages } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
-import { getCompanyContext } from '@/lib/context';
+import { getCompanyContext, getOrgMemory, extractAndStoreOrgFacts } from '@/lib/context';
+import { assembleContext } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
 import '@/lib/env'; // validate required env vars on cold start
@@ -42,24 +43,39 @@ export async function POST(req: Request): Promise<Response> {
       messageCount: messages?.length,
     });
 
-    // Pull member system prompt + recent memory summaries from DB.
-    const [memberRows, memoryRows] = await Promise.all([
+    // Pull member system prompt, recent memory (episodic + semantic), and org memory in parallel.
+    const [memberRows, episodicRows, semanticRows, orgMemory] = await Promise.all([
       sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
       sql`
         SELECT summary FROM member_memory
-        WHERE member_id = ${memberId}
+        WHERE member_id = ${memberId} AND memory_type = 'episodic'
         ORDER BY created_at DESC
         LIMIT 5
       `,
+      sql`
+        SELECT summary FROM member_memory
+        WHERE member_id = ${memberId} AND memory_type = 'semantic'
+        ORDER BY created_at DESC
+        LIMIT 3
+      `,
+      getOrgMemory(),
     ]);
 
     const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
 
     const companyContext = getCompanyContext();
 
-    const memorySegments =
-      memoryRows.length > 0
-        ? [...memoryRows]
+    const episodicSegments =
+      episodicRows.length > 0
+        ? [...episodicRows]
+            .reverse()
+            .map((r: Record<string, string>) => r.summary)
+            .join('\n\n---\n\n')
+        : null;
+
+    const semanticSegments =
+      semanticRows.length > 0
+        ? [...semanticRows]
             .reverse()
             .map((r: Record<string, string>) => r.summary)
             .join('\n\n---\n\n')
@@ -67,15 +83,44 @@ export async function POST(req: Request): Promise<Response> {
 
     const formatInstruction = surface ? ROUTE_CONTEXT[surface] : null;
 
-    const systemPrompt = [
-      formatInstruction && `## Format Instructions\n\n${formatInstruction}`,
-      memberSystemPrompt,
-      companyContext && `## Company Context\n\n${companyContext}`,
-      memorySegments &&
-        `## Session Memory (previous conversations, oldest first)\n\n${memorySegments}`,
-    ]
-      .filter(Boolean)
-      .join('\n\n---\n\n');
+    // Priority order per plan Phase 3:
+    // 1=format, 2=system prompt, 3=company context, 4=semantic, 5=org memory, 6=episodic
+    const systemPrompt = assembleContext([
+      ...(formatInstruction
+        ? [
+            {
+              label: 'format',
+              content: `## Format Instructions\n\n${formatInstruction}`,
+              priority: 1,
+            },
+          ]
+        : []),
+      { label: 'system', content: memberSystemPrompt, priority: 2 },
+      ...(companyContext
+        ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
+        : []),
+      ...(semanticSegments
+        ? [
+            {
+              label: 'semantic',
+              content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
+              priority: 4,
+              prunable: true,
+            },
+          ]
+        : []),
+      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 5, prunable: true }] : []),
+      ...(episodicSegments
+        ? [
+            {
+              label: 'episodic',
+              content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
+              priority: 6,
+              prunable: true,
+            },
+          ]
+        : []),
+    ]);
 
     // Save the user's new message to DB (last message in the array)
     if (conversationId && messages?.length > 0) {
@@ -98,10 +143,26 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
+    // History soft cap — estimate char count and slice to last 20 messages if over 80k chars.
+    // Keeps cost predictable for long-running conversations without losing recent context.
+    // onFinish uses the original `messages` for transcript building (full history for summarizer).
+    const historyCharCount = messages.reduce(
+      (sum: number, m: { parts?: { type: string; text: string }[]; content?: string }) => {
+        const text =
+          m.parts
+            ?.filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('') ?? (typeof m.content === 'string' ? m.content : '');
+        return sum + text.length;
+      },
+      0
+    );
+    const cappedMessages = historyCharCount > 80_000 ? messages.slice(-20) : messages;
+
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
+      messages: await convertToModelMessages(cappedMessages),
       maxOutputTokens: 800,
       temperature: 0.7,
       async onFinish({ text, usage }) {
@@ -120,12 +181,10 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
 
-        // Memory write — only when conversation clears the threshold.
-        // messages is the incoming array from req.json() (closure) — all turns
-        // the client sent, which includes the full accumulated history.
+        // Memory write — only after 5 user turns. Token count alone is not a reliable
+        // signal at this scale; turn count ensures the conversation has real substance.
         const userTurns = messages.filter((m: { role: string }) => m.role === 'user').length;
-        const totalTokens = usage?.totalTokens ?? 0;
-        const meetsThreshold = userTurns >= 5 || totalTokens >= 500;
+        const meetsThreshold = userTurns >= 5;
 
         if (conversationId && memberId && text && meetsThreshold) {
           try {
@@ -149,7 +208,7 @@ export async function POST(req: Request): Promise<Response> {
             ].join('\n\n');
 
             const { text: summary } = await generateText({
-              model: anthropic('claude-haiku-4-5'),
+              model: anthropic('claude-haiku-4-5-20251001'),
               messages: [
                 {
                   role: 'user',
@@ -160,10 +219,12 @@ export async function POST(req: Request): Promise<Response> {
               temperature: 0.3,
             });
 
-            // Upsert — one summary per conversation, updated as it grows.
+            // Upsert — one episodic summary per conversation, updated as it grows.
             // Prevents accumulating near-identical rows and injecting redundant context.
             const existingMemory = await sql`
-              SELECT id FROM member_memory WHERE conversation_id = ${conversationId} LIMIT 1
+              SELECT id FROM member_memory
+              WHERE conversation_id = ${conversationId} AND memory_type = 'episodic'
+              LIMIT 1
             `;
             if (existingMemory.length > 0) {
               await sql`
@@ -173,8 +234,8 @@ export async function POST(req: Request): Promise<Response> {
               `;
             } else {
               await sql`
-                INSERT INTO member_memory (member_id, conversation_id, summary)
-                VALUES (${memberId}, ${conversationId}, ${summary})
+                INSERT INTO member_memory (member_id, conversation_id, summary, memory_type)
+                VALUES (${memberId}, ${conversationId}, ${summary}, 'episodic')
               `;
             }
 
@@ -182,8 +243,45 @@ export async function POST(req: Request): Promise<Response> {
               memberId,
               conversationId,
               userTurns,
-              totalTokens,
+              totalTokens: usage.totalTokens,
             });
+
+            // Every 5th episodic entry for this member: generate a semantic summary
+            // capturing recurring patterns, working style, decision tendencies.
+            const episodicCount = await sql`
+              SELECT COUNT(*) AS count FROM member_memory
+              WHERE member_id = ${memberId} AND memory_type = 'episodic'
+            `;
+            const count = Number(episodicCount[0]?.count ?? 0);
+            if (count > 0 && count % 5 === 0) {
+              const allEpisodic = await sql`
+                SELECT summary FROM member_memory
+                WHERE member_id = ${memberId} AND memory_type = 'episodic'
+                ORDER BY created_at ASC
+              `;
+              const episodicCorpus = allEpisodic
+                .map((r: Record<string, string>) => r.summary)
+                .join('\n\n---\n\n');
+              const { text: semanticSummary } = await generateText({
+                model: anthropic('claude-haiku-4-5-20251001'),
+                messages: [
+                  {
+                    role: 'user',
+                    content: `Based on the following conversation summaries between ${memberId} and Luke (founder), identify recurring patterns in how Luke thinks and works. Focus on: decision-making tendencies, recurring priorities, working style preferences, themes that keep surfacing. Write 3–5 plain bullet points. Be specific and observational, not evaluative.\n\n${episodicCorpus}`,
+                  },
+                ],
+                maxOutputTokens: 400,
+                temperature: 0.3,
+              });
+              await sql`
+                INSERT INTO member_memory (member_id, conversation_id, summary, memory_type)
+                VALUES (${memberId}, NULL, ${semanticSummary}, 'semantic')
+              `;
+              log.info(ctx.reqId, 'Semantic memory written', { memberId, episodicCount: count });
+            }
+
+            // Extract team-relevant facts from the summary for shared org context.
+            await extractAndStoreOrgFacts(summary, conversationId, memberId);
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed
             log.err(ctx, e);
@@ -191,6 +289,11 @@ export async function POST(req: Request): Promise<Response> {
         }
       },
     });
+
+    // Consume the stream so onFinish fires even if the client disconnects mid-response.
+    // Without this, closing the browser tab mid-stream aborts the LLM call and the
+    // message is never saved to DB, leaving the conversation in a broken state.
+    result.consumeStream(); // no await
 
     return log.end(ctx, result.toUIMessageStreamResponse(), { memberId });
   } catch (error) {

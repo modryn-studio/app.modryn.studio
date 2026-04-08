@@ -16,6 +16,14 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 - `@/lib/analytics.ts` — no-op stub; wire a real provider here if needed
 - lucide-react icons · `@radix-ui/react-dialog` (Sheet) · `@radix-ui/react-slot` (Button)
 - `ai` 6.x · `@ai-sdk/react` 3.x · `@ai-sdk/anthropic` 3.x — streaming via `/api/chat`
+  - `claude-sonnet-4-6` — main member responses (DMs + threads)
+  - `claude-haiku-4-5-20251001` — episodic summarization, semantic memory, org fact extraction
+  - `Output.object()` with `maxSteps: 2` + `NoObjectGeneratedError` — schema-enforced structured extraction, no manual JSON parsing
+- `@/lib/tokens.ts` — `assembleContext()` builds the system prompt from 6 priority-ordered layers (format → system → company → semantic → org → episodic) with a 12k token budget; lower-priority layers pruned first
+- Memory tiers (all in `member_memory` / `org_memory` tables):
+  - Episodic — one summary per DM conversation, upserted by Haiku after 5+ user turns
+  - Semantic — behavioural patterns across episodic summaries, written every 5th episodic entry
+  - Org — team-wide facts merged from `decisions` + `org_memory` tables via UNION in `getOrgMemory()`
 - Neon (serverless Postgres) · `@neondatabase/auth` — Neon Auth active, invite-gated access
 - `zod` — request body validation in API routes
 

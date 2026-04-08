@@ -101,11 +101,21 @@ The inbox is currently empty — `INBOX_MESSAGES` is an empty array. The list an
 
 ---
 
+## Threads
+
+Switch to Threads via the sidebar icon or mobile tab bar.
+
+- Click **New Thread** to open a creation sheet: enter a title, a brief (your initial message to the team), and select which AI members to include and in what order.
+- Once created, the thread opens in detail view. Each selected member responds in sequence — their responses stream in one at a time.
+- All responses are persisted to DB. The thread history is visible on reload.
+- Org facts are extracted from the full thread transcript after all members have responded.
+
+---
+
 ## Placeholder Views
 
-Threads, Tasks, and Calendar show placeholder screens. These are not functional:
+Tasks and Calendar show placeholder screens. These are not functional:
 
-- **Threads (`///`)** — "Async conversation threads across the entire team — coming in the next release."
 - **Tasks (`[ ]`)** — "Shared task management with AI assignment and tracking — coming in the next release."
 - **Calendar (`##`)** — "Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
 
@@ -151,18 +161,23 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 
 | Route                        | Method | What it does                                                                                                                                                        |
 | ---------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/chat`                  | POST   | Streams AI response via Anthropic (Claude). Assembles system prompt from: member prompt (DB) + company context (founding doc) + member memory (DB). Saves messages. |
-| `/api/members`               | GET    | Returns all members from DB                                                                                                                                         |
-| `/api/members`               | POST   | Creates a new AI member. Admin only.                                                                                                                                |
-| `/api/members/[id]`          | PATCH  | Updates an AI member (name, role, system prompt, avatar). Admin only.                                                                                               |
-| `/api/members/reorder`       | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                          |
-| `/api/conversations/dm/[id]` | GET    | Returns conversation history for a DM                                                                                                                               |
-| `/api/profile`               | GET    | Returns founder profile from DB                                                                                                                                     |
-| `/api/profile`               | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                 |
-| `/api/me`                    | GET    | Returns current user's role (`admin` or `member`)                                                                                                                   |
-| `/api/invites`               | GET    | Lists all invite tokens. Admin only.                                                                                                                                |
-| `/api/invites`               | POST   | Creates a new invite token. Admin only.                                                                                                                             |
-| `/api/auth/[...path]`        | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                    |
+| `/api/chat`                               | POST   | Streams AI response via Anthropic (claude-sonnet-4-6). Assembles system prompt via `assembleContext()`: format instructions + member prompt + company context + semantic memory + org memory + episodic memory. Saves messages. Writes episodic and semantic memory post-stream. Extracts org facts. |
+| `/api/members`                            | GET    | Returns all members from DB                                                                                                                                                                                                                                                                          |
+| `/api/members`                            | POST   | Creates a new AI member. Admin only.                                                                                                                                                                                                                                                                 |
+| `/api/members/[id]`                       | PATCH  | Updates an AI member (name, role, system prompt, avatar). Admin only.                                                                                                                                                                                                                                |
+| `/api/members/reorder`                    | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                                                                                                                                                           |
+| `/api/conversations/dm/[id]`              | GET    | Returns conversation history for a DM                                                                                                                                                                                                                                                                |
+| `/api/threads`                            | GET    | Lists all threads, newest first, with last message preview and participant count                                                                                                                                                                                                                      |
+| `/api/threads`                            | POST   | Creates a thread. Body: `{ title, brief, memberOrder: string[] }`. Inserts conversation, members with respond_order, and the founder's brief as first message.                                                                                                                                        |
+| `/api/threads/[threadId]`                 | GET    | Returns thread metadata, full message history (with sender info), and memberOrder                                                                                                                                                                                                                     |
+| `/api/threads/[threadId]/respond`         | POST   | Generates one member's response to a thread. Idempotency-checked. Body: `{ memberId }`.                                                                                                                                                                                                              |
+| `/api/threads/[threadId]/extract`         | POST   | Extracts org facts from the full thread transcript after all members have responded. Body: `{ memberId }`.                                                                                                                                                                                            |
+| `/api/profile`                            | GET    | Returns founder profile from DB                                                                                                                                                                                                                                                                      |
+| `/api/profile`                            | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                                                                                                                                                  |
+| `/api/me`                                 | GET    | Returns current user's role (`admin` or `member`)                                                                                                                                                                                                                                                    |
+| `/api/invites`                            | GET    | Lists all invite tokens. Admin only.                                                                                                                                                                                                                                                                 |
+| `/api/invites`                            | POST   | Creates a new invite token. Admin only.                                                                                                                                                                                                                                                              |
+| `/api/auth/[...path]`                     | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                                                                                                                                                     |
 
 ---
 
@@ -178,6 +193,11 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Conversation persistence (DB)                     | ✅ Works                       |
 | Member system prompt + memory injection           | ✅ Works                       |
 | Company context injection (founding doc)          | ✅ Works                       |
+| Episodic memory summarization (post-session)      | ✅ Works                       |
+| Semantic memory (behavioural patterns)            | ✅ Works                       |
+| Org memory extraction (DMs + threads)             | ✅ Works                       |
+| Token budget context assembly                     | ✅ Works                       |
+| Group threads (multi-member, sequential)          | ✅ Works                       |
 | Add AI member sheet                               | ✅ Works                       |
 | Edit AI member sheet (hover row → pencil icon)    | ✅ Works                       |
 | Drag-to-reorder members                           | ✅ Works                       |
@@ -187,7 +207,5 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Context panel (decisions, tasks, notes)           | ⏳ UI only — data is hardcoded |
 | Inbox                                             | ⏳ UI only — no messages yet   |
 | Member-initiated async messages                   | ❌ Not built                   |
-| Group threads                                     | ❌ Not built                   |
 | Task board                                        | ❌ Not built                   |
 | Calendar                                          | ❌ Not built                   |
-| Memory summarization (post-session)               | ❌ Not built                   |
