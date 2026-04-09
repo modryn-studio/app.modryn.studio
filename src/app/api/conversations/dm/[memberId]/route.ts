@@ -67,3 +67,53 @@ export async function GET(
     return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ memberId: string }> }
+): Promise<Response> {
+  const ctx = log.begin();
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
+  try {
+    const { memberId } = await params;
+    const body = await req.json();
+    const { messageId } = body as { messageId: string };
+    if (!messageId) {
+      return log.end(ctx, Response.json({ error: 'messageId required' }, { status: 400 }));
+    }
+
+    // Find the message and its conversation (scoped to this member's DM)
+    const found = await sql`
+      SELECT m.id, m.created_at, m.conversation_id
+      FROM messages m
+      JOIN conversation_members cm1 ON cm1.conversation_id = m.conversation_id AND cm1.member_id = 'founder'
+      JOIN conversation_members cm2 ON cm2.conversation_id = m.conversation_id AND cm2.member_id = ${memberId}
+      WHERE m.id = ${messageId}
+      LIMIT 1
+    `;
+    if (found.length === 0) {
+      return log.end(ctx, Response.json({ error: 'Not found' }, { status: 404 }));
+    }
+
+    const { conversation_id, created_at } = found[0];
+
+    // Delete this message and all messages after it in the conversation
+    const deleted = await sql`
+      DELETE FROM messages
+      WHERE conversation_id = ${conversation_id}
+        AND created_at >= ${created_at}
+      RETURNING id
+    `;
+
+    return log.end(ctx, Response.json({ deleted: deleted.length }), {
+      memberId,
+      deletedCount: deleted.length,
+    });
+  } catch (error) {
+    log.err(ctx, error);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
+  }
+}

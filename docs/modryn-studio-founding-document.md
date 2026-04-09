@@ -6,9 +6,7 @@ _Living Document — Started April 2026_
 
 ## The Why
 
-Modryn Studio exists at the intersection of technology and creative output.
-
-Founded as a deliberate move away from physical manual labor — the cost of time, body, income ceiling, and freedom — and toward a future that is genuinely exciting. Technology wasn't chosen as the "smartest" path among many. It was chosen because it's the right one for this founder, and because it's genuinely exciting.
+Founded as a deliberate move away from physical manual labor — the cost of time, body, income ceiling, and freedom — and toward a future that is genuinely exciting. Technology wasn't chosen as the "smartest" path among many. It was chosen because it's the right one for this founder.
 
 The end goal is **engaged freedom** — working 6–8 hours a day on things that matter: building software, writing, creating content, consulting, and planning. No physical toll. No ceiling.
 
@@ -23,7 +21,7 @@ The end goal is **engaged freedom** — working 6–8 hours a day on things that
 
 **What We Do:**
 
-- Build software tools and products
+- Build software products that deliver results — not tools the user has to operate
 - Write (thought leadership, long-form, content strategy)
 - Produce content (not personal video — produced, strategic content)
 
@@ -35,8 +33,6 @@ The end goal is **engaged freedom** — working 6–8 hours a day on things that
 
 **Studio Model:** Multiple digital revenue streams that compound over time. Small, leveraged, high-quality output.
 
-**First Product:** Not yet determined. Customer discovery is underway. The AI OS is the internal tool used to find and build the first real product — it is not the product itself.
-
 ---
 
 ## Founder Profile
@@ -46,8 +42,7 @@ The end goal is **engaged freedom** — working 6–8 hours a day on things that
 **Decision Making:** Data-driven, frameworks, debate, with gut instinct in the mix.
 **Communication:** Direct and blunt day-to-day. Detailed and thorough when planning.
 **Working Style:** Not a micromanager. Gives team autonomy in how they communicate and operate.
-**Non-Negotiables:** To be developed as they surface through real decisions.
-**Blind Spots:** To be developed as the team grows and friction reveals them.
+**Builder Identity:** Goes deep so others don't have to. Finds the signal in the noise, forms the judgment, and hands the answer.
 
 ---
 
@@ -67,17 +62,3 @@ The end goal is **engaged freedom** — working 6–8 hours a day on things that
 - **Dynamic:** Collaborative and adversarial — members build on each other and challenge each other depending on the task.
 - **Interaction:** One-on-one, group roundtables, advisory sessions, and inter-team communication.
 - **Decisions:** Data + frameworks + debate + gut. No single input dominates.
-
----
-
-## Open Questions
-
-_(To be answered as the company develops)_
-
-- What is Modryn's primary revenue model?
-- Who are the first customers or audience?
-- What are the founder's non-negotiables?
-
----
-
-_This is a living document. Update it as the company evolves._

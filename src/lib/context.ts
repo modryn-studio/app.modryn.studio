@@ -60,12 +60,12 @@ export async function extractAndStoreOrgFacts(
           facts: z
             .array(z.string().min(11))
             .describe(
-              'Facts that would change how another team member advises this founder. Each string is one fact. Empty array if nothing qualifies.'
+              'Company-level facts only: decisions made, commitments stated, constraints identified, open questions. Each string is one fact. Empty array if nothing qualifies.'
             ),
         }),
       }),
       system:
-        'Extract only facts that would change how another team member advises this founder. Decisions made. Commitments stated. Constraints named. Open questions that affect company direction. Return an empty facts array if nothing qualifies.',
+        'Extract only company-level facts: decisions made, commitments stated, constraints named, open questions that affect company direction. Do not extract individual member positions, opinions, or arguments. A member advocating for an approach in a discussion is not a company decision. Only extract what the company has decided or committed to, not what individuals proposed. Return facts as neutral statements without attributing them to specific team members. Write "The team identified X" or "An open question exists around Y" — never "[Name] proposed..." or "[Name] argued..." Return an empty facts array if nothing qualifies.',
       prompt: text,
       maxOutputTokens: 400,
       temperature: 0.2,

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import Image from 'next/image';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet } from '@/components/ui/sheet';
+import { ModalShell, SHEET_FIELD_CLASS } from '@/components/ui/modal-shell';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import type { AIMember } from '@/hooks/use-members';
 
@@ -14,9 +15,6 @@ interface AddMemberSheetProps {
   /** When provided, the sheet operates in edit mode for this member. */
   member?: AIMember;
 }
-
-const FIELD_CLASS =
-  'w-full bg-transparent text-sidebar-foreground placeholder:text-sidebar-muted border-b border-sidebar-ring outline-none caret-sidebar-primary text-[13px] pb-1 focus:border-sidebar-primary transition-colors';
 
 export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: AddMemberSheetProps) {
   const isEdit = !!member;
@@ -115,13 +113,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
         if (!v && !isEdit) reset();
       }}
     >
-      <SheetContent side="right" className="border-sidebar-border bg-sidebar w-96 border-l p-0">
-        <SheetHeader className="border-sidebar-border border-b px-6 py-5">
-          <SheetTitle className="text-sidebar-muted text-[13px] font-medium tracking-widest uppercase">
-            {isEdit ? 'Edit Member' : 'Add Member'}
-          </SheetTitle>
-        </SheetHeader>
-
+      <ModalShell title={isEdit ? 'Edit Member' : 'Add Member'} width="w-96">
         <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6"
@@ -180,7 +172,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
               placeholder="Name"
               autoFocus
               required
-              className={FIELD_CLASS}
+              className={SHEET_FIELD_CLASS}
             />
           </div>
 
@@ -195,7 +187,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
               onChange={(e) => setRole(e.target.value)}
               placeholder="AI Strategist"
               required
-              className={FIELD_CLASS}
+              className={SHEET_FIELD_CLASS}
             />
           </div>
 
@@ -243,7 +235,7 @@ export function AddMemberSheet({ open, onOpenChange, onMemberAdded, member }: Ad
             {saving ? (isEdit ? 'Saving...' : 'Adding...') : isEdit ? 'Save changes' : 'Add member'}
           </button>
         </form>
-      </SheetContent>
+      </ModalShell>
     </Sheet>
   );
 }

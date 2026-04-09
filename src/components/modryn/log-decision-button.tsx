@@ -70,7 +70,7 @@ export function LogDecisionButton({
         type="button"
         onClick={handleOpen}
         className={cn(
-          'ml-auto opacity-0 transition-opacity group-hover:opacity-100',
+          'ml-auto opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100',
           'text-panel-faint hover:text-panel-muted rounded-sm p-0.5'
         )}
         aria-label="Log as decision"

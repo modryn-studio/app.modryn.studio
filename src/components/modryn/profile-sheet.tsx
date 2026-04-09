@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import Image from 'next/image';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet } from '@/components/ui/sheet';
+import { ModalShell } from '@/components/ui/modal-shell';
 import type { Profile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
@@ -102,13 +103,7 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="border-sidebar-border bg-sidebar w-80 border-l p-0">
-        <SheetHeader className="border-sidebar-border border-b px-6 py-5">
-          <SheetTitle className="text-sidebar-muted text-[13px] font-medium tracking-widest uppercase">
-            Profile
-          </SheetTitle>
-        </SheetHeader>
-
+      <ModalShell title="Profile" width="w-80">
         <div className="px-6 pt-8 pb-6">
           {/* Avatar */}
           <div className="mb-8 flex flex-col items-center gap-3">
@@ -173,7 +168,7 @@ export function ProfileSheet({ open, onOpenChange, profile, save }: ProfileSheet
             </div>
           </div>
         </div>
-      </SheetContent>
+      </ModalShell>
     </Sheet>
   );
 }

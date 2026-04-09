@@ -34,7 +34,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { message, memberId, conversationId } = body;
+    const { message, memberId, conversationId, isRetry } = body;
     const surface = surfaceSchema.parse(body.surface);
 
     if (!message || !memberId) {
@@ -133,6 +133,10 @@ export async function POST(req: Request): Promise<Response> {
 
     // Build allMessages: DB history (last 40, reversed to chronological) + the new incoming message.
     // The server owns history — the client only sends the last message.
+    // Strip the <sources> block appended by onFinish — it's for UI only, not model context
+    const stripSources = (content: string) =>
+      content.replace(/\n\n<sources>[\s\S]+?<\/sources>$/, '');
+
     const dbMessages = (
       historyRows as { id: string; role: string; content: string; created_at: string }[]
     )
@@ -140,7 +144,7 @@ export async function POST(req: Request): Promise<Response> {
       .map((row) => ({
         id: row.id,
         role: row.role as 'user' | 'assistant',
-        parts: [{ type: 'text' as const, text: row.content }],
+        parts: [{ type: 'text' as const, text: stripSources(row.content) }],
         createdAt: new Date(row.created_at),
       }));
     const allMessages = [...dbMessages, message];
@@ -151,8 +155,8 @@ export async function POST(req: Request): Promise<Response> {
       messageCount: allMessages.length,
     });
 
-    // Save the incoming user message to DB.
-    if (conversationId && message?.role === 'user') {
+    // Save the incoming user message to DB. Skip on retry — it already exists.
+    if (conversationId && message?.role === 'user' && !isRetry) {
       const text =
         message.parts
           ?.filter((p: { type: string }) => p.type === 'text')
@@ -172,19 +176,37 @@ export async function POST(req: Request): Promise<Response> {
     // Full allMessages is retained in scope for the episodic memory transcript below.
     const windowedMessages = allMessages.slice(-20);
 
+    // Server-side web search for Michelle only — Anthropic executes searches within one LLM call, no maxSteps needed
+    const tools =
+      memberId === 'michelle-lim'
+        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 3 }) }
+        : undefined;
+
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
       messages: await convertToModelMessages(windowedMessages),
       maxOutputTokens: 800,
       temperature: 0.7,
-      async onFinish({ text, usage }) {
-        // Save the AI response to DB
+      ...(tools && { tools }),
+      async onFinish({ text, usage, sources }) {
+        log.info(ctx.reqId, `[chat] tokens: in=${usage?.inputTokens} out=${usage?.outputTokens}`);
+        // Save the AI response to DB. Append <sources> block for Michelle's web-search responses
+        // so citations survive page reload. Stripped from model context in dbMessages above.
+        const urlSources = sources?.filter(
+          (s): s is Extract<typeof s, { sourceType: 'url' }> => s.sourceType === 'url'
+        );
+        const sourcesBlock = urlSources?.length
+          ? `\n\n<sources>${JSON.stringify(
+              urlSources.map((s) => ({ url: s.url, title: s.title }))
+            )}</sources>`
+          : '';
+        const contentToSave = text + sourcesBlock;
         if (conversationId && text) {
           try {
             await sql`
               INSERT INTO messages (conversation_id, sender_id, role, content)
-              VALUES (${conversationId}, ${memberId}, 'assistant', ${text})
+              VALUES (${conversationId}, ${memberId}, 'assistant', ${contentToSave})
             `;
             await sql`
               UPDATE conversations SET updated_at = now() WHERE id = ${conversationId}
@@ -294,6 +316,12 @@ export async function POST(req: Request): Promise<Response> {
             }
 
             // Extract team-relevant facts from the summary for shared org context.
+            // On retry: clear previous extraction for this conversation first — the same
+            // exchange would otherwise produce duplicate rows. isRetry is reliable here
+            // because handleRetry() is the only callsite that triggers regenerate().
+            if (isRetry && conversationId) {
+              await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
+            }
             await extractAndStoreOrgFacts(summary, conversationId, memberId);
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed
@@ -308,7 +336,7 @@ export async function POST(req: Request): Promise<Response> {
     // message is never saved to DB, leaving the conversation in a broken state.
     result.consumeStream(); // no await
 
-    return log.end(ctx, result.toUIMessageStreamResponse(), { memberId });
+    return log.end(ctx, result.toUIMessageStreamResponse({ sendSources: true }), { memberId });
   } catch (error) {
     log.err(ctx, error);
     return Response.json({ error: 'Internal error' }, { status: 500 });

@@ -1,17 +1,24 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
+import { DefaultChatTransport, type SourceUrlUIPart } from 'ai';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { useDraft } from '@/hooks/use-draft';
+import { useLongPress } from '@/hooks/use-long-press';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import {
+  Check,
   ChevronDown,
+  Copy,
   FileText,
   Paperclip,
+  Pencil,
+  RotateCcw,
   Send,
   PanelRightClose,
   PanelRightOpen,
+  X,
 } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { LogDecisionButton } from '@/components/modryn/log-decision-button';
@@ -68,6 +75,24 @@ function parseMessageContent(text: string): {
   return { body, attachments };
 }
 
+// Parses the <sources> block appended to DB-stored messages for Michelle's web search results.
+// Returns the clean body text and a sources array for rendering as citations.
+function parseSourcesBlock(text: string): {
+  body: string;
+  sources: { url: string; title?: string }[];
+} {
+  const match = text.match(/\n\n<sources>([\s\S]+?)<\/sources>$/);
+  if (!match) return { body: text, sources: [] };
+  try {
+    return {
+      body: text.slice(0, text.length - match[0].length),
+      sources: JSON.parse(match[1]) as { url: string; title?: string }[],
+    };
+  } catch {
+    return { body: text, sources: [] };
+  }
+}
+
 function AttachmentChip({ name, content }: { name: string; content: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -117,16 +142,58 @@ function FounderMessage({
   founderName,
   founderInitials,
   founderAvatarDataUrl,
+  onConfirmEdit,
 }: {
   text: string;
   timestamp: string;
   founderName: string;
   founderInitials: string;
   founderAvatarDataUrl: string;
+  onConfirmEdit?: (newText: string) => void;
 }) {
   const { body, attachments } = parseMessageContent(text);
+  const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const longPress = useLongPress(() => setSheetOpen(true));
+
+  function handleCopy() {
+    navigator.clipboard.writeText(body);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleEditOpen() {
+    setEditText(body);
+    setIsEditing(true);
+    setTimeout(() => {
+      if (editRef.current) {
+        editRef.current.focus();
+        editRef.current.style.height = editRef.current.scrollHeight + 'px';
+      }
+    }, 0);
+  }
+
+  function handleEditConfirm() {
+    const trimmed = editText.trim();
+    if (trimmed) onConfirmEdit?.(trimmed);
+    setIsEditing(false);
+  }
+
+  const sheetItems = [
+    ...(onConfirmEdit
+      ? [{ label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: handleEditOpen }]
+      : []),
+    { label: 'Copy', icon: <Copy className="h-4 w-4" />, onClick: handleCopy },
+  ];
+
   return (
-    <div className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0">
+    <div
+      className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0"
+      {...(!isEditing ? longPress : {})}
+    >
       <div className="mb-1.5 flex items-center gap-2.5">
         {founderAvatarDataUrl ? (
           <Image
@@ -148,17 +215,78 @@ function FounderMessage({
         <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
           {timestamp}
         </ChromeLabel>
+        <div className="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="Copy"
+            className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+          {onConfirmEdit && (
+            <button
+              type="button"
+              onClick={handleEditOpen}
+              title="Edit"
+              className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex flex-col gap-2 pl-8.5">
-        {body && (
-          <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
-            {body}
-          </p>
+        {isEditing ? (
+          <>
+            <textarea
+              ref={editRef}
+              value={editText}
+              onChange={(e) => {
+                setEditText(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditConfirm();
+                if (e.key === 'Escape') setIsEditing(false);
+              }}
+              className="border-panel-border text-panel-foreground bg-panel-input w-full resize-none rounded-sm border px-3 py-2 text-sm leading-relaxed focus:outline-none"
+              rows={1}
+            />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleEditConfirm}
+                className="bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors"
+              >
+                <Check className="h-3 w-3" />
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="text-panel-muted hover:text-panel-foreground flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] transition-colors"
+              >
+                <X className="h-3 w-3" />
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {body && (
+              <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                {body}
+              </p>
+            )}
+            {attachments.map((a, i) => (
+              <AttachmentChip key={i} name={a.name} content={a.content} />
+            ))}
+          </>
         )}
-        {attachments.map((a, i) => (
-          <AttachmentChip key={i} name={a.name} content={a.content} />
-        ))}
       </div>
+      <ActionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} items={sheetItems} />
     </div>
   );
 }
@@ -170,9 +298,12 @@ function AIMessage({
   memberAvatarUrl,
   timestamp,
   isStreaming,
+  isSearching,
   messageId,
   memberId,
   conversationId,
+  onRetry,
+  sources: sourcesProp,
 }: {
   text: string;
   memberName: string;
@@ -180,10 +311,26 @@ function AIMessage({
   memberAvatarUrl?: string;
   timestamp: string;
   isStreaming?: boolean;
+  isSearching?: boolean;
   messageId?: string;
   memberId?: string;
   conversationId?: string | null;
+  onRetry?: () => void;
+  sources?: { url: string; title?: string }[];
 }) {
+  // Parse <sources> block appended to DB-stored messages; for live stream messages the
+  // sources come via the sourcesProp extracted from message parts.
+  const { body, sources: dbSources } = parseSourcesBlock(text);
+  const sources = sourcesProp?.length ? sourcesProp : dbSources;
+  const displayText = body;
+
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(displayText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
   return (
     <div className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">
@@ -212,31 +359,83 @@ function AIMessage({
         </ChromeLabel>
         {isStreaming && (
           <ChromeLabel className="text-status-generating tracking-[0.08em] normal-case">
-            — generating
+            {isSearching ? '— searching' : '— generating'}
           </ChromeLabel>
         )}
-        {!isStreaming && text && memberId !== undefined && (
-          <LogDecisionButton
-            messageContent={text}
-            memberId={memberId}
-            conversationId={conversationId ?? null}
-          />
-        )}
-        {!isStreaming && text && memberId !== undefined && (
-          <LogOrgMemoryButton
-            messageContent={text}
-            memberId={memberId}
-            conversationId={conversationId ?? null}
-          />
+        {!isStreaming && displayText && (
+          <div className="ml-auto flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={handleCopy}
+              title="Copy"
+              className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                title="Retry"
+                className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {memberId !== undefined && (
+              <LogDecisionButton
+                messageContent={displayText}
+                memberId={memberId}
+                conversationId={conversationId ?? null}
+              />
+            )}
+            {memberId !== undefined && (
+              <LogOrgMemoryButton
+                messageContent={displayText}
+                memberId={memberId}
+                conversationId={conversationId ?? null}
+              />
+            )}
+          </div>
         )}
       </div>
       <div className="pl-8.5">
-        {text ? (
+        {displayText ? (
           <div className="prose prose-sm max-w-none">
-            <Markdown id={messageId}>{text}</Markdown>
+            <Markdown id={messageId}>{displayText}</Markdown>
           </div>
+        ) : isSearching ? (
+          <p className="text-panel-faint font-mono text-[11px]">searching the web...</p>
         ) : (
           <ThinkingDots />
+        )}
+        {!isStreaming && sources.length > 0 && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <ChromeLabel className="text-panel-faint text-[10px] tracking-widest">
+              Sources
+            </ChromeLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {sources.map((s, i) => {
+                let domain = s.url;
+                try {
+                  domain = new URL(s.url).hostname.replace(/^www\./, '');
+                } catch {}
+                return (
+                  <a
+                    key={i}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={s.title ?? s.url}
+                    className="border-panel-border text-panel-muted hover:text-panel-foreground hover:border-panel-foreground/30 flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] transition-colors"
+                  >
+                    <span className="text-panel-faint">{i + 1}.</span>
+                    {domain}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -281,19 +480,26 @@ export function ChatView({
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Signals to the chat route that this is a retry — skip re-inserting the user message
+  const isRetryRef = useRef(false);
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, regenerate, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ id, messages }) => ({
-        body: {
-          id,
-          message: messages[messages.length - 1],
-          memberId,
-          conversationId: conversationIdRef.current,
-          surface,
-        },
-      }),
+      prepareSendMessagesRequest: ({ id, messages }) => {
+        const isRetry = isRetryRef.current;
+        isRetryRef.current = false; // consume
+        return {
+          body: {
+            id,
+            message: messages[messages.length - 1],
+            memberId,
+            conversationId: conversationIdRef.current,
+            surface,
+            isRetry,
+          },
+        };
+      },
     }),
   });
 
@@ -359,6 +565,30 @@ export function ChatView({
 
   const isSubmitted = status === 'submitted';
   const isStreaming = status === 'streaming' || isSubmitted;
+
+  function deleteFromMessage(messageId: string): Promise<void> {
+    return fetch(`/api/conversations/dm/${encodeURIComponent(memberId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId }),
+    })
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  function handleEdit(idx: number, messageId: string | undefined, newText: string) {
+    setMessages((prev) => prev.slice(0, idx));
+    if (messageId) deleteFromMessage(messageId);
+    sendMessage({ text: newText });
+  }
+
+  async function handleRetry(messageId: string | undefined) {
+    // Await DELETE so the DB is clean before the chat route loads history
+    if (messageId) await deleteFromMessage(messageId);
+    isRetryRef.current = true;
+    // Let regenerate() manage message state — calling setMessages here races with SDK internals
+    regenerate();
+  }
 
   useEffect(() => {
     setMessageTimestamps((prev) => {
@@ -510,6 +740,11 @@ export function ChatView({
                         founderName={profile.name}
                         founderInitials={profile.initials}
                         founderAvatarDataUrl={profile.avatarDataUrl}
+                        onConfirmEdit={
+                          !isStreaming
+                            ? (newText) => handleEdit(idx, message.id, newText)
+                            : undefined
+                        }
                       />
                     );
                   }
@@ -523,9 +758,16 @@ export function ChatView({
                       memberAvatarUrl={memberAvatarUrl}
                       timestamp={timestamp}
                       isStreaming={isLastAI && isStreaming}
+                      isSearching={isLastAI && isStreaming && memberId === 'michelle-lim' && !text}
+                      onRetry={!isStreaming ? () => handleRetry(message.id) : undefined}
                       messageId={message.id ?? `idx-${idx}`}
                       memberId={memberId}
                       conversationId={conversationIdRef.current}
+                      sources={message.parts
+                        ?.filter(
+                          (p): p is SourceUrlUIPart => p.type === 'source-url'
+                        )
+                        .map((p) => ({ url: p.url, title: p.title }))}
                     />
                   );
                 })}
@@ -539,6 +781,7 @@ export function ChatView({
                     memberAvatarUrl={memberAvatarUrl}
                     timestamp={pendingTimestamp ?? formatTime(new Date())}
                     isStreaming
+                    isSearching={memberId === 'michelle-lim'}
                   />
                 )}
               </div>

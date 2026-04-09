@@ -67,7 +67,7 @@ export function LogOrgMemoryButton({
         type="button"
         onClick={handleOpen}
         className={cn(
-          'opacity-0 transition-opacity group-hover:opacity-100',
+          'opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100',
           'text-panel-faint hover:text-panel-muted rounded-sm p-0.5'
         )}
         aria-label="Log to team"

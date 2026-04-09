@@ -28,6 +28,10 @@ That's not the destination. The destination is a dashboard where the AI has a li
 
 That shift changes the right product design now: stop building form/response UX. Build proposal/approval UX. The output is already generated — the user reviews it, approves it, ships it. "Here's what I found. Accept or reject." That's the logical end of agentic software, and building toward it now is the contrarian move.
 
+## The Gap Nobody Has Filled
+
+Every tool built in the last decade assumes the human does the input work. The AI analyzes what you enter. No category has a product where the agent does the input work and the human reviews the output. That's the actual agentic opportunity — not better AI on top of human input, but human review on top of AI-generated output.
+
 ## Builder Identity
 
 I go deep so others don't have to. I find the signal in the noise, make sense of it, and hand people the answer.
@@ -76,7 +80,7 @@ If you can't complete all four, you don't have a product — you have a hypothes
 
 ## What I Don't Know Yet
 
-Which specific industry or profession I'm building for at scale. That answer comes from signal — users, search data, what sticks. The thesis doesn't require it. The strategy will.
+Which specific industry or profession I'm building for at scale. Current direction: prop firm futures traders — a market I understand from three years of lived experience. That answer may evolve as signal accumulates.
 
 ---
 

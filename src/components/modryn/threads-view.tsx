@@ -1,6 +1,17 @@
 'use client';
 
-import { ArrowLeft, ChevronDown, FileText, MessageSquarePlus, Paperclip, Send } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Copy,
+  Eye,
+  EyeOff,
+  FileText,
+  MessageSquarePlus,
+  Paperclip,
+  Send,
+} from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useDraft } from '@/hooks/use-draft';
 import Image from 'next/image';
@@ -8,7 +19,9 @@ import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { LogDecisionButton } from '@/components/modryn/log-decision-button';
 import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
 import { Markdown } from '@/components/prompt-kit/markdown';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet } from '@/components/ui/sheet';
+import { ActionSheet } from '@/components/ui/action-sheet';
+import { ModalShell, SHEET_FIELD_CLASS } from '@/components/ui/modal-shell';
 import { useMembers } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
@@ -59,9 +72,6 @@ const PRESET_LABELS: Record<string, string> = {
   brainstorm: 'Brainstorm',
   custom: 'Custom',
 };
-
-const FIELD_CLASS =
-  'w-full bg-transparent text-sidebar-foreground placeholder:text-sidebar-muted border-b border-sidebar-ring outline-none caret-sidebar-primary text-[13px] pb-1 focus:border-sidebar-primary transition-colors';
 
 // ——— Helpers ———
 
@@ -163,7 +173,22 @@ export function ThreadsView() {
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [replyValue, setReplyValue] = useDraft(`thread-${selected?.thread.id ?? 'none'}`);
   const [sendingReply, setSendingReply] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [longPressSheetMsgId, setLongPressSheetMsgId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clear any pending long-press timer on unmount to prevent state updates after unmount.
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
+
+  function handleCopyMessage(id: string, text: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(id);
+    setTimeout(() => setCopiedMsgId((prev) => (prev === id ? null : prev)), 1500);
+  }
   // New thread form
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -177,9 +202,12 @@ export function ThreadsView() {
   const [createError, setCreateError] = useState('');
   const dragSource = useRef<number | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
+  const [excludedMembers, setExcludedMembers] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Guard against concurrent respond sequences
@@ -218,6 +246,28 @@ export function ThreadsView() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selected?.messages.length, respondingMemberId]);
+
+  // Elapsed-seconds timer — resets each time a new member starts responding
+  useEffect(() => {
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+    if (respondingMemberId) {
+      setElapsedSeconds(0);
+      elapsedTimerRef.current = setInterval(() => {
+        setElapsedSeconds((s) => s + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
+    };
+  }, [respondingMemberId]);
 
   // ——— Data fetching ———
 
@@ -263,10 +313,13 @@ export function ThreadsView() {
   );
 
   function getEffectiveOrder(): string[] {
-    if (threadType === 'custom') {
-      return dragOrder.length > 0 ? dragOrder : members.map((m) => m.id);
-    }
-    return resolvePresetOrder(threadType);
+    const base =
+      threadType === 'custom'
+        ? dragOrder.length > 0
+          ? dragOrder
+          : members.map((m) => m.id)
+        : resolvePresetOrder(threadType);
+    return base.filter((id) => !excludedMembers.has(id));
   }
 
   // ——— Respond sequence ———
@@ -446,11 +499,23 @@ export function ThreadsView() {
         return;
       }
       const { threadId } = (await res.json()) as { threadId: string; memberOrder: string[] };
+      await fetchThreads();
+      // Keep sheet open while detail loads — closes once data is ready
+      // 7s timeout so the user is never trapped if the GET fails or hangs
+      const data = await Promise.race([
+        fetchThreadDetail(threadId),
+        new Promise<ThreadDetail | null>((resolve) => setTimeout(() => resolve(null), 7000)),
+      ]);
       setNewSheetOpen(false);
       resetNewForm();
-      await fetchThreads();
-      // Select and auto-trigger respond sequence
-      await handleSelectThread(threadId);
+      if (data) {
+        setMobileShowDetail(true);
+        setSelected(data);
+        await runRespondSequence(threadId, data.memberOrder, data.messages);
+      } else {
+        // Timed out or failed — fall back to full selection flow
+        await handleSelectThread(threadId);
+      }
     } catch {
       setCreateError('Failed to create thread.');
     } finally {
@@ -480,6 +545,7 @@ export function ThreadsView() {
     setDragOrder(members.map((m) => m.id));
     setCreateError('');
     setAttachedFiles([]);
+    setExcludedMembers(new Set());
   }
 
   // ——— Drag-to-reorder ———
@@ -592,11 +658,18 @@ export function ThreadsView() {
                 {formatDate(thread.updated_at)}
               </ChromeLabel>
             </div>
-            {thread.last_message && (
+            {isSequenceRunning && selected?.thread.id === thread.id ? (
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="bg-status-generating h-1.5 w-1.5 animate-pulse rounded-full" />
+                <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
+                  responding...
+                </ChromeLabel>
+              </div>
+            ) : thread.last_message ? (
               <p className="text-panel-muted truncate text-[10px] leading-relaxed">
                 {thread.last_message}
               </p>
-            )}
+            ) : null}
             <ChromeLabel className="text-panel-faint mt-1.5 text-[10px] tracking-[0.08em]">
               {thread.participant_count} MEMBERS
             </ChromeLabel>
@@ -630,6 +703,16 @@ export function ThreadsView() {
 
     const respondingMember = respondingMemberId ? getMemberById(respondingMemberId) : null;
 
+    // Scope "done" to the current round only (messages after the last founder message).
+    // Without this, round 2 starts with all avatars already showing as done.
+    const lastFounderIdx = selected.messages.reduce(
+      (best, msg, i) => (msg.sender_id === 'founder' ? i : best),
+      -1
+    );
+    const currentRoundSenderIds = new Set(
+      selected.messages.slice(lastFounderIdx + 1).map((msg) => msg.sender_id)
+    );
+
     return (
       <div
         className="flex flex-1 flex-col overflow-hidden"
@@ -657,7 +740,9 @@ export function ThreadsView() {
             <div className="flex flex-wrap items-center gap-1.5">
               {selected.memberOrder.map((memberId) => {
                 const m = getMemberById(memberId);
+                const isDone = currentRoundSenderIds.has(memberId);
                 const isActive = memberId === respondingMemberId;
+                const isWaiting = isSequenceRunning && !isDone && !isActive;
                 return (
                   <div
                     key={memberId}
@@ -666,7 +751,11 @@ export function ThreadsView() {
                       'relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm font-mono text-[8px] font-bold transition-all',
                       isActive
                         ? 'bg-panel-chrome-strong text-panel-inverse ring-status-generating animate-pulse ring-1'
-                        : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
+                        : isDone
+                          ? 'bg-panel-chrome text-panel-chrome-foreground'
+                          : isWaiting
+                            ? 'bg-panel-chrome text-panel-chrome-foreground opacity-40'
+                            : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
                     )}
                   >
                     {m?.avatarUrl ? (
@@ -684,6 +773,11 @@ export function ThreadsView() {
                   </div>
                 );
               })}
+              {isSequenceRunning && (
+                <ChromeLabel className="text-panel-faint ml-0.5 font-mono text-[10px] tracking-[0.08em]">
+                  {`${selected.memberOrder.filter((id) => currentRoundSenderIds.has(id)).length} / ${selected.memberOrder.length}`}
+                </ChromeLabel>
+              )}
               {respondingMember && (
                 <ChromeLabel className="text-status-generating ml-1 text-[10px] tracking-[0.06em] normal-case">
                   {respondingMember.name} is responding...
@@ -706,6 +800,25 @@ export function ThreadsView() {
                 <div
                   key={msg.id}
                   className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0"
+                  onTouchStart={() => {
+                    longPressTimerRef.current = setTimeout(
+                      () => setLongPressSheetMsgId(msg.id),
+                      500
+                    );
+                  }}
+                  onTouchEnd={() => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  }}
+                  onTouchMove={() => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   <div className="mb-1.5 flex items-center gap-2.5">
                     {profile.avatarDataUrl ? (
@@ -730,6 +843,20 @@ export function ThreadsView() {
                     <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
                       {timestamp}
                     </ChromeLabel>
+                    <div className="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessage(msg.id, msgBody)}
+                        title="Copy"
+                        className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+                      >
+                        {copiedMsgId === msg.id ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2 pl-8.5">
                     {msgBody && (
@@ -741,6 +868,17 @@ export function ThreadsView() {
                       <AttachmentChip key={i} name={a.name} content={a.content} />
                     ))}
                   </div>
+                  <ActionSheet
+                    open={longPressSheetMsgId === msg.id}
+                    onClose={() => setLongPressSheetMsgId(null)}
+                    items={[
+                      {
+                        label: 'Copy',
+                        icon: <Copy className="h-4 w-4" />,
+                        onClick: () => handleCopyMessage(msg.id, msgBody),
+                      },
+                    ]}
+                  />
                 </div>
               );
             }
@@ -778,16 +916,30 @@ export function ThreadsView() {
                   <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
                     {timestamp}
                   </ChromeLabel>
-                  <LogDecisionButton
-                    messageContent={msg.content}
-                    memberId={msg.sender_id}
-                    conversationId={selected.thread.id}
-                  />
-                  <LogOrgMemoryButton
-                    messageContent={msg.content}
-                    memberId={msg.sender_id}
-                    conversationId={selected.thread.id}
-                  />
+                  <div className="ml-auto flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyMessage(msg.id, msg.content)}
+                      title="Copy"
+                      className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+                    >
+                      {copiedMsgId === msg.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <LogDecisionButton
+                      messageContent={msg.content}
+                      memberId={msg.sender_id}
+                      conversationId={selected.thread.id}
+                    />
+                    <LogOrgMemoryButton
+                      messageContent={msg.content}
+                      memberId={msg.sender_id}
+                      conversationId={selected.thread.id}
+                    />
+                  </div>
                 </div>
                 <div className="pl-8.5">
                   <div className="prose prose-sm max-w-none">
@@ -830,6 +982,9 @@ export function ThreadsView() {
               </div>
               <div className="pl-8.5">
                 <ThinkingDots />
+                <ChromeLabel className="text-panel-faint mt-1 font-mono text-[10px] tracking-[0.08em]">
+                  {elapsedSeconds}s
+                </ChromeLabel>
               </div>
             </div>
           )}
@@ -839,7 +994,7 @@ export function ThreadsView() {
 
         {/* Reply input */}
         <div className="border-panel-border border-t px-6 py-4">
-          <div className="border-panel-border bg-panel-input flex items-end gap-3 rounded-sm border px-4 py-3">
+          <div className="border-panel-border bg-panel-input focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-3 transition-colors focus-within:ring-4">
             <textarea
               value={replyValue}
               onChange={(e) => setReplyValue(e.target.value)}
@@ -847,7 +1002,7 @@ export function ThreadsView() {
               disabled={inputDisabled}
               placeholder={isSequenceRunning ? 'Team is responding...' : 'Reply to thread...'}
               rows={1}
-              className="text-panel-foreground placeholder:text-panel-muted flex-1 resize-none bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-panel-foreground placeholder:text-panel-faint flex-1 resize-none bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
               style={{ maxHeight: '120px', overflowY: 'auto' }}
               onInput={(e) => {
                 const t = e.currentTarget;
@@ -858,10 +1013,14 @@ export function ThreadsView() {
             <button
               onClick={handleSendReply}
               disabled={inputDisabled || !replyValue.trim()}
-              className="text-panel-muted hover:text-panel-foreground shrink-0 transition-colors disabled:opacity-30"
+              className="bg-panel-foreground hover:bg-panel-foreground/80 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
               aria-label="Send reply"
             >
-              <Send className="h-4 w-4" />
+              {sendingReply ? (
+                <ThinkingDots />
+              ) : (
+                <Send className="text-panel-inverse h-3.5 w-3.5" />
+              )}
             </button>
           </div>
         </div>
@@ -895,12 +1054,8 @@ export function ThreadsView() {
           if (!open) resetNewForm();
         }}
       >
-        <SheetContent className="overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>New Thread</SheetTitle>
-          </SheetHeader>
-
-          <div className="flex flex-col gap-6 px-4 pt-2 pb-8">
+        <ModalShell title="New Thread">
+          <div className="flex flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
             {/* Title */}
             <div>
               <label className="text-sidebar-muted mb-2 block text-[10px] font-semibold tracking-widest uppercase">
@@ -910,7 +1065,7 @@ export function ThreadsView() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Thread topic"
-                className={FIELD_CLASS}
+                className={SHEET_FIELD_CLASS}
               />
             </div>
 
@@ -924,7 +1079,7 @@ export function ThreadsView() {
                 onChange={(e) => setNewBrief(e.target.value)}
                 placeholder="Context, question, or decision for the team."
                 rows={4}
-                className={cn(FIELD_CLASS, 'resize-none')}
+                className={cn(SHEET_FIELD_CLASS, 'resize-none')}
               />
               <input
                 ref={fileInputRef}
@@ -997,7 +1152,7 @@ export function ThreadsView() {
               </div>
             </div>
 
-            {/* Member sequence — drag to reorder */}
+            {/* Member sequence — drag to reorder, click eye to exclude */}
             <div>
               <label className="text-sidebar-muted mb-2 block text-[10px] font-semibold tracking-widest uppercase">
                 Sequence
@@ -1006,21 +1161,33 @@ export function ThreadsView() {
                 {sheetMemberOrder.map((memberId, idx) => {
                   const m = getMemberById(memberId);
                   if (!m) return null;
+                  const isExcluded = excludedMembers.has(memberId);
+                  // Sequence number: count of non-excluded members before this one in the render list
+                  // Computed fresh from live state on every render — no stored index
+                  const seqNum = isExcluded
+                    ? null
+                    : sheetMemberOrder.slice(0, idx).filter((id) => !excludedMembers.has(id))
+                        .length + 1;
                   return (
                     <div key={memberId}>
                       {dropIndex === idx && (
                         <div className="bg-sidebar-foreground/50 mx-2 my-0.5 h-0.5 rounded-full" />
                       )}
                       <div
-                        draggable
-                        onDragStart={(e) => handleDragStartSwitch(idx, e)}
+                        draggable={!isExcluded}
+                        onDragStart={!isExcluded ? (e) => handleDragStartSwitch(idx, e) : undefined}
                         onDragOver={(e) => handleDragOver(e, idx)}
                         onDrop={handleDrop}
                         onDragEnd={handleDragEnd}
-                        className="border-sidebar-ring hover:border-sidebar-primary flex cursor-grab items-center gap-2.5 rounded-sm border px-3 py-2 transition-colors active:cursor-grabbing"
+                        className={cn(
+                          'border-sidebar-ring flex items-center gap-2.5 rounded-sm border px-3 py-2 transition-colors',
+                          isExcluded
+                            ? 'cursor-default opacity-40'
+                            : 'hover:border-sidebar-primary cursor-grab active:cursor-grabbing'
+                        )}
                       >
                         <span className="text-sidebar-muted w-4 shrink-0 text-center font-mono text-[10px]">
-                          {idx + 1}
+                          {seqNum ?? '—'}
                         </span>
                         <div className="bg-sidebar-ring flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm">
                           {m.avatarUrl ? (
@@ -1038,12 +1205,39 @@ export function ThreadsView() {
                             </span>
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sidebar-foreground text-[12px] font-medium">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              'text-[12px] font-medium',
+                              isExcluded ? 'text-sidebar-muted' : 'text-sidebar-foreground'
+                            )}
+                          >
                             {m.name}
                           </p>
                           <p className="text-sidebar-muted truncate text-[10px]">{m.role}</p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExcludedMembers((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(memberId)) {
+                                next.delete(memberId);
+                              } else {
+                                next.add(memberId);
+                              }
+                              return next;
+                            })
+                          }
+                          className="text-sidebar-muted hover:text-sidebar-foreground ml-1 shrink-0 transition-colors"
+                          aria-label={isExcluded ? `Include ${m.name}` : `Exclude ${m.name}`}
+                        >
+                          {isExcluded ? (
+                            <Eye className="h-3.5 w-3.5" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
                       {dropIndex === sheetMemberOrder.length &&
                         idx === sheetMemberOrder.length - 1 && (
@@ -1059,13 +1253,18 @@ export function ThreadsView() {
 
             <button
               onClick={handleCreateThread}
-              disabled={creating || !newTitle.trim() || !newBrief.trim()}
+              disabled={
+                creating ||
+                !newTitle.trim() ||
+                (!newBrief.trim() && attachedFiles.length === 0) ||
+                getEffectiveOrder().length === 0
+              }
               className="bg-sidebar-ring text-sidebar-foreground hover:bg-sidebar-hover mt-2 rounded-sm py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               {creating ? 'Starting...' : 'Start Thread'}
             </button>
           </div>
-        </SheetContent>
+        </ModalShell>
       </Sheet>
     </>
   );

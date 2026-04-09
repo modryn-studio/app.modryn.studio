@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar, type View } from '@/components/modryn/sidebar';
 import { ChatView } from '@/components/modryn/chat-view';
 import { ContextPanel } from '@/components/modryn/context-panel';
@@ -16,15 +16,37 @@ import { useMembers } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 
 export default function ModrynStudio() {
+  // Start with server-safe defaults — avoids hydration mismatch.
+  // Apply persisted values after mount so server and client HTML agree.
   const [activeView, setActiveView] = useState<View>('chat');
-  const [activeChat, setActiveChat] = useState('');
+  const [activeChat, setActiveChat] = useState<string>('');
+  useEffect(() => {
+    const view = localStorage.getItem('modryn:activeView') as View | null;
+    const chat = localStorage.getItem('modryn:activeChat');
+    if (view) setActiveView(view);
+    if (chat) setActiveChat(chat);
+  }, []);
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const { members, refetch } = useMembers();
   const { profile } = useProfile();
 
-  const activeMember = members.find((m) => m.id === activeChat) ?? members[0];
+  const handleViewChange = (view: View) => {
+    setActiveView(view);
+    localStorage.setItem('modryn:activeView', view);
+  };
+
+  const handleChatSelect = (memberId: string) => {
+    setActiveChat(memberId);
+    localStorage.setItem('modryn:activeChat', memberId);
+  };
+
+  // activeMember falls back to first member only when nothing is stored yet
+  const activeMember =
+    members.find((m) => m.id === activeChat) ??
+    (activeChat === '' ? members[0] : undefined) ??
+    members[0];
 
   const mainContent = (
     <>
@@ -76,8 +98,8 @@ export default function ModrynStudio() {
           activeView={activeView}
           activeChat={activeChat}
           members={members}
-          onViewChange={setActiveView}
-          onChatSelect={setActiveChat}
+          onViewChange={handleViewChange}
+          onChatSelect={handleChatSelect}
           onMemberAdded={refetch}
           onMembersReorder={refetch}
         />
@@ -128,7 +150,7 @@ export default function ModrynStudio() {
           briefingOpen={mobileContextOpen}
           onOpenBriefing={() => setMobileContextOpen(true)}
           onViewChange={(v) => {
-            setActiveView(v);
+            handleViewChange(v);
             setMobileDrawerOpen(false);
             setMobileContextOpen(false);
           }}
@@ -142,8 +164,8 @@ export default function ModrynStudio() {
         members={members}
         onClose={() => setMobileDrawerOpen(false)}
         onChatSelect={(id) => {
-          setActiveChat(id);
-          setActiveView('chat');
+          handleChatSelect(id);
+          handleViewChange('chat');
           setMobileContextOpen(false);
         }}
       />
