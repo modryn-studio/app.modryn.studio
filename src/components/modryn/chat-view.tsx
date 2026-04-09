@@ -764,9 +764,7 @@ export function ChatView({
                       memberId={memberId}
                       conversationId={conversationIdRef.current}
                       sources={message.parts
-                        ?.filter(
-                          (p): p is SourceUrlUIPart => p.type === 'source-url'
-                        )
+                        ?.filter((p): p is SourceUrlUIPart => p.type === 'source-url')
                         .map((p) => ({ url: p.url, title: p.title }))}
                     />
                   );
