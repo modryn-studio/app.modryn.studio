@@ -420,29 +420,13 @@ export function ThreadsView() {
     setSelected(data);
     setLoading(false);
 
-    // Auto-resume respond sequence if last message is from founder.
-    // Determine which members have already responded since the last founder message
-    // so re-opening mid-sequence doesn't double-fire completed members.
-    const lastFounderIdx = [...data.messages].reverse().findIndex((m) => m.sender_id === 'founder');
+    // Fire respond sequence only when the last message is from the founder and no member
+    // has responded yet. This covers newly created threads opened for the first time.
+    // The /respond route is idempotent so duplicate calls are safe.
+    // No auto-resume on partial sequences — refresh loads current state only.
     const lastMsg = data.messages[data.messages.length - 1];
     if (lastMsg && lastMsg.sender_id === 'founder') {
-      // All members need to respond — fire full sequence
       await runRespondSequence(threadId, data.memberOrder, data.messages);
-    } else if (lastFounderIdx !== -1) {
-      // Some members may have already responded after the last founder message.
-      // Resume from the first member who hasn't responded yet.
-      const founderMsgIdx = data.messages.length - 1 - lastFounderIdx;
-      const founderMsgId = data.messages[founderMsgIdx]?.id;
-      // If this cycle was already completed (possibly with exclusions), skip auto-resume.
-      const cycleComplete = founderMsgId && (() => { try { return localStorage.getItem(`thread-cycle-complete-${founderMsgId}`); } catch { return null; } })();
-      if (!cycleComplete) {
-        const afterFounder = data.messages.slice(founderMsgIdx + 1);
-        const respondedIds = new Set(afterFounder.map((m) => m.sender_id));
-        const remaining = data.memberOrder.filter((id) => !respondedIds.has(id));
-        if (remaining.length > 0) {
-          await runRespondSequence(threadId, remaining, data.messages);
-        }
-      }
     }
   }
 
@@ -472,12 +456,6 @@ export function ThreadsView() {
       setSendingReply(false);
       const filteredOrder = selected.memberOrder.filter((id) => !excludedAtSend.has(id));
       await runRespondSequence(selected.thread.id, filteredOrder, msgs);
-      // Mark this reply cycle as complete so auto-resume on refresh doesn't
-      // fire excluded members. Key is scoped to the founder message ID —
-      // auto-invalidated when a new reply is sent (different message.id).
-      try {
-        localStorage.setItem(`thread-cycle-complete-${message.id}`, '1');
-      } catch {}
       // Reset exclusions only after the sequence fully resolves — not on failure/early return,
       // so the user can retry without re-toggling.
       setReplyExcluded(new Set());
