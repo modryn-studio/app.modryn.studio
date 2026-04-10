@@ -222,6 +222,12 @@ export async function POST(
         : []),
     ]);
 
+    // Michelle gets web search in threads — same gate as DMs.
+    const tools =
+      memberId === 'michelle-lim'
+        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 1 }) }
+        : undefined;
+
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
@@ -233,14 +239,27 @@ export async function POST(
       ],
       maxOutputTokens: 800,
       temperature: 0.7,
-      async onFinish({ text }) {
+      ...(tools && { tools }),
+      async onFinish({ text, sources }) {
         // DB write happens inside onFinish — the stream does not close until this
         // resolves. This guarantees that when the client reads stream-done and fires
         // the next member's respond call, the history query sees the completed row.
         try {
+          // Append <sources> block for Michelle's web-search responses — same
+          // serialization pattern as the DM chat route.
+          const urlSources = sources
+            ?.filter((s): s is Extract<typeof s, { sourceType: 'url' }> => s.sourceType === 'url')
+            .filter((s, i, arr) => arr.findIndex((x) => x.url === s.url) === i);
+          const sourcesBlock = urlSources?.length
+            ? `\n\n<sources>${JSON.stringify(
+                urlSources.map((s) => ({ url: s.url, title: s.title }))
+              )}</sources>`
+            : '';
+          const contentToSave = text + sourcesBlock;
+
           const [inserted] = await sql`
             INSERT INTO messages (conversation_id, sender_id, role, content)
-            VALUES (${threadId}, ${memberId}, 'assistant', ${text})
+            VALUES (${threadId}, ${memberId}, 'assistant', ${contentToSave})
             RETURNING id, created_at
           `;
 

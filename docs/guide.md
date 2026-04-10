@@ -83,11 +83,24 @@ Your avatar appears at the very bottom of the sidebar. Click it to open the Prof
 Click an AI member in the roster to open a conversation.
 
 - Type in the input at the bottom. Press **Enter** to send (Shift+Enter for a new line).
+- Click the **Paperclip** icon to attach a file. The file content is sent along with your message. Multiple files can be attached before sending.
 - The AI responds in real-time via streaming. The status dot pulses amber + shows "analyzing" during generation.
+- While streaming, a `— generating` label appears next to the member's timestamp. For Michelle Lim (web search member), this changes to `— searching` during the web search phase, and "searching the web..." replaces the thinking dots in the message body.
 - AI messages appear on a slightly darker cream surface with a mono "AI" badge.
 - Your messages appear on the standard panel background.
 - Conversation history is fetched from the database on load. Messages persist across sessions.
 - The disclaimer at the bottom: "Responses reflect AI modeling only, not the views of real individuals."
+
+**Message actions (AI messages):** Hover an AI message (desktop) or it's always visible on mobile. Four icon buttons appear top-right:
+
+- **Copy** (`Copy` icon) — copies the message text to clipboard
+- **Retry** (`RotateCcw` icon) — re-sends the last user message (only on the most recent AI response)
+- **Log Decision** (`Bookmark` icon) — opens an inline form to save a decision entry (title + description) linked to this conversation
+- **Log Org Memory** (`Users` icon) — opens an inline form to save a team-wide fact to org memory
+
+**Message actions (your messages):** Hover reveals Copy and Edit (`Pencil`) buttons. Edit opens an inline textarea — confirm to re-send from that point. On mobile, long-press any message to open an action sheet with the same options.
+
+**Web search citations (Michelle only):** After a response that used web search, citation chips appear below the message body under a "Sources" label. Each chip shows the domain name and links to the source URL.
 
 The context panel on the right (desktop) shows **Recent Decisions**, **Active Tasks**, and **Conversation Notes** for the active member. Each section is expandable/collapsible. Data is currently hardcoded per member — not yet persisted from conversations.
 
@@ -105,9 +118,12 @@ The inbox is currently empty — `INBOX_MESSAGES` is an empty array. The list an
 
 Switch to Threads via the sidebar icon or mobile tab bar.
 
-- Click **New Thread** to open a creation sheet: enter a title, a brief (your initial message to the team), select a preset sequence type (Strategy, Technical, Design, Launch, Brainstorm, or Custom), and optionally exclude specific members by clicking the eye icon on their row. Excluded members are skipped entirely — they won't receive the brief or generate a response. Drag rows to reorder the sequence.
+- Click **New Thread** to open a creation sheet: enter an optional title, a brief (your initial message to the team), select a preset sequence type (Strategy, Technical, Design, Launch, Brainstorm, or Custom), and optionally exclude specific members by clicking the eye icon on their row. Excluded members are skipped entirely — they won't receive the brief or generate a response. Drag rows to reorder the sequence. Title is optional — threads without one display as _Untitled_.
 - Once created, the thread opens in detail view. Each selected member responds in sequence — their responses stream in one at a time.
+- For Michelle Lim (web search member), a static "searching the web..." note appears in her generating bubble while she's running a web search.
 - All responses are persisted to DB. The thread history is visible on reload.
+- Hover any completed AI response (desktop) to reveal **Copy**, **Log Decision**, and **Log Org Memory** buttons — identical behavior to DM chat.
+- Web search citation chips appear below Michelle's responses when she performed a search.
 - Org facts are extracted from the full thread transcript after all members have responded.
 
 ---
@@ -168,7 +184,7 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | `/api/members/reorder`            | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                                                                                                                                                           |
 | `/api/conversations/dm/[id]`      | GET    | Returns conversation history for a DM                                                                                                                                                                                                                                                                |
 | `/api/threads`                    | GET    | Lists all threads, newest first, with last message preview and participant count                                                                                                                                                                                                                     |
-| `/api/threads`                    | POST   | Creates a thread. Body: `{ title, brief, memberOrder: string[] }`. Inserts conversation, members with respond_order, and the founder's brief as first message.                                                                                                                                       |
+| `/api/threads`                    | POST   | Creates a thread. Body: `{ title?, brief, memberOrder: string[] }`. Title is optional. Inserts conversation, members with respond_order, and the founder's brief as first message.                                                                                                                   |
 | `/api/threads/[threadId]`         | GET    | Returns thread metadata, full message history (with sender info), and memberOrder                                                                                                                                                                                                                    |
 | `/api/threads/[threadId]/respond` | POST   | Generates one member's response to a thread. Idempotency-checked. Body: `{ memberId }`.                                                                                                                                                                                                              |
 | `/api/threads/[threadId]/extract` | POST   | Extracts org facts from the full thread transcript after all members have responded. Body: `{ memberId }`.                                                                                                                                                                                           |
@@ -198,6 +214,7 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Org memory extraction (DMs + threads)             | ✅ Works                       |
 | Token budget context assembly                     | ✅ Works                       |
 | Group threads (multi-member, sequential)          | ✅ Works                       |
+| Michelle web search (DMs + threads)               | ✅ Works                       |
 | Add AI member sheet                               | ✅ Works                       |
 | Edit AI member sheet (hover row → pencil icon)    | ✅ Works                       |
 | Drag-to-reorder members                           | ✅ Works                       |

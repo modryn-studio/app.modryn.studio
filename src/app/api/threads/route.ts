@@ -7,7 +7,7 @@ import '@/lib/env';
 const log = createRouteLogger('threads');
 
 const createThreadSchema = z.object({
-  title: z.string().min(1).max(200),
+  title: z.string().max(200).default(''),
   brief: z.string().min(1),
   memberOrder: z.array(z.string()).min(1),
 });

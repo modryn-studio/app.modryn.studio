@@ -331,6 +331,7 @@ function AIMessage({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
+
   return (
     <div className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
       <div className="mb-1.5 flex items-center gap-2.5">

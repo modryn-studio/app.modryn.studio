@@ -15,6 +15,10 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 - Vercel · `<Analytics />` in `layout.tsx` for pageviews (zero config)
 - `@/lib/analytics.ts` — no-op stub; wire a real provider here if needed
 - lucide-react icons · `@radix-ui/react-dialog` (Sheet) · `@radix-ui/react-slot` (Button)
+- `react-markdown` + `remark-gfm` + `remark-breaks` — Markdown rendering in AI messages
+- `shiki` — syntax highlighting inside Markdown blocks
+- `use-stick-to-bottom` — auto-scroll in chat views
+- `@tailwindcss/typography` — prose styles for Markdown content
 - `ai` 6.x · `@ai-sdk/react` 3.x · `@ai-sdk/anthropic` 3.x — streaming via `/api/chat`
   - `claude-sonnet-4-6` — main member responses (DMs + threads)
   - `claude-haiku-4-5-20251001` — episodic summarization, semantic memory, org fact extraction

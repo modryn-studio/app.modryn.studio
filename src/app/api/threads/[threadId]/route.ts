@@ -68,3 +68,38 @@ export async function GET(
     return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
+
+// DELETE /api/threads/[threadId] — delete a thread and all its data
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ threadId: string }> }
+): Promise<Response> {
+  const ctx = log.begin();
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    return log.end(ctx, Response.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
+  try {
+    const { threadId } = await params;
+
+    // Verify exists + is a thread (not a DM)
+    const [thread] = await sql`
+      SELECT id FROM conversations WHERE id = ${threadId} AND type = 'thread'
+    `;
+    if (!thread) {
+      return log.end(ctx, Response.json({ error: 'Thread not found' }, { status: 404 }));
+    }
+
+    // Delete in dependency order
+    await sql`DELETE FROM org_memory WHERE source_conversation_id = ${threadId}`;
+    await sql`DELETE FROM member_memory WHERE conversation_id = ${threadId}`;
+    await sql`DELETE FROM messages WHERE conversation_id = ${threadId}`;
+    await sql`DELETE FROM conversation_members WHERE conversation_id = ${threadId}`;
+    await sql`DELETE FROM conversations WHERE id = ${threadId}`;
+
+    return log.end(ctx, Response.json({ deleted: threadId }), { threadId });
+  } catch (error) {
+    log.err(ctx, error);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
+  }
+}

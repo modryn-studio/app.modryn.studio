@@ -193,9 +193,9 @@ export async function POST(req: Request): Promise<Response> {
         log.info(ctx.reqId, `[chat] tokens: in=${usage?.inputTokens} out=${usage?.outputTokens}`);
         // Save the AI response to DB. Append <sources> block for Michelle's web-search responses
         // so citations survive page reload. Stripped from model context in dbMessages above.
-        const urlSources = sources?.filter(
-          (s): s is Extract<typeof s, { sourceType: 'url' }> => s.sourceType === 'url'
-        );
+        const urlSources = sources
+          ?.filter((s): s is Extract<typeof s, { sourceType: 'url' }> => s.sourceType === 'url')
+          .filter((s, i, arr) => arr.findIndex((x) => x.url === s.url) === i);
         const sourcesBlock = urlSources?.length
           ? `\n\n<sources>${JSON.stringify(
               urlSources.map((s) => ({ url: s.url, title: s.title }))

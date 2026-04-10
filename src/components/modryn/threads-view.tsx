@@ -11,10 +11,14 @@ import {
   MessageSquarePlus,
   Paperclip,
   Send,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useDraft } from '@/hooks/use-draft';
 import Image from 'next/image';
+import { ChatContainerRoot, ChatContainerContent } from '@/components/prompt-kit/chat-container';
+import { ScrollButton } from '@/components/prompt-kit/scroll-button';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { LogDecisionButton } from '@/components/modryn/log-decision-button';
 import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
@@ -25,6 +29,24 @@ import { ModalShell, SHEET_FIELD_CLASS } from '@/components/ui/modal-shell';
 import { useMembers } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
+
+// Parses the <sources> block appended to DB-stored messages for Michelle's web search results.
+// Returns the clean body text and a sources array for rendering as citations.
+function parseSourcesBlock(text: string): {
+  body: string;
+  sources: { url: string; title?: string }[];
+} {
+  const match = text.match(/\n\n<sources>([\s\S]+?)<\/sources>$/);
+  if (!match) return { body: text, sources: [] };
+  try {
+    return {
+      body: text.slice(0, text.length - match[0].length),
+      sources: JSON.parse(match[1]) as { url: string; title?: string }[],
+    };
+  } catch {
+    return { body: text, sources: [] };
+  }
+}
 
 // ——— Types ———
 
@@ -198,6 +220,8 @@ export function ThreadsView() {
   const [sendingReply, setSendingReply] = useState(false);
   const [replyExcluded, setReplyExcluded] = useState<Set<string>>(new Set());
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
+  const [confirmDeleteThreadId, setConfirmDeleteThreadId] = useState<string | null>(null);
   const [longPressSheetMsgId, setLongPressSheetMsgId] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
@@ -214,6 +238,29 @@ export function ThreadsView() {
     setCopiedMsgId(id);
     setTimeout(() => setCopiedMsgId((prev) => (prev === id ? null : prev)), 1500);
   }
+
+  async function handleDeleteThread(threadId: string) {
+    if (confirmDeleteThreadId !== threadId) {
+      // First click — enter confirm state, auto-reset after 3s
+      setConfirmDeleteThreadId(threadId);
+      setTimeout(() => setConfirmDeleteThreadId((prev) => (prev === threadId ? null : prev)), 3000);
+      return;
+    }
+    // Second click — execute
+    setConfirmDeleteThreadId(null);
+    setDeletingThreadId(threadId);
+    try {
+      await fetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+      if (selected?.thread.id === threadId) {
+        setSelected(null);
+        setMobileShowDetail(false);
+      }
+      setThreads((prev) => prev.filter((t) => t.id !== threadId));
+    } finally {
+      setDeletingThreadId(null);
+    }
+  }
+
   // New thread form
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -234,7 +281,6 @@ export function ThreadsView() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   // Guard against concurrent respond sequences
   const respondingRef = useRef(false);
 
@@ -266,20 +312,6 @@ export function ThreadsView() {
       setDragOrder(members.map((m) => m.id));
     }
   }, [members, dragOrder.length]);
-
-  // Scroll to bottom when messages append or responding member changes
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selected?.messages.length, respondingMemberId]);
-
-  // Keep the streaming bubble in view as tokens arrive.
-  // Uses 'instant' (not 'smooth') to avoid chaining smooth-scroll animations
-  // on every token update, which causes visible jank.
-  useEffect(() => {
-    if (streamingText) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-    }
-  }, [streamingText]);
 
   // Elapsed-seconds timer — resets each time a new member starts responding
   useEffect(() => {
@@ -467,6 +499,13 @@ export function ThreadsView() {
     respondingRef.current = false;
     // Refresh sidebar thread list to update last-message preview
     fetchThreads();
+    // Re-fetch thread detail to replace in-memory temp messages with real DB rows.
+    // Temp messages lack the <sources> block appended by onFinish for web search
+    // responses, so citations would be invisible without this refresh.
+    // Guard: only update selected if the user is still viewing this thread —
+    // a long Michelle search (2+ min) could complete after the user navigated away.
+    const refreshed = await fetchThreadDetail(threadId);
+    if (refreshed) setSelected((prev) => (prev?.thread.id === threadId ? refreshed : prev));
     // Fire org-fact extraction in the background — non-critical, never awaited.
     if (lastSuccessfulResponderId) {
       fetch(`/api/threads/${threadId}/extract`, {
@@ -550,7 +589,7 @@ export function ThreadsView() {
   // ——— New thread creation ———
 
   async function handleCreateThread() {
-    if (!newTitle.trim() || (!newBrief.trim() && attachedFiles.length === 0)) return;
+    if (!newBrief.trim() && attachedFiles.length === 0) return;
     setCreating(true);
     setCreateError('');
     try {
@@ -720,38 +759,65 @@ export function ThreadsView() {
           </div>
         ) : null}
         {threads.map((thread) => (
-          <button
+          <div
             key={thread.id}
-            onClick={() => handleSelectThread(thread.id)}
             className={cn(
-              'border-panel-border hover:bg-panel-selected/70 w-full border-b px-5 py-4 text-left transition-colors',
+              'group border-panel-border hover:bg-panel-selected/70 relative w-full border-b transition-colors',
               selected?.thread.id === thread.id && 'bg-panel-selected'
             )}
           >
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="text-panel-foreground truncate text-xs font-semibold">
-                {thread.title}
-              </span>
-              <ChromeLabel className="text-panel-faint shrink-0 text-[10px] tracking-[0.08em] normal-case">
-                {formatDate(thread.updated_at)}
-              </ChromeLabel>
-            </div>
-            {isSequenceRunning && selected?.thread.id === thread.id ? (
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="bg-status-generating h-1.5 w-1.5 animate-pulse rounded-full" />
-                <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
-                  responding...
+            <button
+              onClick={() => handleSelectThread(thread.id)}
+              className="w-full px-5 py-4 text-left"
+            >
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-panel-foreground truncate text-xs font-semibold">
+                  {thread.title || <span className="text-panel-faint italic">Untitled</span>}
+                </span>
+                <ChromeLabel className="text-panel-faint shrink-0 text-[10px] tracking-[0.08em] normal-case">
+                  {formatDate(thread.updated_at)}
                 </ChromeLabel>
               </div>
-            ) : thread.last_message ? (
-              <p className="text-panel-muted truncate text-[10px] leading-relaxed">
-                {thread.last_message}
-              </p>
-            ) : null}
-            <ChromeLabel className="text-panel-faint mt-1.5 text-[10px] tracking-[0.08em]">
-              {thread.participant_count} MEMBERS
-            </ChromeLabel>
-          </button>
+              {isSequenceRunning && selected?.thread.id === thread.id ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className="bg-status-generating h-1.5 w-1.5 animate-pulse rounded-full" />
+                  <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
+                    responding...
+                  </ChromeLabel>
+                </div>
+              ) : thread.last_message ? (
+                <p className="text-panel-muted truncate text-[10px] leading-relaxed">
+                  {thread.last_message}
+                </p>
+              ) : null}
+              <div className="mt-1.5 flex items-center justify-between">
+                <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em]">
+                  {thread.participant_count} MEMBERS
+                </ChromeLabel>
+                {/* Delete thread button — hover to reveal, two-click confirm */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteThread(thread.id);
+                  }}
+                  disabled={deletingThreadId === thread.id}
+                  title={confirmDeleteThreadId === thread.id ? 'Confirm delete' : 'Delete thread'}
+                  className={cn(
+                    'rounded-sm p-0.5 opacity-0 transition-colors group-hover:opacity-100 disabled:opacity-30',
+                    confirmDeleteThreadId === thread.id
+                      ? 'text-red-500 hover:text-red-600'
+                      : 'text-panel-faint hover:text-panel-muted'
+                  )}
+                >
+                  {confirmDeleteThreadId === thread.id ? (
+                    <X className="h-3 w-3" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
+                </button>
+              </div>
+            </button>
+          </div>
         ))}
       </div>
     </div>
@@ -809,7 +875,9 @@ export function ThreadsView() {
               </button>
             )}
             <h1 className="text-panel-foreground text-base font-semibold text-balance">
-              {selected.thread.title}
+              {selected.thread.title || (
+                <span className="text-panel-faint font-normal italic">Untitled</span>
+              )}
             </h1>
           </div>
 
@@ -898,62 +966,137 @@ export function ThreadsView() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
-          {selected.messages.map((msg) => {
-            const timestamp = formatTime(msg.created_at);
+        <ChatContainerRoot className="relative flex-1">
+          <ChatContainerContent>
+            {selected.messages.map((msg) => {
+              const timestamp = formatTime(msg.created_at);
 
-            if (msg.sender_id === 'founder') {
-              const { body: msgBody, attachments: msgAttachments } = parseMessageContent(
-                msg.content
-              );
+              if (msg.sender_id === 'founder') {
+                const { body: msgBody, attachments: msgAttachments } = parseMessageContent(
+                  msg.content
+                );
+                return (
+                  <div
+                    key={msg.id}
+                    className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0"
+                    onTouchStart={() => {
+                      longPressTimerRef.current = setTimeout(
+                        () => setLongPressSheetMsgId(msg.id),
+                        500
+                      );
+                    }}
+                    onTouchEnd={() => {
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+                    }}
+                    onTouchMove={() => {
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
+                    <div className="mb-1.5 flex items-center gap-2.5">
+                      {profile.avatarDataUrl ? (
+                        <Image
+                          src={profile.avatarDataUrl}
+                          alt={profile.name || 'Luke'}
+                          width={24}
+                          height={24}
+                          unoptimized
+                          className="h-6 w-6 shrink-0 rounded-sm object-cover"
+                        />
+                      ) : (
+                        <div className="bg-panel-chrome flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
+                          <span className="text-panel-chrome-foreground font-mono text-[9px] font-bold">
+                            {profile.initials || 'LH'}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-panel-foreground text-xs font-semibold">
+                        {profile.name || 'Luke'}
+                      </span>
+                      <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
+                        {timestamp}
+                      </ChromeLabel>
+                      <div className="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.id, msgBody)}
+                          title="Copy"
+                          className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+                        >
+                          {copiedMsgId === msg.id ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 pl-8.5">
+                      {msgBody && (
+                        <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                          {msgBody}
+                        </p>
+                      )}
+                      {msgAttachments.map((a, i) => (
+                        <AttachmentChip key={i} name={a.name} content={a.content} />
+                      ))}
+                    </div>
+                    <ActionSheet
+                      open={longPressSheetMsgId === msg.id}
+                      onClose={() => setLongPressSheetMsgId(null)}
+                      items={[
+                        {
+                          label: 'Copy',
+                          icon: <Copy className="h-4 w-4" />,
+                          onClick: () => handleCopyMessage(msg.id, msgBody),
+                        },
+                      ]}
+                    />
+                  </div>
+                );
+              }
+
+              const senderMember = getMemberById(msg.sender_id);
+              const { body: msgBody, sources: msgSources } = parseSourcesBlock(msg.content);
+
               return (
                 <div
                   key={msg.id}
-                  className="group border-panel-border flex flex-col gap-1 border-b px-6 py-4 last:border-b-0"
-                  onTouchStart={() => {
-                    longPressTimerRef.current = setTimeout(
-                      () => setLongPressSheetMsgId(msg.id),
-                      500
-                    );
-                  }}
-                  onTouchEnd={() => {
-                    if (longPressTimerRef.current) {
-                      clearTimeout(longPressTimerRef.current);
-                      longPressTimerRef.current = null;
-                    }
-                  }}
-                  onTouchMove={() => {
-                    if (longPressTimerRef.current) {
-                      clearTimeout(longPressTimerRef.current);
-                      longPressTimerRef.current = null;
-                    }
-                  }}
-                  onContextMenu={(e) => e.preventDefault()}
+                  className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0"
                 >
                   <div className="mb-1.5 flex items-center gap-2.5">
-                    {profile.avatarDataUrl ? (
+                    {senderMember?.avatarUrl ? (
                       <Image
-                        src={profile.avatarDataUrl}
-                        alt={profile.name || 'Luke'}
+                        src={senderMember.avatarUrl}
+                        alt={msg.sender_name ?? msg.sender_id}
                         width={24}
                         height={24}
                         unoptimized
                         className="h-6 w-6 shrink-0 rounded-sm object-cover"
                       />
                     ) : (
-                      <div className="bg-panel-chrome flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
-                        <span className="text-panel-chrome-foreground font-mono text-[9px] font-bold">
-                          {profile.initials || 'LH'}
+                      <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
+                        <span className="text-panel-inverse font-mono text-[9px] font-bold">
+                          {msg.sender_initials ?? '??'}
                         </span>
                       </div>
                     )}
                     <span className="text-panel-foreground text-xs font-semibold">
-                      {profile.name || 'Luke'}
+                      {msg.sender_name ?? msg.sender_id}
                     </span>
+                    <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
+                      AI
+                    </ChromeLabel>
                     <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
                       {timestamp}
                     </ChromeLabel>
-                    <div className="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:flex">
+                    <div className="ml-auto flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(msg.id, msgBody)}
@@ -966,45 +1109,63 @@ export function ThreadsView() {
                           <Copy className="h-3.5 w-3.5" />
                         )}
                       </button>
+                      <LogDecisionButton
+                        messageContent={msgBody}
+                        memberId={msg.sender_id}
+                        conversationId={selected.thread.id}
+                      />
+                      <LogOrgMemoryButton
+                        messageContent={msgBody}
+                        memberId={msg.sender_id}
+                        conversationId={selected.thread.id}
+                      />
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 pl-8.5">
-                    {msgBody && (
-                      <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
-                        {msgBody}
-                      </p>
+                  <div className="pl-8.5">
+                    <div className="prose prose-sm max-w-none">
+                      <Markdown id={msg.id}>{msgBody}</Markdown>
+                    </div>
+                    {msgSources.length > 0 && (
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        <ChromeLabel className="text-panel-faint text-[10px] tracking-widest">
+                          Sources
+                        </ChromeLabel>
+                        <div className="flex flex-wrap gap-1.5">
+                          {msgSources.map((s, i) => {
+                            let domain = s.url;
+                            try {
+                              domain = new URL(s.url).hostname.replace(/^www\./, '');
+                            } catch {}
+                            return (
+                              <a
+                                key={i}
+                                href={s.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={s.title ?? s.url}
+                                className="border-panel-border text-panel-muted hover:text-panel-foreground hover:border-panel-foreground/30 flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] transition-colors"
+                              >
+                                <span className="text-panel-faint">{i + 1}.</span>
+                                {domain}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
-                    {msgAttachments.map((a, i) => (
-                      <AttachmentChip key={i} name={a.name} content={a.content} />
-                    ))}
                   </div>
-                  <ActionSheet
-                    open={longPressSheetMsgId === msg.id}
-                    onClose={() => setLongPressSheetMsgId(null)}
-                    items={[
-                      {
-                        label: 'Copy',
-                        icon: <Copy className="h-4 w-4" />,
-                        onClick: () => handleCopyMessage(msg.id, msgBody),
-                      },
-                    ]}
-                  />
                 </div>
               );
-            }
+            })}
 
-            const senderMember = getMemberById(msg.sender_id);
-
-            return (
-              <div
-                key={msg.id}
-                className="group bg-ai-surface border-b-ai-border border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0"
-              >
+            {/* Live responding indicator */}
+            {respondingMember && (
+              <div className="bg-ai-surface border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
                 <div className="mb-1.5 flex items-center gap-2.5">
-                  {senderMember?.avatarUrl ? (
+                  {respondingMember.avatarUrl ? (
                     <Image
-                      src={senderMember.avatarUrl}
-                      alt={msg.sender_name ?? msg.sender_id}
+                      src={respondingMember.avatarUrl}
+                      alt={respondingMember.name}
                       width={24}
                       height={24}
                       unoptimized
@@ -1013,106 +1174,50 @@ export function ThreadsView() {
                   ) : (
                     <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
                       <span className="text-panel-inverse font-mono text-[9px] font-bold">
-                        {msg.sender_initials ?? '??'}
+                        {respondingMember.initials}
                       </span>
                     </div>
                   )}
                   <span className="text-panel-foreground text-xs font-semibold">
-                    {msg.sender_name ?? msg.sender_id}
+                    {respondingMember.name}
                   </span>
                   <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
                     AI
                   </ChromeLabel>
-                  <ChromeLabel className="text-panel-faint text-[10px] tracking-[0.08em] normal-case">
-                    {timestamp}
-                  </ChromeLabel>
-                  <div className="ml-auto flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyMessage(msg.id, msg.content)}
-                      title="Copy"
-                      className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
-                    >
-                      {copiedMsgId === msg.id ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                    <LogDecisionButton
-                      messageContent={msg.content}
-                      memberId={msg.sender_id}
-                      conversationId={selected.thread.id}
-                    />
-                    <LogOrgMemoryButton
-                      messageContent={msg.content}
-                      memberId={msg.sender_id}
-                      conversationId={selected.thread.id}
-                    />
-                  </div>
+                  {!streamingText && (
+                    <ChromeLabel className="text-status-generating text-[10px] tracking-[0.08em] normal-case">
+                      — generating
+                    </ChromeLabel>
+                  )}
                 </div>
                 <div className="pl-8.5">
-                  <div className="prose prose-sm max-w-none">
-                    <Markdown id={msg.id}>{msg.content}</Markdown>
-                  </div>
+                  {streamingText ? (
+                    // Tokens are arriving — render live Markdown
+                    <div className="prose prose-sm max-w-none">
+                      <Markdown id={`streaming-${respondingMember.id}`}>{streamingText}</Markdown>
+                    </div>
+                  ) : (
+                    // Waiting for first token — show dots + elapsed timer
+                    <>
+                      <ThinkingDots />
+                      {respondingMember.id === 'michelle-lim' && (
+                        <p className="text-panel-faint font-mono text-[11px]">
+                          searching the web...
+                        </p>
+                      )}
+                      <ChromeLabel className="text-panel-faint mt-1 font-mono text-[10px] tracking-[0.08em]">
+                        {elapsedSeconds}s
+                      </ChromeLabel>
+                    </>
+                  )}
                 </div>
               </div>
-            );
-          })}
-
-          {/* Live responding indicator */}
-          {respondingMember && (
-            <div className="bg-ai-surface border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
-              <div className="mb-1.5 flex items-center gap-2.5">
-                {respondingMember.avatarUrl ? (
-                  <Image
-                    src={respondingMember.avatarUrl}
-                    alt={respondingMember.name}
-                    width={24}
-                    height={24}
-                    unoptimized
-                    className="h-6 w-6 shrink-0 rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="bg-panel-chrome-strong flex h-6 w-6 shrink-0 items-center justify-center rounded-sm">
-                    <span className="text-panel-inverse font-mono text-[9px] font-bold">
-                      {respondingMember.initials}
-                    </span>
-                  </div>
-                )}
-                <span className="text-panel-foreground text-xs font-semibold">
-                  {respondingMember.name}
-                </span>
-                <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
-                  AI
-                </ChromeLabel>
-                {!streamingText && (
-                  <ChromeLabel className="text-status-generating text-[10px] tracking-[0.08em] normal-case">
-                    — generating
-                  </ChromeLabel>
-                )}
-              </div>
-              <div className="pl-8.5">
-                {streamingText ? (
-                  // Tokens are arriving — render live Markdown
-                  <div className="prose prose-sm max-w-none">
-                    <Markdown id={`streaming-${respondingMember.id}`}>{streamingText}</Markdown>
-                  </div>
-                ) : (
-                  // Waiting for first token — show dots + elapsed timer
-                  <>
-                    <ThinkingDots />
-                    <ChromeLabel className="text-panel-faint mt-1 font-mono text-[10px] tracking-[0.08em]">
-                      {elapsedSeconds}s
-                    </ChromeLabel>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
+            )}
+          </ChatContainerContent>
+          <div className="absolute right-4 bottom-4 z-10">
+            <ScrollButton className="bg-panel-input border-panel-border text-panel-muted hover:text-panel-foreground" />
+          </div>
+        </ChatContainerRoot>
 
         {/* Reply input */}
         <div className="border-panel-border border-t px-6 py-4">
@@ -1378,7 +1483,6 @@ export function ThreadsView() {
               onClick={handleCreateThread}
               disabled={
                 creating ||
-                !newTitle.trim() ||
                 (!newBrief.trim() && attachedFiles.length === 0) ||
                 getEffectiveOrder().length === 0
               }

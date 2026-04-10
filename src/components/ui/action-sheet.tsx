@@ -7,6 +7,7 @@ export interface ActionSheetItem {
   label: string;
   icon: ReactNode;
   onClick: () => void;
+  destructive?: boolean;
 }
 
 interface ActionSheetProps {
@@ -51,8 +52,9 @@ export function ActionSheet({ open, onClose, items }: ActionSheetProps) {
               onClose();
             }}
             className={cn(
-              'border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent',
-              'flex h-13 w-full items-center gap-3 border-b px-5 text-sm transition-colors last:border-b-0'
+              'border-sidebar-border hover:bg-sidebar-accent',
+              'flex h-13 w-full items-center gap-3 border-b px-5 text-sm transition-colors last:border-b-0',
+              item.destructive ? 'text-red-400' : 'text-sidebar-foreground'
             )}
           >
             {item.icon}
