@@ -272,6 +272,15 @@ export function ThreadsView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selected?.messages.length, respondingMemberId]);
 
+  // Keep the streaming bubble in view as tokens arrive.
+  // Uses 'instant' (not 'smooth') to avoid chaining smooth-scroll animations
+  // on every token update, which causes visible jank.
+  useEffect(() => {
+    if (streamingText) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }
+  }, [streamingText]);
+
   // Elapsed-seconds timer — resets each time a new member starts responding
   useEffect(() => {
     if (elapsedTimerRef.current) {
@@ -409,6 +418,13 @@ export function ThreadsView() {
             const { done, value } = await reader.read();
             if (done) break;
             accumulated += decoder.decode(value, { stream: true });
+            setStreamingText(accumulated);
+          }
+          // Flush any bytes buffered by the decoder for multi-byte characters
+          // split across chunk boundaries (e.g. UTF-8 emoji or non-ASCII text).
+          const trailing = decoder.decode();
+          if (trailing) {
+            accumulated += trailing;
             setStreamingText(accumulated);
           }
           // Stream closed = DB write committed. Build the temp message and advance.

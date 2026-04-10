@@ -237,26 +237,33 @@ export async function POST(
         // DB write happens inside onFinish — the stream does not close until this
         // resolves. This guarantees that when the client reads stream-done and fires
         // the next member's respond call, the history query sees the completed row.
-        const [inserted] = await sql`
-          INSERT INTO messages (conversation_id, sender_id, role, content)
-          VALUES (${threadId}, ${memberId}, 'assistant', ${text})
-          RETURNING id, created_at
-        `;
+        try {
+          const [inserted] = await sql`
+            INSERT INTO messages (conversation_id, sender_id, role, content)
+            VALUES (${threadId}, ${memberId}, 'assistant', ${text})
+            RETURNING id, created_at
+          `;
 
-        await sql`UPDATE conversations SET updated_at = now() WHERE id = ${threadId}`;
+          await sql`UPDATE conversations SET updated_at = now() WHERE id = ${threadId}`;
 
-        // Org-level fact extraction is handled by /extract endpoint called by the
-        // client after the full sequence completes — not here per-member.
+          // Org-level fact extraction is handled by /extract endpoint called by the
+          // client after the full sequence completes — not here per-member.
 
-        log.info(ctx.reqId, 'Response inserted', {
-          threadId,
-          memberId,
-          messageId: inserted.id,
-          // How much context the member saw — useful for spotting transcript bloat
-          transcriptMessages: threadMessages.length,
-          // Word count vs 150–300 word format target
-          wordCount: text.split(/\s+/).filter(Boolean).length,
-        });
+          log.info(ctx.reqId, 'Response inserted', {
+            threadId,
+            memberId,
+            messageId: inserted.id,
+            // How much context the member saw — useful for spotting transcript bloat
+            transcriptMessages: threadMessages.length,
+            // Word count vs 150–300 word format target
+            wordCount: text.split(/\s+/).filter(Boolean).length,
+          });
+        } catch (writeErr) {
+          // Stream has already started — can't change the HTTP response. Log the
+          // failure so the dev log surfaces it; the client will see a completed
+          // stream but the message will be absent from DB until retry.
+          log.err(ctx, writeErr);
+        }
       },
     });
 
