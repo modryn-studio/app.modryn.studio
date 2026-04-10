@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Inbox,
   MessagesSquare,
+  Globe,
   Plus,
   UserPlus,
   LogOut,
@@ -23,7 +24,7 @@ import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { site } from '@/config/site';
 import type { AIMember } from '@/hooks/use-members';
 
-export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar';
+export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar' | 'reddit';
 
 type MemberStatus = 'online' | 'analyzing' | 'away';
 
@@ -69,6 +70,7 @@ const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'threads', label: 'Threads', icon: MessagesSquare },
+  { id: 'reddit', label: 'Reddit', icon: Globe },
 ];
 
 function MemberAvatar({

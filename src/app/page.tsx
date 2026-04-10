@@ -7,6 +7,7 @@ import { ContextPanel } from '@/components/modryn/context-panel';
 import { InboxView } from '@/components/modryn/inbox-view';
 import { ThreadsView } from '@/components/modryn/threads-view';
 import { PlaceholderView } from '@/components/modryn/placeholder-view';
+import { RedditView } from '@/components/modryn/reddit-view';
 import { SetupView } from '@/components/modryn/setup-view';
 import { MobileHeader } from '@/components/modryn/mobile-header';
 import { MobileDrawer } from '@/components/modryn/mobile-drawer';
@@ -84,6 +85,7 @@ export default function ModrynStudio() {
           description="Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
         />
       )}
+      {activeView === 'reddit' && <RedditView />}
     </>
   );
 

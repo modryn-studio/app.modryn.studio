@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageSquare, Inbox, MessagesSquare, CheckSquare, Calendar } from 'lucide-react';
+import { MessageSquare, Inbox, MessagesSquare, CheckSquare, Calendar, Globe } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { cn } from '@/lib/utils';
 import type { View } from '@/components/modryn/sidebar';
@@ -10,6 +10,7 @@ const tabs: { id: View; label: string; icon: React.ElementType; built: boolean }
   { id: 'chat', label: 'DMs', icon: MessageSquare, built: true },
   { id: 'inbox', label: 'Inbox', icon: Inbox, built: true },
   { id: 'threads', label: 'Threads', icon: MessagesSquare, built: true },
+  { id: 'reddit', label: 'Reddit', icon: Globe, built: true },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare, built: false },
   { id: 'calendar', label: 'Cal', icon: Calendar, built: false },
 ];
