@@ -442,6 +442,38 @@ function AIMessage({
   );
 }
 
+function ChatHistorySkeleton() {
+  return (
+    <div className="flex min-h-full flex-col justify-end">
+      <div className="space-y-4 px-5 py-4">
+        {/* AI bubble */}
+        <div className="flex items-end gap-2">
+          <div className="bg-panel-chrome-strong h-6 w-6 shrink-0 animate-pulse rounded-sm" />
+          <div className="max-w-[60%] space-y-1.5">
+            <div className="bg-panel-border h-3 w-32 animate-pulse rounded" />
+            <div className="bg-panel-border h-16 w-full animate-pulse rounded" />
+          </div>
+        </div>
+        {/* User bubble */}
+        <div className="flex items-end justify-end gap-2">
+          <div className="max-w-[55%] space-y-1.5">
+            <div className="bg-panel-border ml-auto h-10 w-full animate-pulse rounded" />
+          </div>
+          <div className="bg-panel-chrome h-6 w-6 shrink-0 animate-pulse rounded-sm" />
+        </div>
+        {/* AI bubble */}
+        <div className="flex items-end gap-2">
+          <div className="bg-panel-chrome-strong h-6 w-6 shrink-0 animate-pulse rounded-sm" />
+          <div className="max-w-[70%] space-y-1.5">
+            <div className="bg-panel-border h-3 w-24 animate-pulse rounded" />
+            <div className="bg-panel-border h-24 w-full animate-pulse rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ memberName, memberRole }: { memberName: string; memberRole: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-end px-6 pt-6 pb-3 md:p-8 md:pb-4">
@@ -717,7 +749,9 @@ export function ChatView({
       {/* Messages */}
       <ChatContainerRoot className="relative flex-1">
         <ChatContainerContent>
-          {messages.length === 0 ? (
+          {!historyLoaded ? (
+            <ChatHistorySkeleton />
+          ) : messages.length === 0 ? (
             <EmptyState memberName={memberName} memberRole={memberRole} />
           ) : (
             <div className="flex min-h-full flex-col justify-end">

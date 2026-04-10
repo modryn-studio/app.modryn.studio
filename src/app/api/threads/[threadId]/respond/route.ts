@@ -1,4 +1,4 @@
-import { generateText } from 'ai';
+import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
@@ -222,7 +222,7 @@ export async function POST(
         : []),
     ]);
 
-    const { text } = await generateText({
+    const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
       messages: [
@@ -233,46 +233,34 @@ export async function POST(
       ],
       maxOutputTokens: 800,
       temperature: 0.7,
+      async onFinish({ text }) {
+        // DB write happens inside onFinish — the stream does not close until this
+        // resolves. This guarantees that when the client reads stream-done and fires
+        // the next member's respond call, the history query sees the completed row.
+        const [inserted] = await sql`
+          INSERT INTO messages (conversation_id, sender_id, role, content)
+          VALUES (${threadId}, ${memberId}, 'assistant', ${text})
+          RETURNING id, created_at
+        `;
+
+        await sql`UPDATE conversations SET updated_at = now() WHERE id = ${threadId}`;
+
+        // Org-level fact extraction is handled by /extract endpoint called by the
+        // client after the full sequence completes — not here per-member.
+
+        log.info(ctx.reqId, 'Response inserted', {
+          threadId,
+          memberId,
+          messageId: inserted.id,
+          // How much context the member saw — useful for spotting transcript bloat
+          transcriptMessages: threadMessages.length,
+          // Word count vs 150–300 word format target
+          wordCount: text.split(/\s+/).filter(Boolean).length,
+        });
+      },
     });
 
-    // Insert response and update conversation timestamp
-    const [inserted] = await sql`
-      INSERT INTO messages (conversation_id, sender_id, role, content)
-      VALUES (${threadId}, ${memberId}, 'assistant', ${text})
-      RETURNING id, created_at
-    `;
-
-    await sql`UPDATE conversations SET updated_at = now() WHERE id = ${threadId}`;
-
-    // Org-level fact extraction is handled by /extract endpoint called by the
-    // client after the full sequence completes — not here per-member.
-
-    log.info(ctx.reqId, 'Response inserted', {
-      threadId,
-      memberId,
-      messageId: inserted.id,
-      // How much context the member saw — useful for spotting transcript bloat
-      transcriptMessages: threadMessages.length,
-      // Word count vs 150–300 word format target
-      wordCount: text.split(/\s+/).filter(Boolean).length,
-    });
-
-    return log.end(
-      ctx,
-      Response.json({
-        message: {
-          id: inserted.id,
-          sender_id: memberId,
-          sender_name: member.name,
-          sender_initials: member.initials,
-          sender_role: member.role,
-          role: 'assistant',
-          content: text,
-          created_at: inserted.created_at,
-        },
-      }),
-      { memberId }
-    );
+    return log.end(ctx, result.toTextStreamResponse(), { memberId });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return log.end(ctx, Response.json({ error: error.issues }, { status: 400 }));

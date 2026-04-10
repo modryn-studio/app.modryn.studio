@@ -95,6 +95,25 @@ function formatDate(iso: string): string {
     : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function ThreadListSkeleton() {
+  return (
+    <div className="flex flex-col">
+      {[72, 56, 64].map((h, i) => (
+        <div key={i} className="border-panel-border space-y-2 border-b px-5 py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className="bg-panel-border h-2.5 animate-pulse rounded"
+              style={{ width: `${h}%` }}
+            />
+            <div className="bg-panel-border h-2 w-10 shrink-0 animate-pulse rounded" />
+          </div>
+          <div className="bg-panel-border h-2 w-3/4 animate-pulse rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ThinkingDots() {
   return (
     <div className="flex items-center gap-1 py-1">
@@ -167,9 +186,13 @@ export function ThreadsView() {
   const { profile } = useProfile();
 
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [loadingThreads, setLoadingThreads] = useState(true);
   const [selected, setSelected] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [respondingMemberId, setRespondingMemberId] = useState<string | null>(null);
+  // Accumulates token text from the active stream — displayed in the generating bubble.
+  // Cleared to '' before each member starts and after their message is pushed to msgs.
+  const [streamingText, setStreamingText] = useState('');
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [replyValue, setReplyValue] = useDraft(`thread-${selected?.thread.id ?? 'none'}`);
   const [sendingReply, setSendingReply] = useState(false);
@@ -281,6 +304,8 @@ export function ThreadsView() {
       setThreads(data.threads ?? []);
     } catch {
       // silent — thread list is best-effort
+    } finally {
+      setLoadingThreads(false);
     }
   }
 
@@ -338,6 +363,7 @@ export function ThreadsView() {
     let lastSuccessfulResponderId: string | null = null;
     for (const memberId of memberOrder) {
       setRespondingMemberId(memberId);
+      setStreamingText('');
       const member = members.find((m) => m.id === memberId);
       try {
         const res = await fetch(`/api/threads/${threadId}/respond`, {
@@ -362,10 +388,45 @@ export function ThreadsView() {
           setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
           continue;
         }
-        const { message } = (await res.json()) as { message: ThreadMessage };
-        msgs = [...msgs, message];
-        lastSuccessfulResponderId = memberId;
-        setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
+
+        // Idempotent path returns JSON; new responses return an AI SDK data stream.
+        // Detect by Content-Type to avoid consuming the body twice.
+        if (res.headers.get('content-type')?.includes('application/json')) {
+          // Already responded — return existing message directly
+          const { message } = (await res.json()) as { message: ThreadMessage };
+          msgs = [...msgs, message];
+          lastSuccessfulResponderId = memberId;
+          setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
+        } else {
+          // New response — read the plain text stream manually, accumulating token text.
+          // toTextStreamResponse emits raw text chunks; no protocol framing.
+          // The stream does not close until onFinish (and DB write) completes server-side,
+          // so reading to done guarantees the DB row exists before the next member starts.
+          const reader = res.body!.getReader();
+          const decoder = new TextDecoder();
+          let accumulated = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            accumulated += decoder.decode(value, { stream: true });
+            setStreamingText(accumulated);
+          }
+          // Stream closed = DB write committed. Build the temp message and advance.
+          const streamedMsg: ThreadMessage = {
+            id: `streamed-${memberId}-${Date.now()}`,
+            sender_id: memberId,
+            sender_name: member?.name ?? memberId,
+            sender_initials: member?.initials ?? '?',
+            sender_role: member?.role ?? null,
+            role: 'assistant',
+            content: accumulated,
+            created_at: new Date().toISOString(),
+          };
+          msgs = [...msgs, streamedMsg];
+          lastSuccessfulResponderId = memberId;
+          setStreamingText('');
+          setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
+        }
       } catch (err) {
         // Network-level failure — surface visibly and continue
         const name = member?.name ?? memberId;
@@ -384,23 +445,22 @@ export function ThreadsView() {
         setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
       }
     }
-    // Fire org-fact extraction once after the full sequence — regardless of
-    // which members succeeded or failed. Non-critical: failures are logged, not surfaced.
-    if (lastSuccessfulResponderId) {
-      try {
-        await fetch(`/api/threads/${threadId}/extract`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ memberId: lastSuccessfulResponderId }),
-        });
-      } catch {
-        // Extraction failure is non-critical — sequence has already completed
-      }
-    }
+    // Sequence done — clear responding state immediately so the last member's
+    // generating indicator doesn't linger while extraction runs.
     setRespondingMemberId(null);
     respondingRef.current = false;
     // Refresh sidebar thread list to update last-message preview
     fetchThreads();
+    // Fire org-fact extraction in the background — non-critical, never awaited.
+    if (lastSuccessfulResponderId) {
+      fetch(`/api/threads/${threadId}/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: lastSuccessfulResponderId }),
+      }).catch(() => {
+        // Extraction failure is non-critical
+      });
+    }
   }
 
   // ——— Thread selection ———
@@ -633,14 +693,16 @@ export function ThreadsView() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {threads.length === 0 && (
+        {loadingThreads ? (
+          <ThreadListSkeleton />
+        ) : threads.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-5 py-10 text-center">
             <ChromeLabel className="text-panel-muted mb-2 text-[10px] tracking-widest">
               No threads yet
             </ChromeLabel>
             <p className="text-panel-muted text-xs">Start one to run a team discussion.</p>
           </div>
-        )}
+        ) : null}
         {threads.map((thread) => (
           <button
             key={thread.id}
@@ -1013,10 +1075,20 @@ export function ThreadsView() {
                 </ChromeLabel>
               </div>
               <div className="pl-8.5">
-                <ThinkingDots />
-                <ChromeLabel className="text-panel-faint mt-1 font-mono text-[10px] tracking-[0.08em]">
-                  {elapsedSeconds}s
-                </ChromeLabel>
+                {streamingText ? (
+                  // Tokens are arriving — render live Markdown
+                  <div className="prose prose-sm max-w-none">
+                    <Markdown id={`streaming-${respondingMember.id}`}>{streamingText}</Markdown>
+                  </div>
+                ) : (
+                  // Waiting for first token — show dots + elapsed timer
+                  <>
+                    <ThinkingDots />
+                    <ChromeLabel className="text-panel-faint mt-1 font-mono text-[10px] tracking-[0.08em]">
+                      {elapsedSeconds}s
+                    </ChromeLabel>
+                  </>
+                )}
               </div>
             </div>
           )}

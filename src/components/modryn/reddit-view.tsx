@@ -100,13 +100,13 @@ export function RedditView() {
                 'font-mono text-[11px] transition-colors',
                 depth === d
                   ? 'text-panel-foreground font-semibold'
-                  : 'text-panel-faint hover:text-panel-muted',
+                  : 'text-panel-faint hover:text-panel-muted'
               )}
             >
               {d === 99 ? '\u221e' : d}
             </button>
           ))}
-          <span className="border-panel-border border-r self-stretch" />
+          <span className="border-panel-border self-stretch border-r" />
         </div>
         <input
           ref={inputRef}
