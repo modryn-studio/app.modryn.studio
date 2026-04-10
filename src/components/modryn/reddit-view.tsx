@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Copy, Check, Globe } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Status = 'idle' | 'fetching' | 'done' | 'error';
@@ -13,6 +13,11 @@ export function RedditView() {
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus URL field immediately on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   async function handleFetch() {
     const trimmed = url.trim();
@@ -60,12 +65,30 @@ export function RedditView() {
 
   return (
     <div className="bg-panel flex flex-1 flex-col overflow-hidden">
-      {/* Header bar */}
-      <div className="border-panel-border flex items-center gap-2.5 border-b px-5 py-3">
-        <Globe className="text-panel-faint h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-        <span className="text-panel-text-secondary font-mono text-[11px] tracking-widest uppercase">
-          Reddit Thread Reader
-        </span>
+      {/* Header bar — matches inbox/threads pattern exactly */}
+      <div className="border-panel-border border-b px-5 py-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-panel-foreground text-xs font-semibold">Reddit</h2>
+          {status === 'done' && result && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={cn(
+                'flex items-center gap-1.5 text-[11px] font-medium transition-colors',
+                copied
+                  ? 'text-panel-text-secondary'
+                  : 'text-panel-muted hover:text-panel-foreground',
+              )}
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5" strokeWidth={2} />
+              ) : (
+                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+              )}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Input row */}
@@ -76,8 +99,8 @@ export function RedditView() {
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
-            // Reset output when URL changes so stale result doesn't persist
-            if (status !== 'idle') {
+            // Only reset stale output — don't interrupt an in-flight fetch
+            if (status !== 'idle' && status !== 'fetching') {
               setStatus('idle');
               setResult('');
               setErrorMsg('');
@@ -88,79 +111,48 @@ export function RedditView() {
           className={cn(
             'text-panel-text placeholder:text-panel-faint min-w-0 flex-1 bg-transparent',
             'border-panel-border border-b pb-0.5 text-[13px] outline-none transition-colors',
-            'focus:border-panel-text caret-panel-text',
+            'focus:border-panel-foreground caret-panel-text',
           )}
           autoComplete="off"
           spellCheck={false}
         />
+        {/* Matches the send-button pattern: bg-panel-foreground, text-panel-inverse */}
         <button
           type="button"
           onClick={handleFetch}
           disabled={!url.trim() || status === 'fetching'}
-          className={cn(
-            'shrink-0 rounded-sm px-3 py-1.5 text-[12px] font-medium transition-colors',
-            'bg-panel-inverse text-panel-text hover:bg-panel-border',
-            'disabled:cursor-not-allowed disabled:opacity-40',
-          )}
+          className="bg-panel-foreground hover:bg-panel-foreground/80 flex h-8 shrink-0 items-center justify-center rounded-sm px-3 text-[12px] font-medium text-panel-inverse transition-colors disabled:opacity-30"
         >
           {status === 'fetching' ? 'Fetching…' : 'Fetch'}
         </button>
       </div>
 
       {/* Output area */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        {/* Empty state */}
+      <div className="flex min-h-0 flex-1 flex-col">
         {status === 'idle' && (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-panel-faint text-[12px]">Paste a Reddit thread URL above.</p>
+            <p className="text-panel-muted text-sm">Paste a Reddit thread URL above.</p>
           </div>
         )}
 
-        {/* Fetching */}
         {status === 'fetching' && (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-panel-muted text-[12px]">Fetching thread…</p>
+            <p className="text-panel-muted text-sm">Fetching thread…</p>
           </div>
         )}
 
-        {/* Error */}
         {status === 'error' && (
           <div className="flex flex-1 items-center justify-center px-6">
-            <p className="text-panel-muted text-center text-[12px]">{errorMsg}</p>
+            <p className="text-panel-muted text-center text-sm">{errorMsg}</p>
           </div>
         )}
 
-        {/* Result */}
         {status === 'done' && result && (
-          <>
-            {/* Copy button — top-right corner */}
-            <div className="border-panel-border absolute top-0 right-0 z-10 border-b border-l">
-              <button
-                type="button"
-                onClick={handleCopy}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-colors',
-                  copied
-                    ? 'text-panel-text-secondary'
-                    : 'text-panel-muted hover:text-panel-text',
-                )}
-              >
-                {copied ? (
-                  <Check className="h-3 w-3" strokeWidth={2} />
-                ) : (
-                  <Copy className="h-3 w-3" strokeWidth={1.5} />
-                )}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-
-            {/* Scrollable output */}
-            <div className="flex-1 overflow-y-auto p-5 pt-10">
-              <pre className="text-panel-text font-mono text-[12px] leading-relaxed whitespace-pre-wrap wrap-break-word">
-                {result}
-              </pre>
-            </div>
-          </>
+          <div className="flex-1 overflow-y-auto p-5">
+            <pre className="text-panel-text font-mono text-[12px] leading-relaxed whitespace-pre-wrap wrap-break-word">
+              {result}
+            </pre>
+          </div>
         )}
       </div>
     </div>

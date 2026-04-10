@@ -5,14 +5,20 @@ import '@/lib/env';
 const log = createRouteLogger('reddit');
 
 const bodySchema = z.object({
-  url: z.string().url().refine((u) => {
-    try {
-      const hostname = new URL(u).hostname.replace(/^www\./, '');
-      return hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
-    } catch {
-      return false;
-    }
-  }, { message: 'URL must be a reddit.com link' }),
+  url: z
+    .string()
+    .url()
+    .refine(
+      (u) => {
+        try {
+          const hostname = new URL(u).hostname.replace(/^www\./, '');
+          return hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
+        } catch {
+          return false;
+        }
+      },
+      { message: 'URL must be a reddit.com link' }
+    ),
 });
 
 // Reddit API types (only the fields we use)
@@ -75,7 +81,7 @@ export async function POST(req: Request): Promise<Response> {
     if (!parsed.success) {
       return log.end(
         ctx,
-        Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid URL' }, { status: 400 }),
+        Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid URL' }, { status: 400 })
       );
     }
 
@@ -87,6 +93,8 @@ export async function POST(req: Request): Promise<Response> {
     let pathname = original.pathname;
     // Strip trailing slash before appending .json
     if (pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+    // Strip .json suffix if already present to avoid double-appending
+    if (pathname.endsWith('.json')) pathname = pathname.slice(0, -5);
     const jsonUrl = `https://www.reddit.com${pathname}.json?limit=100`;
 
     log.info(ctx.reqId, 'Fetching Reddit thread', { jsonUrl });
@@ -100,19 +108,13 @@ export async function POST(req: Request): Promise<Response> {
     if (response.status === 429) {
       return log.end(
         ctx,
-        Response.json(
-          { error: 'Reddit is rate limiting, try again in a moment' },
-          { status: 503 },
-        ),
+        Response.json({ error: 'Reddit is rate limiting, try again in a moment' }, { status: 503 })
       );
     }
 
     if (!response.ok) {
       log.warn(ctx.reqId, 'Reddit fetch failed', { status: response.status });
-      return log.end(
-        ctx,
-        Response.json({ error: 'Could not fetch thread' }, { status: 502 }),
-      );
+      return log.end(ctx, Response.json({ error: 'Could not fetch thread' }, { status: 502 }));
     }
 
     const json = (await response.json()) as any[];
@@ -123,7 +125,7 @@ export async function POST(req: Request): Promise<Response> {
     if (!post?.title) {
       return log.end(
         ctx,
-        Response.json({ error: 'Could not parse Reddit response' }, { status: 502 }),
+        Response.json({ error: 'Could not parse Reddit response' }, { status: 502 })
       );
     }
 
@@ -133,10 +135,10 @@ export async function POST(req: Request): Promise<Response> {
     parts.push(`POST: ${post.title}`);
     parts.push(`BY: ${post.author} | ${post.score} upvotes | ${post.num_comments} comments`);
 
-    const body_text = (post.selftext ?? '').trim();
-    if (body_text && body_text !== '[removed]') {
+    const bodyText = (post.selftext ?? '').trim();
+    if (bodyText && bodyText !== '[removed]') {
       parts.push('');
-      parts.push(body_text);
+      parts.push(bodyText);
     }
 
     parts.push('');
@@ -154,7 +156,10 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const text = parts.join('\n');
-    log.info(ctx.reqId, 'Formatted thread', { chars: text.length, topLevelComments: commentChildren.filter(c => c.kind !== 'more').length });
+    log.info(ctx.reqId, 'Formatted thread', {
+      chars: text.length,
+      topLevelComments: commentChildren.filter((c) => c.kind !== 'more').length,
+    });
 
     return log.end(ctx, Response.json({ text }));
   } catch (error) {
