@@ -1062,7 +1062,7 @@ export function ThreadsView() {
 
           {/* Live responding indicator */}
           {respondingMember && (
-            <div className="bg-ai-surface border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4">
+            <div className="bg-ai-surface border-l-status-generating flex flex-col gap-1 border-b border-l-2 px-6 py-4 last:border-b-0">
               <div className="mb-1.5 flex items-center gap-2.5">
                 {respondingMember.avatarUrl ? (
                   <Image
@@ -1086,9 +1086,11 @@ export function ThreadsView() {
                 <ChromeLabel className="bg-panel-badge text-panel-muted rounded-sm px-1 py-0.5 tracking-[0.08em]">
                   AI
                 </ChromeLabel>
-                <ChromeLabel className="text-status-generating text-[10px] tracking-[0.08em] normal-case">
-                  — generating
-                </ChromeLabel>
+                {!streamingText && (
+                  <ChromeLabel className="text-status-generating text-[10px] tracking-[0.08em] normal-case">
+                    — generating
+                  </ChromeLabel>
+                )}
               </div>
               <div className="pl-8.5">
                 {streamingText ? (
