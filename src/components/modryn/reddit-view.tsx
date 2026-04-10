@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,11 +13,6 @@ export function RedditView() {
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Focus URL field immediately on mount
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   async function handleFetch() {
     const trimmed = url.trim();
@@ -77,7 +72,7 @@ export function RedditView() {
                 'flex items-center gap-1.5 text-[11px] font-medium transition-colors',
                 copied
                   ? 'text-panel-text-secondary'
-                  : 'text-panel-muted hover:text-panel-foreground',
+                  : 'text-panel-muted hover:text-panel-foreground'
               )}
             >
               {copied ? (
@@ -110,8 +105,8 @@ export function RedditView() {
           placeholder="https://www.reddit.com/r/..."
           className={cn(
             'text-panel-text placeholder:text-panel-faint min-w-0 flex-1 bg-transparent',
-            'border-panel-border border-b pb-0.5 text-[13px] outline-none transition-colors',
-            'focus:border-panel-foreground caret-panel-text',
+            'border-panel-border border-b pb-0.5 text-[13px] transition-colors outline-none',
+            'focus:border-panel-foreground caret-panel-text'
           )}
           autoComplete="off"
           spellCheck={false}
@@ -121,7 +116,7 @@ export function RedditView() {
           type="button"
           onClick={handleFetch}
           disabled={!url.trim() || status === 'fetching'}
-          className="bg-panel-foreground hover:bg-panel-foreground/80 flex h-8 shrink-0 items-center justify-center rounded-sm px-3 text-[12px] font-medium text-panel-inverse transition-colors disabled:opacity-30"
+          className="bg-panel-foreground hover:bg-panel-foreground/80 text-panel-inverse flex h-8 shrink-0 items-center justify-center rounded-sm px-3 text-[12px] font-medium transition-colors disabled:opacity-30"
         >
           {status === 'fetching' ? 'Fetching…' : 'Fetch'}
         </button>
@@ -149,7 +144,7 @@ export function RedditView() {
 
         {status === 'done' && result && (
           <div className="flex-1 overflow-y-auto p-5">
-            <pre className="text-panel-text font-mono text-[12px] leading-relaxed whitespace-pre-wrap wrap-break-word">
+            <pre className="text-panel-text font-mono text-[12px] leading-relaxed wrap-break-word whitespace-pre-wrap">
               {result}
             </pre>
           </div>
