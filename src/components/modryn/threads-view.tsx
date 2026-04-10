@@ -177,6 +177,7 @@ export function ThreadsView() {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [longPressSheetMsgId, setLongPressSheetMsgId] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replyInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Clear any pending long-press timer on unmount to prevent state updates after unmount.
   useEffect(() => {
@@ -445,6 +446,7 @@ export function ThreadsView() {
     if (!replyValue.trim() || respondingMemberId || !selected || sendingReply) return;
     const content = replyValue.trim();
     setReplyValue('');
+    if (replyInputRef.current) replyInputRef.current.style.height = 'auto';
     setSendingReply(true);
     // Capture excluded set at send-time — replyExcluded state resets in finally after the sequence
     const excludedAtSend = new Set(replyExcluded);
@@ -1036,6 +1038,7 @@ export function ThreadsView() {
         <div className="border-panel-border border-t px-6 py-4">
           <div className="border-panel-border bg-panel-input focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-3 transition-colors focus-within:ring-4">
             <textarea
+              ref={replyInputRef}
               value={replyValue}
               onChange={(e) => setReplyValue(e.target.value)}
               onKeyDown={handleReplyKeyDown}
