@@ -431,11 +431,17 @@ export function ThreadsView() {
     } else if (lastFounderIdx !== -1) {
       // Some members may have already responded after the last founder message.
       // Resume from the first member who hasn't responded yet.
-      const afterFounder = data.messages.slice(data.messages.length - lastFounderIdx);
-      const respondedIds = new Set(afterFounder.map((m) => m.sender_id));
-      const remaining = data.memberOrder.filter((id) => !respondedIds.has(id));
-      if (remaining.length > 0) {
-        await runRespondSequence(threadId, remaining, data.messages);
+      const founderMsgIdx = data.messages.length - 1 - lastFounderIdx;
+      const founderMsgId = data.messages[founderMsgIdx]?.id;
+      // If this cycle was already completed (possibly with exclusions), skip auto-resume.
+      const cycleComplete = founderMsgId && (() => { try { return localStorage.getItem(`thread-cycle-complete-${founderMsgId}`); } catch { return null; } })();
+      if (!cycleComplete) {
+        const afterFounder = data.messages.slice(founderMsgIdx + 1);
+        const respondedIds = new Set(afterFounder.map((m) => m.sender_id));
+        const remaining = data.memberOrder.filter((id) => !respondedIds.has(id));
+        if (remaining.length > 0) {
+          await runRespondSequence(threadId, remaining, data.messages);
+        }
       }
     }
   }
@@ -466,6 +472,12 @@ export function ThreadsView() {
       setSendingReply(false);
       const filteredOrder = selected.memberOrder.filter((id) => !excludedAtSend.has(id));
       await runRespondSequence(selected.thread.id, filteredOrder, msgs);
+      // Mark this reply cycle as complete so auto-resume on refresh doesn't
+      // fire excluded members. Key is scoped to the founder message ID —
+      // auto-invalidated when a new reply is sent (different message.id).
+      try {
+        localStorage.setItem(`thread-cycle-complete-${message.id}`, '1');
+      } catch {}
       // Reset exclusions only after the sequence fully resolves — not on failure/early return,
       // so the user can retry without re-toggling.
       setReplyExcluded(new Set());
