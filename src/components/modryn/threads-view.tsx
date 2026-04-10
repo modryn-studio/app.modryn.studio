@@ -409,6 +409,7 @@ export function ThreadsView() {
     setMobileShowDetail(true);
     setLoading(true);
     setSelected(null);
+    setReplyExcluded(new Set()); // Clear per-reply exclusions from previous thread
 
     const data = await fetchThreadDetail(threadId);
     if (!data) {
@@ -463,12 +464,11 @@ export function ThreadsView() {
       setSendingReply(false);
       const filteredOrder = selected.memberOrder.filter((id) => !excludedAtSend.has(id));
       await runRespondSequence(selected.thread.id, filteredOrder, msgs);
+      // Reset exclusions only after the sequence fully resolves — not on failure/early return,
+      // so the user can retry without re-toggling.
+      setReplyExcluded(new Set());
     } catch {
       setSendingReply(false);
-    } finally {
-      // Reset per-reply exclusion after the full sequence resolves (or on any error/early return).
-      // The await on runRespondSequence is unbroken, so this fires only after all members respond.
-      setReplyExcluded(new Set());
     }
   }
 
@@ -815,7 +815,7 @@ export function ThreadsView() {
               })}
               {isSequenceRunning && (
                 <ChromeLabel className="text-panel-faint ml-0.5 font-mono text-[10px] tracking-[0.08em]">
-                  {`${selected.memberOrder.filter((id) => currentRoundSenderIds.has(id)).length} / ${selected.memberOrder.length}`}
+                  {`${selected.memberOrder.filter((id) => currentRoundSenderIds.has(id)).length} / ${selected.memberOrder.filter((id) => !replyExcluded.has(id)).length}`}
                 </ChromeLabel>
               )}
               {respondingMember && (
