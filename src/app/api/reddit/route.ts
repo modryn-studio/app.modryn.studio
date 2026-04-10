@@ -19,6 +19,8 @@ const bodySchema = z.object({
       },
       { message: 'URL must be a reddit.com link' }
     ),
+  // 99 = effectively unlimited — Reddit threads rarely exceed this depth
+  depth: z.number().int().min(2).max(99).default(4),
 });
 
 // Reddit API types (only the fields we use)
@@ -40,29 +42,30 @@ interface RedditComment {
   };
 }
 
-function formatComment(comment: RedditComment, depth: number): string {
+function formatComment(comment: RedditComment, currentDepth: number, maxDepth: number): string {
   // Skip 'more' nodes and deleted/removed comments at every level
   if (comment.kind === 'more') return '';
   if (!comment.data.author || comment.data.author === '[deleted]') return '';
   const body = (comment.data.body ?? '').trim();
   if (!body || body === '[removed]') return '';
 
-  const indent = depth === 1 ? '  ' : '';
-  const label = depth === 1 ? ' — reply' : '';
+  // 2 spaces per nesting level — proportional at all depths
+  const indent = '  '.repeat(currentDepth);
+  const label = currentDepth > 0 ? ' — reply' : '';
   const lines: string[] = [
     `${indent}${comment.data.author} (${comment.data.score ?? 0} upvotes)${label}`,
     `${indent}${body}`,
   ];
 
-  // Only recurse one level deep (depth 0 → render children at depth 1, stop there)
-  if (depth === 0) {
+  // Recurse until we hit maxDepth (maxDepth = 99 for unlimited)
+  if (currentDepth < maxDepth - 1) {
     const replies =
       comment.data.replies &&
       typeof comment.data.replies === 'object' &&
       comment.data.replies.data?.children;
     if (replies && replies.length > 0) {
       for (const reply of replies) {
-        const formatted = formatComment(reply, 1);
+        const formatted = formatComment(reply, currentDepth + 1, maxDepth);
         if (formatted) lines.push('', formatted);
       }
     }
@@ -145,10 +148,12 @@ export async function POST(req: Request): Promise<Response> {
     parts.push('---');
     parts.push('COMMENTS:');
 
+    const { depth } = parsed.data;
+
     for (const comment of commentChildren) {
       // Skip 'more' nodes at the top level too
       if (comment.kind === 'more') continue;
-      const formatted = formatComment(comment, 0);
+      const formatted = formatComment(comment, 0, depth);
       if (formatted) {
         parts.push('');
         parts.push(formatted);

@@ -8,6 +8,7 @@ type Status = 'idle' | 'fetching' | 'done' | 'error';
 
 export function RedditView() {
   const [url, setUrl] = useState('');
+  const [depth, setDepth] = useState<number>(4);
   const [status, setStatus] = useState<Status>('idle');
   const [result, setResult] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -27,7 +28,7 @@ export function RedditView() {
       const res = await fetch('/api/reddit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trimmed }),
+        body: JSON.stringify({ url: trimmed, depth }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) {
@@ -88,6 +89,25 @@ export function RedditView() {
 
       {/* Input row */}
       <div className="border-panel-border flex items-center gap-2 border-b px-4 py-3">
+        {/* Depth selector */}
+        <div className="flex shrink-0 items-center gap-2.5">
+          {([2, 3, 4, 99] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDepth(d)}
+              className={cn(
+                'font-mono text-[11px] transition-colors',
+                depth === d
+                  ? 'text-panel-foreground font-semibold'
+                  : 'text-panel-faint hover:text-panel-muted',
+              )}
+            >
+              {d === 99 ? '\u221e' : d}
+            </button>
+          ))}
+          <span className="border-panel-border border-r self-stretch" />
+        </div>
         <input
           ref={inputRef}
           type="url"
