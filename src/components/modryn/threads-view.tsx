@@ -173,6 +173,7 @@ export function ThreadsView() {
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [replyValue, setReplyValue] = useDraft(`thread-${selected?.thread.id ?? 'none'}`);
   const [sendingReply, setSendingReply] = useState(false);
+  const [replyExcluded, setReplyExcluded] = useState<Set<string>>(new Set());
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [longPressSheetMsgId, setLongPressSheetMsgId] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -444,6 +445,8 @@ export function ThreadsView() {
     const content = replyValue.trim();
     setReplyValue('');
     setSendingReply(true);
+    // Capture excluded set at send-time — replyExcluded state resets in finally after the sequence
+    const excludedAtSend = new Set(replyExcluded);
     try {
       const res = await fetch(`/api/threads/${selected.thread.id}/reply`, {
         method: 'POST',
@@ -458,9 +461,14 @@ export function ThreadsView() {
       const msgs = [...selected.messages, message];
       setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
       setSendingReply(false);
-      await runRespondSequence(selected.thread.id, selected.memberOrder, msgs);
+      const filteredOrder = selected.memberOrder.filter((id) => !excludedAtSend.has(id));
+      await runRespondSequence(selected.thread.id, filteredOrder, msgs);
     } catch {
       setSendingReply(false);
+    } finally {
+      // Reset per-reply exclusion after the full sequence resolves (or on any error/early return).
+      // The await on runRespondSequence is unbroken, so this fires only after all members respond.
+      setReplyExcluded(new Set());
     }
   }
 
@@ -743,19 +751,38 @@ export function ThreadsView() {
                 const isDone = currentRoundSenderIds.has(memberId);
                 const isActive = memberId === respondingMemberId;
                 const isWaiting = isSequenceRunning && !isDone && !isActive;
+                const isExcluded = replyExcluded.has(memberId);
+                const isInteractive = !isSequenceRunning && !sendingReply;
                 return (
                   <div
                     key={memberId}
-                    title={m?.name ?? memberId}
+                    title={
+                      isExcluded
+                        ? `${m?.name ?? memberId} — excluded this cycle`
+                        : (m?.name ?? memberId)
+                    }
+                    onClick={
+                      isInteractive
+                        ? () =>
+                            setReplyExcluded((prev) => {
+                              const next = new Set(prev);
+                              next.has(memberId) ? next.delete(memberId) : next.add(memberId);
+                              return next;
+                            })
+                        : undefined
+                    }
                     className={cn(
-                      'relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm font-mono text-[8px] font-bold transition-all',
-                      isActive
-                        ? 'bg-panel-chrome-strong text-panel-inverse ring-status-generating animate-pulse ring-1'
-                        : isDone
-                          ? 'bg-panel-chrome text-panel-chrome-foreground'
-                          : isWaiting
-                            ? 'bg-panel-chrome text-panel-chrome-foreground opacity-40'
-                            : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
+                      'group relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm font-mono text-[8px] font-bold transition-all',
+                      isInteractive && 'cursor-pointer',
+                      isExcluded
+                        ? 'bg-panel-chrome text-panel-chrome-foreground opacity-25'
+                        : isActive
+                          ? 'bg-panel-chrome-strong text-panel-inverse ring-status-generating animate-pulse ring-1'
+                          : isDone
+                            ? 'bg-panel-chrome text-panel-chrome-foreground'
+                            : isWaiting
+                              ? 'bg-panel-chrome text-panel-chrome-foreground opacity-40'
+                              : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
                     )}
                   >
                     {m?.avatarUrl ? (
@@ -769,6 +796,19 @@ export function ThreadsView() {
                       />
                     ) : (
                       (m?.initials ?? memberId.slice(0, 2).toUpperCase())
+                    )}
+                    {/* EyeOff: always visible when excluded (idle or mid-sequence) */}
+                    {isExcluded && (
+                      <div className="bg-panel-chrome/85 absolute inset-0 flex items-center justify-center">
+                        <EyeOff className="text-panel-muted h-2.5 w-2.5" />
+                      </div>
+                    )}
+                    {/* Eye: hover hint when idle and not excluded */}
+                    {!isExcluded && isInteractive && (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="bg-panel-chrome/75 absolute inset-0" />
+                        <Eye className="text-panel-muted relative h-2.5 w-2.5" />
+                      </div>
                     )}
                   </div>
                 );

@@ -57,6 +57,20 @@ export async function POST(
 
     log.info(ctx.reqId, 'Respond request', { threadId, memberId });
 
+    // Guard: memberId must be a participant in this thread.
+    // Prevents bypassing per-reply exclusion via direct API calls.
+    const [memberInThread] = await sql`
+      SELECT 1 FROM conversation_members
+      WHERE conversation_id = ${threadId} AND member_id = ${memberId}
+      LIMIT 1
+    `;
+    if (!memberInThread) {
+      return log.end(
+        ctx,
+        Response.json({ error: 'Member is not a participant in this thread' }, { status: 403 })
+      );
+    }
+
     // Fetch member, episodic + semantic memory, and org memory in parallel
     const [memberRows, episodicRows, semanticRows, orgMemory] = await Promise.all([
       sql`SELECT name, role, initials, system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
