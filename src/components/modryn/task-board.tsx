@@ -217,7 +217,7 @@ function TaskCard({
   );
 }
 
-export function TaskBoard() {
+export function TaskBoard({ projectId }: { projectId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -229,13 +229,13 @@ export function TaskBoard() {
   const { members } = useMembers();
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch('/api/tasks');
+    const res = await fetch(`/api/tasks?projectId=${encodeURIComponent(projectId)}`);
     if (res.ok) {
       const data = await res.json();
       setTasks(data.tasks ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     fetchTasks();
@@ -274,6 +274,7 @@ export function TaskBoard() {
           title: newTitle.trim(),
           description: newDescription.trim() || undefined,
           assigned_to: newAssignedTo,
+          projectId,
         }),
       });
       if (!res.ok) {

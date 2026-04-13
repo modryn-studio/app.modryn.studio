@@ -22,6 +22,7 @@ import { ProfileSheet } from '@/components/modryn/profile-sheet';
 import { AddMemberSheet } from '@/components/modryn/add-member-sheet';
 import { InviteMemberSheet } from '@/components/modryn/invite-member-sheet';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { ProjectSwitcher } from '@/components/modryn/project-switcher';
 import { site } from '@/config/site';
 import type { AIMember } from '@/hooks/use-members';
 
@@ -43,6 +44,11 @@ interface SidebarProps {
   activeView: View;
   activeChat: string;
   members: AIMember[];
+  projects: { id: string; name: string }[];
+  activeProjectId: string | null;
+  onProjectChange: (projectId: string) => void;
+  onNewProject?: () => void;
+  onProjectNameChanged?: (id: string, name: string) => void;
   onViewChange: (view: View) => void;
   onChatSelect: (memberId: string) => void;
   onMemberAdded: () => void;
@@ -200,6 +206,11 @@ export function Sidebar({
   activeView,
   activeChat,
   members,
+  projects,
+  activeProjectId,
+  onProjectChange,
+  onNewProject,
+  onProjectNameChanged,
   onViewChange,
   onChatSelect,
   onMemberAdded,
@@ -359,6 +370,16 @@ export function Sidebar({
             <span className="text-sidebar-primary truncate text-[14px] font-medium tracking-[0.05em] uppercase">
               {site.name}
             </span>
+          </div>
+
+          <div className="border-sidebar-border border-b pb-2">
+            <ProjectSwitcher
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onProjectChange={onProjectChange}
+              onNewProject={onNewProject}
+              onNameChanged={onProjectNameChanged}
+            />
           </div>
 
           <div className="mb-6 px-2 pt-2">

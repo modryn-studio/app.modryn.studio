@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
 import {
   getCompanyContext,
+  getProjectContext,
   getOrgMemory,
   getMemberTasks,
   extractAndStoreOrgFacts,
@@ -39,7 +40,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { message, memberId, conversationId, isRetry } = body;
+    const { message, memberId, conversationId, isRetry, projectId } = body;
     const surface = surfaceSchema.parse(body.surface);
 
     if (!message || !memberId) {
@@ -50,32 +51,40 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Pull member system prompt, recent memory, and conversation history in parallel.
-    const [memberRows, episodicRows, semanticRows, orgMemory, memberTasks, historyRows] =
-      await Promise.all([
-        sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
-        sql`
+    const [
+      memberRows,
+      episodicRows,
+      semanticRows,
+      orgMemory,
+      memberTasks,
+      projectContext,
+      historyRows,
+    ] = await Promise.all([
+      sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
+      sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'episodic'
         ORDER BY created_at DESC
         LIMIT 5
       `,
-        sql`
+      sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'semantic'
         ORDER BY created_at DESC
         LIMIT 3
       `,
-        getOrgMemory(),
-        getMemberTasks(memberId),
-        conversationId
-          ? sql`
+      projectId ? getOrgMemory(projectId) : Promise.resolve(null),
+      projectId ? getMemberTasks(memberId, projectId) : getMemberTasks(memberId),
+      projectId ? getProjectContext(projectId) : Promise.resolve(null),
+      conversationId
+        ? sql`
             SELECT id, role, content, created_at FROM messages
             WHERE conversation_id = ${conversationId}
             ORDER BY created_at DESC
             LIMIT 40
           `
-          : Promise.resolve([]),
-      ]);
+        : Promise.resolve([]),
+    ]);
 
     const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
 
@@ -99,10 +108,8 @@ export async function POST(req: Request): Promise<Response> {
 
     const formatInstruction = surface ? ROUTE_CONTEXT[surface] : null;
 
-    // Priority order: 1=format, 2=system prompt, 3=company context, 4=member tasks,
-    // 5=semantic, 6=org memory, 7=episodic
-    // Member task queue sits above behavioral patterns — knowing what you're working on
-    // is more operationally relevant than patterns from past conversations.
+    // Priority order: 1=format, 2=system prompt, 3=company context, 4=project context,
+    // 5=member tasks, 6=semantic, 7=org memory, 8=episodic
     const systemPrompt = assembleContext([
       ...(formatInstruction
         ? [
@@ -117,26 +124,27 @@ export async function POST(req: Request): Promise<Response> {
       ...(companyContext
         ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
         : []),
+      ...(projectContext ? [{ label: 'project', content: projectContext, priority: 4 }] : []),
       ...(memberTasks
-        ? [{ label: 'tasks', content: memberTasks, priority: 4, prunable: true }]
+        ? [{ label: 'tasks', content: memberTasks, priority: 5, prunable: true }]
         : []),
       ...(semanticSegments
         ? [
             {
               label: 'semantic',
               content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
-              priority: 5,
+              priority: 6,
               prunable: true,
             },
           ]
         : []),
-      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 6, prunable: true }] : []),
+      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 7, prunable: true }] : []),
       ...(episodicSegments
         ? [
             {
               label: 'episodic',
               content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
-              priority: 7,
+              priority: 8,
               prunable: true,
             },
           ]
@@ -300,8 +308,8 @@ export async function POST(req: Request): Promise<Response> {
               `;
             } else {
               await sql`
-                INSERT INTO member_memory (member_id, conversation_id, summary, memory_type)
-                VALUES (${memberId}, ${conversationId}, ${summary}, 'episodic')
+                INSERT INTO member_memory (member_id, conversation_id, summary, memory_type, project_id)
+                VALUES (${memberId}, ${conversationId}, ${summary}, 'episodic', ${projectId ?? null})
               `;
             }
 
@@ -352,7 +360,7 @@ export async function POST(req: Request): Promise<Response> {
             if (conversationId) {
               await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
             }
-            await extractAndStoreOrgFacts(summary, conversationId, memberId);
+            await extractAndStoreOrgFacts(summary, conversationId, memberId, projectId);
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed
             log.err(ctx, e);

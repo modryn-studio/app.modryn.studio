@@ -1,7 +1,7 @@
 import { generateText, stepCountIs } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createRouteLogger } from '@/lib/route-logger';
-import { getCompanyContext, getOrgMemory } from '@/lib/context';
+import { getCompanyContext, getProjectContext, getOrgMemory } from '@/lib/context';
 import { assembleContext, estimateTokens } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
@@ -31,7 +31,7 @@ export async function POST(
     // Idempotency check — before any member context queries. No point pulling DB
     // join data for a task that's already done.
     const [task] = await sql`
-      SELECT id, title, description, assigned_to, status, output
+      SELECT id, title, description, assigned_to, status, output, project_id
       FROM tasks WHERE id = ${id} LIMIT 1
     `;
     if (!task) {
@@ -53,10 +53,12 @@ export async function POST(
 
     // Pull member context in parallel — tasks don't get episodic/semantic memory.
     // Conversation history is noise for a discrete work deliverable; persona + company
-    // context + org decisions is what matters. Episodic/semantic are chat-surface concerns.
-    const [memberRows, orgMemory] = await Promise.all([
+    // context + project context + org decisions is what matters.
+    const taskProjectId: string | null = task.project_id ?? null;
+    const [memberRows, orgMemory, projectContext] = await Promise.all([
       sql`SELECT system_prompt FROM members WHERE id = ${task.assigned_to} LIMIT 1`,
-      getOrgMemory(),
+      taskProjectId ? getOrgMemory(taskProjectId) : Promise.resolve(null),
+      taskProjectId ? getProjectContext(taskProjectId) : Promise.resolve(null),
     ]);
 
     const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
@@ -67,6 +69,7 @@ export async function POST(
       { label: 'format', content: TASK_FORMAT },
       { label: 'system', content: memberSystemPrompt },
       { label: 'company', content: companyContext },
+      ...(projectContext ? [{ label: 'project', content: projectContext }] : []),
       ...(orgMemory ? [{ label: 'org', content: orgMemory }] : []),
     ];
 
@@ -74,6 +77,7 @@ export async function POST(
       format: estimateTokens(TASK_FORMAT),
       system_prompt: estimateTokens(memberSystemPrompt),
       company_context: estimateTokens(companyContext),
+      project_context: projectContext ? estimateTokens(projectContext) : 0,
       org_memory: orgMemoryTokens,
       total_estimated: systemPromptRaw.reduce((s, l) => s + estimateTokens(l.content), 0),
     });
@@ -83,7 +87,8 @@ export async function POST(
         { label: 'format', content: TASK_FORMAT, priority: 1 },
         { label: 'system', content: memberSystemPrompt, priority: 2 },
         { label: 'company', content: companyContext, priority: 3 },
-        ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 4, prunable: true }] : []),
+        ...(projectContext ? [{ label: 'project', content: projectContext, priority: 4 }] : []),
+        ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 5, prunable: true }] : []),
       ],
       8000
     );

@@ -11,6 +11,7 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   assigned_to: z.string().min(1),
   conversationId: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
 });
 
 export async function GET(req: Request): Promise<Response> {
@@ -22,25 +23,49 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const { searchParams } = new URL(req.url);
     const assignedTo = searchParams.get('assignedTo');
+    const projectId = searchParams.get('projectId');
 
-    const rows = assignedTo
-      ? await sql`
-          SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
-                 t.due_at, t.conversation_id, t.created_at, t.updated_at,
-                 m.name AS assigned_to_name
-          FROM tasks t
-          LEFT JOIN members m ON m.id = t.assigned_to
-          WHERE t.assigned_to = ${assignedTo}
-          ORDER BY t.created_at DESC
-        `
-      : await sql`
-          SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
-                 t.due_at, t.conversation_id, t.created_at, t.updated_at,
-                 m.name AS assigned_to_name
-          FROM tasks t
-          LEFT JOIN members m ON m.id = t.assigned_to
-          ORDER BY t.created_at DESC
-        `;
+    let rows;
+    if (assignedTo && projectId) {
+      rows = await sql`
+        SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
+               t.due_at, t.conversation_id, t.created_at, t.updated_at,
+               m.name AS assigned_to_name
+        FROM tasks t
+        LEFT JOIN members m ON m.id = t.assigned_to
+        WHERE t.assigned_to = ${assignedTo} AND t.project_id = ${projectId}
+        ORDER BY t.created_at DESC
+      `;
+    } else if (assignedTo) {
+      rows = await sql`
+        SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
+               t.due_at, t.conversation_id, t.created_at, t.updated_at,
+               m.name AS assigned_to_name
+        FROM tasks t
+        LEFT JOIN members m ON m.id = t.assigned_to
+        WHERE t.assigned_to = ${assignedTo}
+        ORDER BY t.created_at DESC
+      `;
+    } else if (projectId) {
+      rows = await sql`
+        SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
+               t.due_at, t.conversation_id, t.created_at, t.updated_at,
+               m.name AS assigned_to_name
+        FROM tasks t
+        LEFT JOIN members m ON m.id = t.assigned_to
+        WHERE t.project_id = ${projectId}
+        ORDER BY t.created_at DESC
+      `;
+    } else {
+      rows = await sql`
+        SELECT t.id, t.title, t.description, t.assigned_to, t.status, t.output,
+               t.due_at, t.conversation_id, t.created_at, t.updated_at,
+               m.name AS assigned_to_name
+        FROM tasks t
+        LEFT JOIN members m ON m.id = t.assigned_to
+        ORDER BY t.created_at DESC
+      `;
+    }
 
     return log.end(ctx, Response.json({ tasks: rows }));
   } catch (error) {
@@ -57,11 +82,12 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { title, description, assigned_to, conversationId } = createTaskSchema.parse(body);
+    const { title, description, assigned_to, conversationId, projectId } =
+      createTaskSchema.parse(body);
 
     const [row] = await sql`
-      INSERT INTO tasks (title, description, assigned_to, conversation_id)
-      VALUES (${title}, ${description ?? null}, ${assigned_to}, ${conversationId ?? null})
+      INSERT INTO tasks (title, description, assigned_to, conversation_id, project_id)
+      VALUES (${title}, ${description ?? null}, ${assigned_to}, ${conversationId ?? null}, ${projectId ?? null})
       RETURNING id, title, description, assigned_to, status, conversation_id, created_at
     `;
 

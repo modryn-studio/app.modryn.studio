@@ -204,7 +204,7 @@ function AttachmentChip({ name, content }: { name: string; content: string }) {
 
 // ——— Main component ———
 
-export function ThreadsView() {
+export function ThreadsView({ projectId }: { projectId: string }) {
   const { members } = useMembers();
   const { profile } = useProfile();
 
@@ -300,10 +300,11 @@ export function ThreadsView() {
   // refreshes (after create/delete) don't clobber the user's current selection.
   const hasAutoOpenedRef = useRef(false);
 
-  // Load threads on mount
+  // Load threads on mount and when projectId changes
   useEffect(() => {
     fetchThreads();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Auto-open the most recent thread on initial mount — once only.
   useEffect(() => {
@@ -364,7 +365,7 @@ export function ThreadsView() {
 
   async function fetchThreads() {
     try {
-      const res = await fetch('/api/threads');
+      const res = await fetch(`/api/threads?projectId=${encodeURIComponent(projectId)}`);
       if (!res.ok) return;
       const data = await res.json();
       setThreads(data.threads ?? []);
@@ -654,6 +655,7 @@ export function ThreadsView() {
           title: newTitle.trim(),
           brief,
           memberOrder,
+          projectId,
         }),
       });
       if (!res.ok) {
@@ -1200,11 +1202,13 @@ export function ThreadsView() {
                         messageContent={msgBody}
                         memberId={msg.sender_id}
                         conversationId={selected.thread.id}
+                        projectId={projectId}
                       />
                       <LogOrgMemoryButton
                         messageContent={msgBody}
                         memberId={msg.sender_id}
                         conversationId={selected.thread.id}
+                        projectId={projectId}
                       />
                     </div>
                   </div>
@@ -1350,6 +1354,7 @@ export function ThreadsView() {
                                       description: d.description,
                                       conversationId: selected?.thread.id,
                                       loggedBy: 'founder',
+                                      projectId,
                                     }),
                                   });
                                   setPendingProposals((prev) =>
@@ -1448,6 +1453,7 @@ export function ThreadsView() {
                                       description: t.description,
                                       assigned_to: taskAssignOverrides[i] ?? t.assigned_to,
                                       conversationId: selected?.thread.id,
+                                      projectId,
                                     }),
                                   });
                                   setPendingProposals((prev) =>

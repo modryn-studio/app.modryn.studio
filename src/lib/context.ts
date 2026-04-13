@@ -19,18 +19,39 @@ export function getCompanyContext(): string {
   }
 }
 
-// Returns a merged view of decisions + org_memory as a formatted string, or null if empty.
-// Lazy merge — no dual-write. Decisions are always reflected in org context via UNION.
-export async function getOrgMemory(): Promise<string | null> {
+// Returns project name + context as formatted markdown, or null if not found / empty.
+// The <project-context> tags mark user-supplied content as data, not instructions —
+// mitigates accidental prompt injection from pasted content in the context field.
+export async function getProjectContext(projectId: string): Promise<string | null> {
+  try {
+    const [row] = await sql`
+      SELECT name, context FROM projects WHERE id = ${projectId} LIMIT 1
+    `;
+    if (!row) return null;
+    const parts = [`## Project: ${row.name}`];
+    if (row.context) {
+      parts.push(`\n<project-context>\n${row.context}\n</project-context>`);
+    }
+    return parts.join('\n');
+  } catch {
+    return null;
+  }
+}
+
+// Returns org-level facts scoped to a project as a formatted string, or null if empty.
+// Merges decisions + org_memory for the given project via UNION.
+export async function getOrgMemory(projectId: string): Promise<string | null> {
   try {
     const rows = await sql`
       SELECT content
       FROM (
         SELECT title || COALESCE(': ' || description, '') AS content, created_at
         FROM decisions
+        WHERE project_id = ${projectId}
         UNION ALL
         SELECT content, created_at
         FROM org_memory
+        WHERE project_id = ${projectId}
       ) combined
       ORDER BY created_at DESC
       LIMIT 20
@@ -47,23 +68,41 @@ export async function getOrgMemory(): Promise<string | null> {
 // Returns a member's full task awareness: active queue + recently completed titles (no output).
 // Injected into DM system prompt so members know what they're working on and what they've shipped.
 // Done tasks are titles only — output injection is too expensive and goes stale. Capped at 5 active + 3 done (~150 tokens max).
-export async function getMemberTasks(memberId: string): Promise<string | null> {
+export async function getMemberTasks(memberId: string, projectId?: string): Promise<string | null> {
   try {
     const [activeRows, doneRows] = await Promise.all([
-      sql`
-        SELECT title, status FROM tasks
-        WHERE assigned_to = ${memberId}
-          AND status IN ('pending', 'in_progress', 'blocked')
-        ORDER BY created_at ASC
-        LIMIT 5
-      `,
-      sql`
-        SELECT title FROM tasks
-        WHERE assigned_to = ${memberId}
-          AND status = 'done'
-        ORDER BY updated_at DESC
-        LIMIT 3
-      `,
+      projectId
+        ? sql`
+            SELECT title, status FROM tasks
+            WHERE assigned_to = ${memberId}
+              AND project_id = ${projectId}
+              AND status IN ('pending', 'in_progress', 'blocked')
+            ORDER BY created_at ASC
+            LIMIT 5
+          `
+        : sql`
+            SELECT title, status FROM tasks
+            WHERE assigned_to = ${memberId}
+              AND status IN ('pending', 'in_progress', 'blocked')
+            ORDER BY created_at ASC
+            LIMIT 5
+          `,
+      projectId
+        ? sql`
+            SELECT title FROM tasks
+            WHERE assigned_to = ${memberId}
+              AND project_id = ${projectId}
+              AND status = 'done'
+            ORDER BY updated_at DESC
+            LIMIT 3
+          `
+        : sql`
+            SELECT title FROM tasks
+            WHERE assigned_to = ${memberId}
+              AND status = 'done'
+            ORDER BY updated_at DESC
+            LIMIT 3
+          `,
     ]);
 
     if (activeRows.length === 0 && doneRows.length === 0) return null;
@@ -95,7 +134,8 @@ export async function getMemberTasks(memberId: string): Promise<string | null> {
 export async function extractAndStoreOrgFacts(
   text: string,
   conversationId: string,
-  memberId: string
+  memberId: string,
+  projectId?: string
 ): Promise<number> {
   try {
     const { output } = await generateText({
@@ -121,8 +161,8 @@ export async function extractAndStoreOrgFacts(
 
     for (const content of facts) {
       await sql`
-        INSERT INTO org_memory (content, source_conversation_id, source_member_id, extraction_type)
-        VALUES (${content}, ${conversationId}, ${memberId}, 'auto')
+        INSERT INTO org_memory (content, source_conversation_id, source_member_id, extraction_type, project_id)
+        VALUES (${content}, ${conversationId}, ${memberId}, 'auto', ${projectId ?? null})
       `;
     }
     return facts.length;

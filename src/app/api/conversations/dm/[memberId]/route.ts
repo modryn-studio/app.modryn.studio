@@ -17,15 +17,25 @@ export async function GET(
   }
   try {
     const { memberId } = await params;
+    const { searchParams } = new URL(_req.url);
+    const projectId = searchParams.get('projectId');
 
-    // Find existing DM between founder and this member
-    const existing = await sql`
-      SELECT c.id FROM conversations c
-      JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.member_id = 'founder'
-      JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.member_id = ${memberId}
-      WHERE c.type = 'dm'
-      LIMIT 1
-    `;
+    // Find existing DM between founder and this member, scoped to project
+    const existing = projectId
+      ? await sql`
+          SELECT c.id FROM conversations c
+          JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.member_id = 'founder'
+          JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.member_id = ${memberId}
+          WHERE c.type = 'dm' AND c.project_id = ${projectId}
+          LIMIT 1
+        `
+      : await sql`
+          SELECT c.id FROM conversations c
+          JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.member_id = 'founder'
+          JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.member_id = ${memberId}
+          WHERE c.type = 'dm'
+          LIMIT 1
+        `;
 
     let conversationId: string;
 
@@ -33,9 +43,13 @@ export async function GET(
       conversationId = existing[0].id;
     } else {
       // Create new DM conversation
-      const created = await sql`
-        INSERT INTO conversations (type) VALUES ('dm') RETURNING id
-      `;
+      const created = projectId
+        ? await sql`
+            INSERT INTO conversations (type, project_id) VALUES ('dm', ${projectId}) RETURNING id
+          `
+        : await sql`
+            INSERT INTO conversations (type) VALUES ('dm') RETURNING id
+          `;
       conversationId = created[0].id;
 
       await sql`

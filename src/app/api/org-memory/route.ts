@@ -10,6 +10,7 @@ const createOrgMemorySchema = z.object({
   content: z.string().min(1).max(2000),
   sourceConversationId: z.string().uuid().optional(),
   sourceMemberId: z.string().optional(),
+  projectId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request): Promise<Response> {
@@ -20,11 +21,12 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const body = await req.json();
-    const { content, sourceConversationId, sourceMemberId } = createOrgMemorySchema.parse(body);
+    const { content, sourceConversationId, sourceMemberId, projectId } =
+      createOrgMemorySchema.parse(body);
 
     const [row] = await sql`
-      INSERT INTO org_memory (content, source_conversation_id, source_member_id, extraction_type)
-      VALUES (${content}, ${sourceConversationId ?? null}, ${sourceMemberId ?? null}, 'manual')
+      INSERT INTO org_memory (content, source_conversation_id, source_member_id, extraction_type, project_id)
+      VALUES (${content}, ${sourceConversationId ?? null}, ${sourceMemberId ?? null}, 'manual', ${projectId ?? null})
       RETURNING id, content, created_at
     `;
 

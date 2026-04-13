@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { ProjectSwitcher } from '@/components/modryn/project-switcher';
 import { useProfile } from '@/lib/use-profile';
 import type { AIMember } from '@/hooks/use-members';
 
@@ -26,6 +27,11 @@ interface MobileDrawerProps {
   open: boolean;
   activeChat: string;
   members: AIMember[];
+  projects: { id: string; name: string }[];
+  activeProjectId: string | null;
+  onProjectChange: (projectId: string) => void;
+  onNewProject?: () => void;
+  onProjectNameChanged?: (id: string, name: string) => void;
   onClose: () => void;
   onChatSelect: (id: string) => void;
 }
@@ -93,6 +99,11 @@ export function MobileDrawer({
   open,
   activeChat,
   members,
+  projects,
+  activeProjectId,
+  onProjectChange,
+  onNewProject,
+  onProjectNameChanged,
   onClose,
   onChatSelect,
 }: MobileDrawerProps) {
@@ -141,6 +152,25 @@ export function MobileDrawer({
             Modryn Studio
           </ChromeLabel>
         </div>
+
+        {/* Project switcher — shown whenever projects are loaded (even 1 project, to allow creating more) */}
+        {projects.length >= 1 && (
+          <div className="border-sidebar-border border-b py-2">
+            <ProjectSwitcher
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onProjectChange={(id) => {
+                onProjectChange(id);
+                onClose();
+              }}
+              onNewProject={() => {
+                onNewProject?.();
+                onClose();
+              }}
+              onNameChanged={onProjectNameChanged}
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto py-2">
           {/* Team */}

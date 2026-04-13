@@ -9,26 +9,28 @@
 
 ## System Prompt — Same structure for both DMs and threads
 
-Built from 7 priority-ordered layers with a 12k token budget. Lower-priority layers are dropped first if over budget.
+Built from 8 priority-ordered layers with a 12k token budget. Lower-priority layers are dropped first if over budget.
 
 1. Format instruction — route-specific length/style constraint
 2. Member system prompt — full persona from DB
 3. Company context — founding document (read from disk)
-4. Member task queue — active tasks (pending/in_progress/blocked, up to 5) + recently completed titles (up to 3), via `getMemberTasks()`. Prunable. Injected so members are self-aware of their own work without being told.
-5. Semantic memory — behavioural patterns across conversations (up to 3)
-6. Org memory — decisions + org facts (newest 20)
-7. Episodic memory — per-conversation summaries for this member (up to 5)
+4. Project context — project name + context field from `projects` table, wrapped in `<project-context>` tags. Not prunable.
+5. Member task queue — active tasks (pending/in_progress/blocked, up to 5) + recently completed titles (up to 3), via `getMemberTasks()`. Prunable. Injected so members are self-aware of their own work without being told.
+6. Semantic memory — behavioural patterns across conversations (up to 3)
+7. Org memory — decisions + org facts (newest 20, project-scoped)
+8. Episodic memory — per-conversation summaries for this member (up to 5, project-scoped)
 
 ---
 
 ## System Prompt — Tasks
 
-Built from 4 priority-ordered layers with an 8k token budget. No episodic or semantic memory — tasks are discrete deliverables, not continuations of a conversation.
+Built from 5 priority-ordered layers with an 8k token budget. No episodic or semantic memory — tasks are discrete deliverables, not continuations of a conversation.
 
 1. Format instruction — task-specific length/style constraint
 2. Member system prompt — full persona from DB
 3. Company context — founding document (read from disk)
-4. Org memory — decisions + org facts (newest 20, prunable)
+4. Project context — project name + context field, not prunable
+5. Org memory — decisions + org facts (newest 20, prunable)
 
 Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web search + `maxSteps: 3`.
 
@@ -99,6 +101,7 @@ The founder is identified as `sender_id = 'founder'` in messages — not a membe
 
 | Table                  | What it stores                                                                                  |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `projects`             | Top-level containers — name, optional context field, timestamps                                 |
 | `members`              | AI member profiles — ID, name, role, initials, system prompt, status                            |
 | `conversations`        | DM or thread containers — type (`dm` or `thread`), title, timestamps                            |
 | `conversation_members` | Join table — which members (+ founder) are in each conversation, with respond order for threads |

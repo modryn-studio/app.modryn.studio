@@ -8,6 +8,7 @@ interface LogDecisionButtonProps {
   messageContent: string;
   memberId: string;
   conversationId: string | null;
+  projectId: string;
 }
 
 function getTitleFromContent(content: string): string {
@@ -19,6 +20,7 @@ export function LogDecisionButton({
   messageContent,
   memberId,
   conversationId,
+  projectId,
 }: LogDecisionButtonProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -52,6 +54,7 @@ export function LogDecisionButton({
           description: description.trim() || undefined,
           conversationId: conversationId || undefined,
           loggedBy: memberId,
+          projectId,
         }),
       });
       if (!res.ok) throw new Error('Failed to log decision');

@@ -1,11 +1,13 @@
 // Token estimation and context assembly with priority-ordered budget pruning.
-// Priority order (highest → lowest, matches plan Phase 3):
+// Priority order (highest → lowest):
 //   1. Format instructions — never pruned
 //   2. System prompt       — never pruned
 //   3. Company context     — never pruned
-//   4. Semantic memory     — rarely pruned
-//   5. Org memory          — prunable, oldest-first
-//   6. Episodic memory     — most prunable, oldest-first
+//   4. Project context     — never pruned
+//   5. Tasks (work queue)  — prunable
+//   6. Semantic memory     — prunable
+//   7. Org memory          — prunable
+//   8. Episodic memory     — most prunable
 
 // 12k budget: large enough for the biggest system prompt (~6.5k) + founding doc (~1.5k) + memory.
 // Sonnet 4.6 window is 200k — this is a cost/signal guardrail, not a capacity limit.

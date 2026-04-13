@@ -11,7 +11,38 @@ When you first sign in and no profile exists, the app shows a setup screen inste
 1. **Your name** (required) — enter your name and press Enter or click "Save"
 2. **Company description** (optional) — a one-line description of the studio
 
-After saving, the main workspace loads. You will not see this screen again unless the profile is cleared from the database.
+After saving, if no projects exist the app shows the **New Project** screen. Enter a project name and click **Create project**. The main workspace loads once a project is created.
+
+You will not see these screens again unless the profile or projects are cleared from the database.
+
+---
+
+## Projects
+
+All conversations, tasks, decisions, and org memory are scoped to a project. You must have at least one project to use the workspace.
+
+### Switching projects
+
+The project name appears at the top of the sidebar roster (below the app name). Click it to open the project dropdown.
+
+- The dropdown floats over sidebar content — it never pushes members down.
+- Click a project row to switch. The workspace reloads for that project.
+- Only your conversations, tasks, and memory for that project are shown.
+
+### Creating a new project
+
+In the project dropdown, click **+ New project** (bottom row). The workspace switches to the creation form. Enter a name and click **Create project**.
+
+On mobile, open the team drawer (top-left menu icon) to find the project switcher.
+
+### Renaming a project
+
+1. Open the project dropdown
+2. Hover a project row — a pencil icon appears on the right
+3. Click the pencil to enter edit mode
+4. Type the new name — **Enter** to save, **Escape** to cancel. Clicking away also saves.
+
+Renames are saved immediately to the database. The sidebar updates optimistically and reverts silently if the save fails.
 
 ---
 
@@ -190,29 +221,33 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 
 ## API Routes
 
-| Route                             | Method | What it does                                                                                                                                                                                                                                                                                         |
-| --------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/chat`                       | POST   | Streams AI response via Anthropic (claude-sonnet-4-6). Assembles system prompt via `assembleContext()`: format instructions + member prompt + company context + semantic memory + org memory + episodic memory. Saves messages. Writes episodic and semantic memory post-stream. Extracts org facts. |
-| `/api/members`                    | GET    | Returns all members from DB                                                                                                                                                                                                                                                                          |
-| `/api/members`                    | POST   | Creates a new AI member. Admin only.                                                                                                                                                                                                                                                                 |
-| `/api/members/[id]`               | PATCH  | Updates an AI member (name, role, system prompt, avatar). Admin only.                                                                                                                                                                                                                                |
-| `/api/members/reorder`            | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                                                                                                                                                           |
-| `/api/conversations/dm/[id]`      | GET    | Returns conversation history for a DM                                                                                                                                                                                                                                                                |
-| `/api/threads`                    | GET    | Lists all threads, newest first, with last message preview and participant count                                                                                                                                                                                                                     |
-| `/api/threads`                    | POST   | Creates a thread. Body: `{ title?, brief, memberOrder: string[] }`. Title is optional. Inserts conversation, members with respond_order, and the founder's brief as first message.                                                                                                                   |
-| `/api/threads/[threadId]`         | GET    | Returns thread metadata, full message history (with sender info), and memberOrder                                                                                                                                                                                                                    |
-| `/api/threads/[threadId]/respond` | POST   | Generates one member's response to a thread. Idempotency-checked. Body: `{ memberId }`.                                                                                                                                                                                                              |
-| `/api/threads/[threadId]/extract` | POST   | Extracts org facts from the full thread transcript after all members have responded. Body: `{ memberId }`.                                                                                                                                                                                           |
-| `/api/profile`                    | GET    | Returns founder profile from DB                                                                                                                                                                                                                                                                      |
-| `/api/profile`                    | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                                                                                                                                                  |
-| `/api/me`                         | GET    | Returns current user's role (`admin` or `member`)                                                                                                                                                                                                                                                    |
-| `/api/invites`                    | GET    | Lists all invite tokens. Admin only.                                                                                                                                                                                                                                                                 |
-| `/api/invites`                    | POST   | Creates a new invite token. Admin only.                                                                                                                                                                                                                                                              |
-| `/api/tasks`                      | GET    | Lists all tasks with assigned member info. Optional `?assignedTo=memberId` filter.                                                                                                                                                                                                                   |
-| `/api/tasks`                      | POST   | Creates a task. Body: `{ title, description?, assigned_to, conversationId? }`                                                                                                                                                                                                                        |
-| `/api/tasks/[id]`                 | PATCH  | Updates task status or output. Body: `{ status?, output? }`                                                                                                                                                                                                                                          |
-| `/api/tasks/[id]/execute`         | POST   | Executes the task with the assigned member (claude-sonnet-4-6). Marks `in_progress`, generates output, saves to DB as `done`. Michelle: `maxUses: 1` web search, `maxSteps: 3`.                                                                                                                      |
-| `/api/auth/[...path]`             | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                                                                                                                                                     |
+| Route                             | Method | What it does                                                                                                                                                                                                                                                                                                                   |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api/projects`                   | GET    | Lists all projects for the current workspace                                                                                                                                                                                                                                                                                   |
+| `/api/projects`                   | POST   | Creates a project. Body: `{ name }`. Returns the created project row.                                                                                                                                                                                                                                                          |
+| `/api/projects/[id]`              | PATCH  | Updates a project name and/or context. Body: `{ name?, context? }`.                                                                                                                                                                                                                                                            |
+| `/api/projects/[id]`              | DELETE | Deletes a project. Cascade-safe: blocked if conversations exist under it.                                                                                                                                                                                                                                                      |
+| `/api/chat`                       | POST   | Streams AI response via Anthropic (claude-sonnet-4-6). Assembles system prompt via `assembleContext()`: format instructions + member prompt + company context + project context + tasks + semantic memory + org memory + episodic memory. Saves messages. Writes episodic and semantic memory post-stream. Extracts org facts. |
+| `/api/members`                    | GET    | Returns all members from DB                                                                                                                                                                                                                                                                                                    |
+| `/api/members`                    | POST   | Creates a new AI member. Admin only.                                                                                                                                                                                                                                                                                           |
+| `/api/members/[id]`               | PATCH  | Updates an AI member (name, role, system prompt, avatar). Admin only.                                                                                                                                                                                                                                                          |
+| `/api/members/reorder`            | PATCH  | Saves new member sort order. Body: `{ orderedIds: string[] }`. Admin only.                                                                                                                                                                                                                                                     |
+| `/api/conversations/dm/[id]`      | GET    | Returns conversation history for a DM                                                                                                                                                                                                                                                                                          |
+| `/api/threads`                    | GET    | Lists all threads, newest first, with last message preview and participant count                                                                                                                                                                                                                                               |
+| `/api/threads`                    | POST   | Creates a thread. Body: `{ title?, brief, memberOrder: string[] }`. Title is optional. Inserts conversation, members with respond_order, and the founder's brief as first message.                                                                                                                                             |
+| `/api/threads/[threadId]`         | GET    | Returns thread metadata, full message history (with sender info), and memberOrder                                                                                                                                                                                                                                              |
+| `/api/threads/[threadId]/respond` | POST   | Generates one member's response to a thread. Idempotency-checked. Body: `{ memberId }`.                                                                                                                                                                                                                                        |
+| `/api/threads/[threadId]/extract` | POST   | Extracts org facts from the full thread transcript after all members have responded. Body: `{ memberId }`.                                                                                                                                                                                                                     |
+| `/api/profile`                    | GET    | Returns founder profile from DB                                                                                                                                                                                                                                                                                                |
+| `/api/profile`                    | PATCH  | Updates founder profile (name, description, avatar)                                                                                                                                                                                                                                                                            |
+| `/api/me`                         | GET    | Returns current user's role (`admin` or `member`)                                                                                                                                                                                                                                                                              |
+| `/api/invites`                    | GET    | Lists all invite tokens. Admin only.                                                                                                                                                                                                                                                                                           |
+| `/api/invites`                    | POST   | Creates a new invite token. Admin only.                                                                                                                                                                                                                                                                                        |
+| `/api/tasks`                      | GET    | Lists all tasks with assigned member info. Optional `?assignedTo=memberId` filter.                                                                                                                                                                                                                                             |
+| `/api/tasks`                      | POST   | Creates a task. Body: `{ title, description?, assigned_to, conversationId? }`                                                                                                                                                                                                                                                  |
+| `/api/tasks/[id]`                 | PATCH  | Updates task status or output. Body: `{ status?, output? }`                                                                                                                                                                                                                                                                    |
+| `/api/tasks/[id]/execute`         | POST   | Executes the task with the assigned member (claude-sonnet-4-6). Marks `in_progress`, generates output, saves to DB as `done`. Michelle: `maxUses: 1` web search, `maxSteps: 3`.                                                                                                                                                |
+| `/api/auth/[...path]`             | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                                                                                                                                                                               |
 
 ---
 
@@ -224,6 +259,9 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Invite-gated sign up                              | ✅ Works                       |
 | Admin role gate (add member, invite)              | ✅ Works                       |
 | Setup screen (first launch)                       | ✅ Works                       |
+| Multi-project architecture (create, switch)       | ✅ Works                       |
+| Rename project (inline in dropdown)               | ✅ Works                       |
+| Project context injection into AI prompts         | ✅ Works                       |
 | DM chat with AI members (streaming)               | ✅ Works                       |
 | Conversation persistence (DB)                     | ✅ Works                       |
 | Member system prompt + memory injection           | ✅ Works                       |

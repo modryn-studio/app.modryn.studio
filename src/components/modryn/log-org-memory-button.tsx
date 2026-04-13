@@ -8,6 +8,7 @@ interface LogOrgMemoryButtonProps {
   messageContent: string;
   memberId: string;
   conversationId: string | null;
+  projectId: string;
 }
 
 function getInitialContent(content: string): string {
@@ -19,6 +20,7 @@ export function LogOrgMemoryButton({
   messageContent,
   memberId,
   conversationId,
+  projectId,
 }: LogOrgMemoryButtonProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
@@ -49,6 +51,7 @@ export function LogOrgMemoryButton({
           content: content.trim(),
           sourceConversationId: conversationId || undefined,
           sourceMemberId: memberId,
+          projectId,
         }),
       });
       if (!res.ok) throw new Error('Failed to log');

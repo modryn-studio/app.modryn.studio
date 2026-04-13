@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Sidebar, type View } from '@/components/modryn/sidebar';
 import { ChatView } from '@/components/modryn/chat-view';
 import { ContextPanel } from '@/components/modryn/context-panel';
@@ -10,6 +10,7 @@ import { PlaceholderView } from '@/components/modryn/placeholder-view';
 import { TaskBoard } from '@/components/modryn/task-board';
 import { RedditView } from '@/components/modryn/reddit-view';
 import { SetupView } from '@/components/modryn/setup-view';
+import { ProjectSetupView } from '@/components/modryn/project-setup-view';
 import { MobileHeader } from '@/components/modryn/mobile-header';
 import { MobileDrawer } from '@/components/modryn/mobile-drawer';
 import { MobileTabBar } from '@/components/modryn/mobile-tab-bar';
@@ -17,25 +18,65 @@ import { MobileContextFab } from '@/components/modryn/mobile-context-fab';
 import { useMembers } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 
+interface Project {
+  id: string;
+  name: string;
+  context: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ModrynStudio() {
   // Start with server-safe defaults — avoids hydration mismatch.
   // Apply persisted values after mount so server and client HTML agree.
   const [activeView, setActiveView] = useState<View>('chat');
   const [activeChat, setActiveChat] = useState<string>('');
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
+
+  // Boot sequence: fetch projects, resolve active project from localStorage
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/projects');
+      if (!res.ok) return;
+      const data = await res.json();
+      const list: Project[] = data.projects ?? [];
+      setProjects(list);
+
+      if (list.length === 0) {
+        setActiveProjectId(null);
+        setProjectsLoaded(true);
+        return;
+      }
+
+      const stored = localStorage.getItem('modryn_active_project');
+      const valid = list.find((p) => p.id === stored);
+      const resolved = valid ? valid.id : list[0].id;
+      setActiveProjectId(resolved);
+      localStorage.setItem('modryn_active_project', resolved);
+      setProjectsLoaded(true);
+    } catch {
+      setProjectsLoaded(true);
+    }
+  }, []);
+
   useEffect(() => {
     const view = localStorage.getItem('modryn:activeView') as View | null;
     const chat = localStorage.getItem('modryn:activeChat');
     if (view) setActiveView(view);
     if (chat) setActiveChat(chat);
-  }, []);
+    fetchProjects();
+  }, [fetchProjects]);
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const { members, refetch } = useMembers();
   const { profile } = useProfile();
 
-  // Briefing data — re-fetched when the active member changes.
-  // Tasks are filtered to the member's assignments; decisions are org-wide (all shown in every DM).
+  // Briefing data — re-fetched when the active member or project changes.
+  // Tasks are filtered to the member's assignments within the project; decisions are project-scoped.
   const [contextTasks, setContextTasks] = useState<{ text: string; due?: string }[]>([]);
   const [contextDecisions, setContextDecisions] = useState<{ text: string }[]>([]);
   useEffect(() => {
@@ -45,9 +86,14 @@ export default function ModrynStudio() {
       (activeChat === '' ? members[0]?.id : undefined) ??
       members[0]?.id;
     if (!activeMemberId) return;
+    const taskParams = new URLSearchParams({ assignedTo: activeMemberId });
+    if (activeProjectId) taskParams.set('projectId', activeProjectId);
+    const decisionParams = activeProjectId
+      ? `?projectId=${encodeURIComponent(activeProjectId)}`
+      : '';
     Promise.all([
-      fetch(`/api/tasks?assignedTo=${encodeURIComponent(activeMemberId)}`).then((r) => r.json()),
-      fetch('/api/decisions').then((r) => r.json()),
+      fetch(`/api/tasks?${taskParams}`).then((r) => r.json()),
+      fetch(`/api/decisions${decisionParams}`).then((r) => r.json()),
     ])
       .then(([tasksData, decisionsData]) => {
         const taskRows: { title: string; due_at?: string | null; status?: string }[] =
@@ -61,7 +107,7 @@ export default function ModrynStudio() {
         setContextDecisions(decisionRows.map((d) => ({ text: d.title })));
       })
       .catch(() => {});
-  }, [activeChat, members]);
+  }, [activeChat, activeProjectId, members]);
 
   const handleViewChange = (view: View) => {
     setActiveView(view);
@@ -73,6 +119,22 @@ export default function ModrynStudio() {
     localStorage.setItem('modryn:activeChat', memberId);
   };
 
+  const handleProjectChange = (projectId: string) => {
+    setActiveProjectId(projectId);
+    setShowNewProject(false);
+    localStorage.setItem('modryn_active_project', projectId);
+  };
+
+  const handleProjectCreated = (projectId: string) => {
+    handleProjectChange(projectId);
+    setShowNewProject(false);
+    fetchProjects();
+  };
+
+  const handleProjectNameChanged = (id: string, name: string) => {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
+  };
+
   // activeMember falls back to first member only when nothing is stored yet.
   // 'founder' is not in the members table — treat it the same as empty (no prior selection).
   const activeMember =
@@ -80,16 +142,17 @@ export default function ModrynStudio() {
     (activeChat === '' || activeChat === 'founder' ? members[0] : undefined) ??
     members[0];
 
-  const mainContent = (
+  const mainContent = activeProjectId ? (
     <>
       {activeView === 'chat' && activeMember && (
         <ChatView
-          key={activeMember.id}
+          key={`${activeMember.id}-${activeProjectId}`}
           memberId={activeMember.id}
           memberName={activeMember.name}
           memberRole={activeMember.role}
           memberInitials={activeMember.initials}
           memberAvatarUrl={activeMember.avatarUrl}
+          projectId={activeProjectId}
           surface="dm"
           contextCollapsed={contextCollapsed}
           onToggleContext={() => setContextCollapsed((v) => !v)}
@@ -101,8 +164,8 @@ export default function ModrynStudio() {
         </div>
       )}
       {activeView === 'inbox' && <InboxView />}
-      {activeView === 'threads' && <ThreadsView />}
-      {activeView === 'tasks' && <TaskBoard />}
+      {activeView === 'threads' && <ThreadsView projectId={activeProjectId} />}
+      {activeView === 'tasks' && <TaskBoard projectId={activeProjectId} />}
       {activeView === 'calendar' && (
         <PlaceholderView
           label="##"
@@ -112,9 +175,18 @@ export default function ModrynStudio() {
       )}
       {activeView === 'reddit' && <RedditView />}
     </>
-  );
+  ) : null;
 
-  const centreContent = profile.name === '' ? <SetupView /> : mainContent;
+  const centreContent =
+    profile.name === '' ? (
+      <SetupView />
+    ) : showNewProject ? (
+      <ProjectSetupView onCreated={handleProjectCreated} />
+    ) : projectsLoaded && !activeProjectId ? (
+      <ProjectSetupView onCreated={handleProjectCreated} />
+    ) : (
+      mainContent
+    );
 
   return (
     <div className="bg-background flex h-screen w-screen overflow-hidden">
@@ -125,6 +197,11 @@ export default function ModrynStudio() {
           activeView={activeView}
           activeChat={activeChat}
           members={members}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onProjectChange={handleProjectChange}
+          onNewProject={() => setShowNewProject(true)}
+          onProjectNameChanged={handleProjectNameChanged}
           onViewChange={handleViewChange}
           onChatSelect={handleChatSelect}
           onMemberAdded={refetch}
@@ -156,7 +233,7 @@ export default function ModrynStudio() {
             setMobileContextOpen(false);
           }}
           activeMember={
-            activeView === 'chat' && activeMember
+            activeView === 'chat' && activeMember && !showNewProject
               ? {
                   name: activeMember.name,
                   initials: activeMember.initials,
@@ -189,6 +266,14 @@ export default function ModrynStudio() {
         open={mobileDrawerOpen}
         activeChat={activeChat}
         members={members}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onProjectChange={handleProjectChange}
+        onNewProject={() => {
+          setShowNewProject(true);
+          setMobileDrawerOpen(false);
+        }}
+        onProjectNameChanged={handleProjectNameChanged}
         onClose={() => setMobileDrawerOpen(false)}
         onChatSelect={(id) => {
           handleChatSelect(id);
@@ -197,8 +282,8 @@ export default function ModrynStudio() {
         }}
       />
 
-      {/* Mobile briefing pull-tab + sheet — only in chat view */}
-      {activeView === 'chat' && activeMember && (
+      {/* Mobile briefing pull-tab + sheet — only in chat view, not during project creation */}
+      {activeView === 'chat' && activeMember && !showNewProject && (
         <MobileContextFab
           open={mobileContextOpen}
           onToggle={() => setMobileContextOpen((v) => !v)}

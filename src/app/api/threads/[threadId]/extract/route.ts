@@ -33,6 +33,12 @@ export async function POST(
 
     log.info(ctx.reqId, 'Extract request', { threadId, memberId });
 
+    // Read project_id from conversation row for scoped org memory extraction
+    const [convRow] = await sql`
+      SELECT project_id FROM conversations WHERE id = ${threadId} LIMIT 1
+    `;
+    const threadProjectId: string | null = convRow?.project_id ?? null;
+
     // Fetch full thread transcript
     const threadMessages = await sql`
       SELECT
@@ -67,7 +73,12 @@ export async function POST(
       })
       .join('\n\n---\n\n');
 
-    const factsExtracted = await extractAndStoreOrgFacts(transcript, threadId, memberId);
+    const factsExtracted = await extractAndStoreOrgFacts(
+      transcript,
+      threadId,
+      memberId,
+      threadProjectId ?? undefined
+    );
 
     log.info(ctx.reqId, 'Extraction complete', { threadId, memberId, factsExtracted });
 

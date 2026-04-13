@@ -2,7 +2,7 @@ import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
-import { getCompanyContext, getOrgMemory, getMemberTasks } from '@/lib/context';
+import { getCompanyContext, getProjectContext, getOrgMemory, getMemberTasks } from '@/lib/context';
 import { assembleContext } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
@@ -71,24 +71,32 @@ export async function POST(
       );
     }
 
-    // Fetch member, episodic + semantic memory, org memory, and member task queue in parallel
-    const [memberRows, episodicRows, semanticRows, orgMemory, memberTasks] = await Promise.all([
-      sql`SELECT name, role, initials, system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
-      sql`
+    // Fetch member, episodic + semantic memory, org memory, project context, and member task queue in parallel.
+    // Read project_id from conversation row to scope context correctly.
+    const [convRows] = await Promise.all([
+      sql`SELECT project_id FROM conversations WHERE id = ${threadId} LIMIT 1`,
+    ]);
+    const threadProjectId: string | null = convRows[0]?.project_id ?? null;
+
+    const [memberRows, episodicRows, semanticRows, orgMemory, memberTasks, projectContext] =
+      await Promise.all([
+        sql`SELECT name, role, initials, system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
+        sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'episodic'
         ORDER BY created_at DESC
         LIMIT 5
       `,
-      sql`
+        sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'semantic'
         ORDER BY created_at DESC
         LIMIT 3
       `,
-      getOrgMemory(),
-      getMemberTasks(memberId),
-    ]);
+        threadProjectId ? getOrgMemory(threadProjectId) : Promise.resolve(null),
+        threadProjectId ? getMemberTasks(memberId, threadProjectId) : getMemberTasks(memberId),
+        threadProjectId ? getProjectContext(threadProjectId) : Promise.resolve(null),
+      ]);
 
     if (!memberRows[0]) {
       return log.end(ctx, Response.json({ error: 'Member not found' }, { status: 404 }));
@@ -192,7 +200,7 @@ export async function POST(
             .join('\n\n---\n\n')
         : null;
 
-    // Priority order: format=1, system=2, company=3, tasks=4, semantic=5, org=6, episodic=7
+    // Priority order: format=1, system=2, company=3, project=4, tasks=5, semantic=6, org=7, episodic=8
     // System prompt is stripped of cross-member name refs to prevent anticipation in threads.
     const systemPrompt = assembleContext([
       { label: 'format', content: `## Format Instructions\n\n${threadFormat}`, priority: 1 },
@@ -200,26 +208,27 @@ export async function POST(
       ...(companyContext
         ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
         : []),
+      ...(projectContext ? [{ label: 'project', content: projectContext, priority: 4 }] : []),
       ...(memberTasks
-        ? [{ label: 'tasks', content: memberTasks, priority: 4, prunable: true }]
+        ? [{ label: 'tasks', content: memberTasks, priority: 5, prunable: true }]
         : []),
       ...(semanticSegments
         ? [
             {
               label: 'semantic',
               content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
-              priority: 5,
+              priority: 6,
               prunable: true,
             },
           ]
         : []),
-      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 6, prunable: true }] : []),
+      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 7, prunable: true }] : []),
       ...(episodicSegments
         ? [
             {
               label: 'episodic',
               content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
-              priority: 7,
+              priority: 8,
               prunable: true,
             },
           ]

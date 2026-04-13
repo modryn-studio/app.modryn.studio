@@ -75,22 +75,41 @@ basePath:
 
 - /migrations — Neon SQL migration files (schema source of truth)
 - /docs — Human-readable docs including the founding document (modryn-studio-founding-document.md) used for company context injection
-- /src/lib/context.ts — `getCompanyContext()` reads the founding document from disk and returns it for injection; swap this function to switch to DB-backed context
+- /src/lib/context.ts — `getCompanyContext()` reads the founding document from disk; `getProjectContext(projectId)` queries the projects table and returns project name + context wrapped in `<project-context>` tags for injection
+- /src/components/modryn/project-switcher.tsx — Inline project selector in the sidebar and mobile drawer; floating dropdown (never pushes layout), inline rename on hover (pencil icon → Enter saves, Escape cancels, blur saves), "New project" row at the bottom; optimistic name update with revert on failure
+- /src/components/modryn/project-setup-view.tsx — Full-panel creation form; shown when no projects exist, or when "New project" is triggered from the switcher
 
 ## Data Layer Notes
 
-- All persistent state lives in Neon: conversations, messages, tasks, member_memory, decisions, org_memory
-- Context injection stack (assembled per request via `assembleContext()` in /src/lib/tokens.ts with 12k token budget, priority-pruned):
-  1. Format instructions (surface-specific word limits) — never pruned
-  2. Member system prompt (from DB) — never pruned
-  3. Company context (founding doc from disk) — never pruned
-  4. Semantic memory (behavioural patterns, from member_memory WHERE memory_type='semantic') — prunable
-  5. Org memory (shared facts, merged from decisions + org_memory tables) — prunable
-  6. Episodic memory (per-conversation summaries, from member_memory WHERE memory_type='episodic') — most prunable
+- All persistent state lives in Neon: projects, conversations, messages, tasks, member_memory, decisions, org_memory
+- Projects are the top-level container. Every conversation, task, decision, and org_memory row is scoped to a project via `project_id`. Members are workspace-wide (not project-scoped).
+- Context injection stack (assembled per request via `assembleContext()` in /src/lib/tokens.ts, priority-pruned):
+
+  **DM / Thread routes (12k token budget):**
+  | Priority | Layer | Prunable |
+  |---|---|---|
+  | 1 | Format instructions (surface-specific word limits) | No |
+  | 2 | Member system prompt (from DB) | No |
+  | 3 | Company context (founding doc from disk) | No |
+  | 4 | Project context (name + context field from projects table) | No |
+  | 5 | Tasks (member's active work queue for this project) | Yes |
+  | 6 | Semantic memory (behavioural patterns, cross-project) | Yes |
+  | 7 | Org memory (project-scoped facts from org_memory + decisions UNION) | Yes |
+  | 8 | Episodic memory (per-conversation summaries, project-scoped) | Yes |
+
+  **Task execution route (8k token budget):**
+  | Priority | Layer | Prunable |
+  |---|---|---|
+  | 1 | Format instructions | No |
+  | 2 | Member system prompt | No |
+  | 3 | Company context | No |
+  | 4 | Project context | No |
+  | 5 | Org memory (project-scoped) | Yes |
+
 - Memory tiers:
-  - Episodic: one summary per DM conversation (upserted), written by Haiku after 5+ user turns
-  - Semantic: behavioural patterns across all episodic summaries, written every 5th episodic entry
-  - Org memory: team-wide facts extracted from DM summaries and full thread transcripts (auto) or logged manually; merged with decisions table via UNION in getOrgMemory()
+  - Episodic: one summary per DM conversation (upserted), written by Haiku after 5+ user turns. Scoped to a project via `conversation_id → project_id`.
+  - Semantic: behavioural patterns across all episodic summaries for a member — cross-project, `project_id = NULL`. Written every 5th episodic entry.
+  - Org memory: team-wide facts extracted from DM summaries and full thread transcripts (auto) or logged manually. Project-scoped (`project_id` required on all rows). Merged with decisions table via UNION in `getOrgMemory(projectId)`.
 - Org fact extraction: uses `Output.object()` with `maxSteps: 2` + `NoObjectGeneratedError` handling — schema-enforced, no manual JSON parsing
 - Member-to-member orchestration (threads): sequenced Claude calls via `/api/threads/[threadId]/respond` — each member gets full thread transcript + their own system prompt + memory context; idempotency check prevents double-responses; extraction runs post-sequence via `/api/threads/[threadId]/extract`
 - Proactive messaging governor: members can initiate messages, rate-limited by per-member cooldown (default 24h) or event trigger, to prevent runaway activity
