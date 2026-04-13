@@ -67,55 +67,9 @@ If I can't answer that cleanly, I don't build it.
 
 Early-mover advantage in this era is probably 18–36 months. I'll know it's closing when every agency and enterprise vendor is selling the same thing. That's not a reason to panic — it's a reason to move.
 
-## Idea Evaluation Framework
+## The Bigger Picture
 
-Before committing to any build, answer all four:
-
-1. **Find a market you care about** — a market you already understand from experience, frustration, or obsession.
-2. **Find what people already pay for in that market** — proven demand. Name it. Note the price. Note the top complaint. You looked this up. Cite a source.
-3. **Add your signature** — the one thing you do differently. "Same job, for a different person" counts. "Same thing, without the worst thing" counts. Avoid: "better", "faster", "cheaper" without a specific mechanism.
-4. **Check the maintenance cost** — boring enough that competitors ignore it is a feature, not a flaw. Ask: once this is built, does it run with minimal intervention? If the answer requires daily attention, developer support, or ongoing infrastructure ownership to sustain revenue, it contradicts the goal.
-
-If you can't complete all four, you don't have a product — you have a hypothesis. Don't build.
-
-## What I Don't Know Yet
-
-Which specific industry or profession I'm building for at scale. Current direction: prop firm futures traders — a market I understand from three years of lived experience. That answer may evolve as signal accumulates.
-
----
-
-## Reference Frameworks
-
-These aren't the operating rules — they're lenses other people built that I've found useful. Summarized here for personal reference.
-
-### Marc Lou — Tactical Execution
-
-How to build and position once you've chosen the opportunity.
-
-1. Find a market you care about
-2. Copy a product people already pay for
-3. Add your signature to make it yours
-
-**When it applies:** After the opportunity is validated. Marc Lou answers "how do I build this?" not "should I build this?"
-
-### Peter Thiel — Strategic Observation (Zero to One)
-
-How to spot the opportunity before you build.
-
-1. Bet on a contrarian truth — what do you believe that most people don't?
-2. Start by dominating a small market
-3. Strive to be a monopoly in that market
-
-**When it applies:** Before you commit to anything. Thiel's first question — "what contrarian truth do you believe that most people don't?" — is the best forcing function for observation. Not because the goal is a monopoly, but because the question makes you look before you act.
-
-### The Sequence for Lifestyle/Freedom
-
-Thiel's lens first, then Marc Lou's framework kicks in:
-
-1. **Observe** — what do you already see that others miss? (Thiel's contrarian truth question)
-2. **Validate** — do people already pay for something in that space? (Marc Lou step 2)
-3. **Filter** — does building this add to my freedom or subtract from it?
-4. **Build** — copy what works, add your signature, ship (Marc Lou steps 1 + 3)
+The most successful founders of this era will be the ones solving the structural challenges shaping our economy: helping people adapt to new forms of work, rebuilding trust in what's real, and designing AI that expands human potential rather than replacing it. That's the direction everything here is pointed at — even when the work looks small from the outside.
 
 ---
 
