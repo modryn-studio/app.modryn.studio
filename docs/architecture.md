@@ -9,14 +9,15 @@
 
 ## System Prompt — Same structure for both DMs and threads
 
-Built from 6 priority-ordered layers with a 12k token budget. Lower-priority layers are dropped first if over budget.
+Built from 7 priority-ordered layers with a 12k token budget. Lower-priority layers are dropped first if over budget.
 
 1. Format instruction — route-specific length/style constraint
 2. Member system prompt — full persona from DB
 3. Company context — founding document (read from disk)
-4. Semantic memory — behavioural patterns across conversations (up to 3)
-5. Org memory — decisions + org facts (newest 20)
-6. Episodic memory — per-conversation summaries for this member (up to 5)
+4. Member task queue — active tasks (pending/in_progress/blocked, up to 5) + recently completed titles (up to 3), via `getMemberTasks()`. Prunable. Injected so members are self-aware of their own work without being told.
+5. Semantic memory — behavioural patterns across conversations (up to 3)
+6. Org memory — decisions + org facts (newest 20)
+7. Episodic memory — per-conversation summaries for this member (up to 5)
 
 ---
 
