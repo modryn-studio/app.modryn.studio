@@ -347,10 +347,9 @@ export async function POST(req: Request): Promise<Response> {
             }
 
             // Extract team-relevant facts from the summary for shared org context.
-            // On retry: clear previous extraction for this conversation first — the same
-            // exchange would otherwise produce duplicate rows. isRetry is reliable here
-            // because handleRetry() is the only callsite that triggers regenerate().
-            if (isRetry && conversationId) {
+            // Always clear prior extraction for this conversation before writing — handles
+            // retry, edit (handleEdit sends isRetry: false), and any future re-trigger paths.
+            if (conversationId) {
               await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
             }
             await extractAndStoreOrgFacts(summary, conversationId, memberId);
