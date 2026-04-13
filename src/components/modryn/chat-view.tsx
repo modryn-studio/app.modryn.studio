@@ -35,6 +35,7 @@ interface ChatViewProps {
   memberRole: string;
   memberInitials: string;
   memberAvatarUrl?: string;
+  projectId: string;
   surface?: 'dm' | 'inbox' | 'thread' | 'task';
   contextCollapsed?: boolean;
   onToggleContext?: () => void;
@@ -302,6 +303,7 @@ function AIMessage({
   messageId,
   memberId,
   conversationId,
+  projectId,
   onRetry,
   sources: sourcesProp,
 }: {
@@ -315,6 +317,7 @@ function AIMessage({
   messageId?: string;
   memberId?: string;
   conversationId?: string | null;
+  projectId?: string;
   onRetry?: () => void;
   sources?: { url: string; title?: string }[];
 }) {
@@ -383,18 +386,20 @@ function AIMessage({
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             )}
-            {memberId !== undefined && (
+            {memberId !== undefined && projectId !== undefined && (
               <LogDecisionButton
                 messageContent={displayText}
                 memberId={memberId}
                 conversationId={conversationId ?? null}
+                projectId={projectId}
               />
             )}
-            {memberId !== undefined && (
+            {memberId !== undefined && projectId !== undefined && (
               <LogOrgMemoryButton
                 messageContent={displayText}
                 memberId={memberId}
                 conversationId={conversationId ?? null}
+                projectId={projectId}
               />
             )}
           </div>
@@ -499,6 +504,7 @@ export function ChatView({
   memberRole,
   memberInitials,
   memberAvatarUrl,
+  projectId,
   surface = 'dm',
   contextCollapsed,
   onToggleContext,
@@ -527,6 +533,7 @@ export function ChatView({
             id,
             message: messages[messages.length - 1],
             memberId,
+            projectId,
             conversationId: conversationIdRef.current,
             surface,
             isRetry,
@@ -542,7 +549,9 @@ export function ChatView({
     let cancelled = false;
     async function loadHistory() {
       try {
-        const res = await fetch(`/api/conversations/dm/${encodeURIComponent(memberId)}`);
+        const res = await fetch(
+          `/api/conversations/dm/${encodeURIComponent(memberId)}?projectId=${encodeURIComponent(projectId)}`
+        );
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -577,7 +586,7 @@ export function ChatView({
     return () => {
       cancelled = true;
     };
-  }, [memberId, setMessages]);
+  }, [memberId, projectId, setMessages]);
 
   // Mobile keyboard safety — track on-screen keyboard
   useEffect(() => {
@@ -798,6 +807,7 @@ export function ChatView({
                       messageId={message.id ?? `idx-${idx}`}
                       memberId={memberId}
                       conversationId={conversationIdRef.current}
+                      projectId={projectId}
                       sources={message.parts
                         ?.filter((p): p is SourceUrlUIPart => p.type === 'source-url')
                         .map((p) => ({ url: p.url, title: p.title }))}
@@ -815,6 +825,9 @@ export function ChatView({
                     timestamp={pendingTimestamp ?? formatTime(new Date())}
                     isStreaming
                     isSearching={memberId === 'michelle-lim'}
+                    projectId={projectId}
+                    memberId={memberId}
+                    conversationId={conversationIdRef.current}
                   />
                 )}
               </div>
