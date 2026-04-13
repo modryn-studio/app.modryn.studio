@@ -44,6 +44,51 @@ export async function getOrgMemory(): Promise<string | null> {
   }
 }
 
+// Returns a member's full task awareness: active queue + recently completed titles (no output).
+// Injected into DM system prompt so members know what they're working on and what they've shipped.
+// Done tasks are titles only — output injection is too expensive and goes stale. Capped at 5 active + 3 done (~150 tokens max).
+export async function getMemberTasks(memberId: string): Promise<string | null> {
+  try {
+    const [activeRows, doneRows] = await Promise.all([
+      sql`
+        SELECT title, status FROM tasks
+        WHERE assigned_to = ${memberId}
+          AND status IN ('pending', 'in_progress', 'blocked')
+        ORDER BY created_at ASC
+        LIMIT 5
+      `,
+      sql`
+        SELECT title FROM tasks
+        WHERE assigned_to = ${memberId}
+          AND status = 'done'
+        ORDER BY updated_at DESC
+        LIMIT 3
+      `,
+    ]);
+
+    if (activeRows.length === 0 && doneRows.length === 0) return null;
+
+    const parts: string[] = ['## Your Work Queue'];
+
+    if (activeRows.length > 0) {
+      const active = activeRows.map((r) => `- ${r.title} (${r.status})`).join('\n');
+      parts.push(`Tasks currently assigned to you:\n${active}`);
+    } else {
+      parts.push('No active tasks.');
+    }
+
+    if (doneRows.length > 0) {
+      const done = doneRows.map((r) => `- ${r.title}`).join('\n');
+      parts.push(`Recently completed:\n${done}`);
+    }
+
+    return parts.join('\n\n');
+  } catch {
+    // Non-critical — degrade gracefully
+    return null;
+  }
+}
+
 // Extracts team-relevant facts from text using Haiku, inserts non-empty results into org_memory.
 // Uses Output.object() for schema-enforced structured output — no manual JSON parsing needed.
 // Called after member_memory writes (DMs) and after full respond sequence completes (threads).

@@ -2,7 +2,7 @@ import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
-import { getCompanyContext, getOrgMemory } from '@/lib/context';
+import { getCompanyContext, getOrgMemory, getMemberTasks } from '@/lib/context';
 import { assembleContext } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
@@ -71,8 +71,8 @@ export async function POST(
       );
     }
 
-    // Fetch member, episodic + semantic memory, and org memory in parallel
-    const [memberRows, episodicRows, semanticRows, orgMemory] = await Promise.all([
+    // Fetch member, episodic + semantic memory, org memory, and member task queue in parallel
+    const [memberRows, episodicRows, semanticRows, orgMemory, memberTasks] = await Promise.all([
       sql`SELECT name, role, initials, system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
       sql`
         SELECT summary FROM member_memory
@@ -87,6 +87,7 @@ export async function POST(
         LIMIT 3
       `,
       getOrgMemory(),
+      getMemberTasks(memberId),
     ]);
 
     if (!memberRows[0]) {
@@ -191,7 +192,7 @@ export async function POST(
             .join('\n\n---\n\n')
         : null;
 
-    // Priority order per plan Phase 3: format=1, system=2, company=3, semantic=4, org=5, episodic=6
+    // Priority order: format=1, system=2, company=3, tasks=4, semantic=5, org=6, episodic=7
     // System prompt is stripped of cross-member name refs to prevent anticipation in threads.
     const systemPrompt = assembleContext([
       { label: 'format', content: `## Format Instructions\n\n${threadFormat}`, priority: 1 },
@@ -199,23 +200,26 @@ export async function POST(
       ...(companyContext
         ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
         : []),
+      ...(memberTasks
+        ? [{ label: 'tasks', content: memberTasks, priority: 4, prunable: true }]
+        : []),
       ...(semanticSegments
         ? [
             {
               label: 'semantic',
               content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
-              priority: 4,
+              priority: 5,
               prunable: true,
             },
           ]
         : []),
-      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 5, prunable: true }] : []),
+      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 6, prunable: true }] : []),
       ...(episodicSegments
         ? [
             {
               label: 'episodic',
               content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
-              priority: 6,
+              priority: 7,
               prunable: true,
             },
           ]

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  CheckSquare,
   MessageSquare,
   Inbox,
   MessagesSquare,
@@ -70,6 +71,7 @@ const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'DMs', icon: MessageSquare },
   { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'threads', label: 'Threads', icon: MessagesSquare },
+  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'reddit', label: 'Reddit', icon: Globe },
 ];
 
@@ -363,17 +365,12 @@ export function Sidebar({
             <ChromeLabel as="p" className="text-sidebar-muted mb-2 px-2">
               Team
             </ChromeLabel>
-            {/* Founder row — avatar click opens profile sheet */}
+            {/* Founder row — clicking anywhere opens profile sheet */}
             <button
-              onClick={() => {
-                onViewChange('chat');
-                onChatSelect('founder');
-              }}
+              onClick={() => setProfileOpen(true)}
               className={cn(
                 'rounded-card flex w-full items-center gap-2.5 border px-2 py-1.5 text-left transition-colors',
-                activeChat === 'founder' && activeView === 'chat'
-                  ? 'bg-sidebar-accent border-white/10 shadow-sm'
-                  : 'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
+                'hover:bg-sidebar-accent/45 border-transparent hover:border-white/5'
               )}
             >
               <div className="group/avatar relative shrink-0">

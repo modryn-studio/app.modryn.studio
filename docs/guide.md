@@ -128,11 +128,26 @@ Switch to Threads via the sidebar icon or mobile tab bar.
 
 ---
 
+## Tasks
+
+Switch to Tasks via the sidebar icon or mobile tab bar.
+
+The task board shows all tasks assigned to AI members. Active tasks (pending, in progress, blocked) appear above completed ones.
+
+**Create a task:** Click **New Task** (top right) to open a slide-in sheet. Enter a title (required), an optional description, and pick an assigned member. Click **Create** to save.
+
+**Execute a task:** Click the **Play** button on a task card. The assigned member processes the task using their system prompt, company context, and org memory. Michelle Lim also has web search access during execution. The card shows a pulse dot and `IN PROGRESS` status while generating. When done, the status changes to `DONE` and the output panel becomes available.
+
+**View output:** Click the chevron on a task card to expand the output panel. The output renders as prose Markdown. Click **Copy** in the output panel header to copy the full text to clipboard.
+
+**Task statuses:** `PENDING` (default, not yet run), `IN PROGRESS` (currently executing), `DONE` (completed), `BLOCKED` (manually set via API).
+
+---
+
 ## Placeholder Views
 
-Tasks and Calendar show placeholder screens. These are not functional:
+Calendar shows a placeholder screen. It is not yet functional:
 
-- **Tasks (`[ ]`)** — "Shared task management with AI assignment and tracking — coming in the next release."
 - **Calendar (`##`)** — "Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
 
 ---
@@ -193,6 +208,10 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | `/api/me`                         | GET    | Returns current user's role (`admin` or `member`)                                                                                                                                                                                                                                                    |
 | `/api/invites`                    | GET    | Lists all invite tokens. Admin only.                                                                                                                                                                                                                                                                 |
 | `/api/invites`                    | POST   | Creates a new invite token. Admin only.                                                                                                                                                                                                                                                              |
+| `/api/tasks`                      | GET    | Lists all tasks with assigned member info. Optional `?assignedTo=memberId` filter.                                                                                                                                                                                                                   |
+| `/api/tasks`                      | POST   | Creates a task. Body: `{ title, description?, assigned_to, conversationId? }`                                                                                                                                                                                                                        |
+| `/api/tasks/[id]`                 | PATCH  | Updates task status or output. Body: `{ status?, output? }`                                                                                                                                                                                                                                          |
+| `/api/tasks/[id]/execute`         | POST   | Executes the task with the assigned member (claude-sonnet-4-6). Marks `in_progress`, generates output, saves to DB as `done`. Michelle: `maxUses: 1` web search, `maxSteps: 3`.                                                                                                                      |
 | `/api/auth/[...path]`             | ALL    | Neon Auth proxy — rewrites origin for Vercel preview deployments                                                                                                                                                                                                                                     |
 
 ---
@@ -214,7 +233,7 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Org memory extraction (DMs + threads)             | ✅ Works                       |
 | Token budget context assembly                     | ✅ Works                       |
 | Group threads (multi-member, sequential)          | ✅ Works                       |
-| Michelle web search (DMs + threads)               | ✅ Works                       |
+| Michelle web search (DMs + threads + tasks)       | ✅ Works                       |
 | Add AI member sheet                               | ✅ Works                       |
 | Edit AI member sheet (hover row → pencil icon)    | ✅ Works                       |
 | Drag-to-reorder members                           | ✅ Works                       |
@@ -224,5 +243,5 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Context panel (decisions, tasks, notes)           | ⏳ UI only — data is hardcoded |
 | Inbox                                             | ⏳ UI only — no messages yet   |
 | Member-initiated async messages                   | ❌ Not built                   |
-| Task board                                        | ❌ Not built                   |
+| Task board                                        | ✅ Works                       |
 | Calendar                                          | ❌ Not built                   |

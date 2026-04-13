@@ -20,6 +20,19 @@ Built from 6 priority-ordered layers with a 12k token budget. Lower-priority lay
 
 ---
 
+## System Prompt — Tasks
+
+Built from 4 priority-ordered layers with an 8k token budget. No episodic or semantic memory — tasks are discrete deliverables, not continuations of a conversation.
+
+1. Format instruction — task-specific length/style constraint
+2. Member system prompt — full persona from DB
+3. Company context — founding document (read from disk)
+4. Org memory — decisions + org facts (newest 20, prunable)
+
+Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web search + `maxSteps: 3`.
+
+---
+
 ## DM vs Thread — how messages work
 
 **DM:** Server fetches the last 40 messages from DB and passes a sliding window of 20 to the model. Client only sends the new message; server owns history.
@@ -32,8 +45,9 @@ Built from 6 priority-ordered layers with a 12k token budget. Lower-priority lay
 
 Only Michelle (`michelle-lim`) has web search access via `anthropic.tools.webSearch_20260209`. The model decides when to use it — it is not forced.
 
-- DMs: `maxUses: 3`
+- DMs: `maxUses: 1`
 - Threads: `maxUses: 1`
+- Tasks: `maxUses: 1`, `maxSteps: 3`
 - All other members: no tools
 
 When Michelle searches, citations are saved as a `<sources>` JSON block appended to her DB message and rendered as links in the UI.

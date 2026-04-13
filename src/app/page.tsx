@@ -7,6 +7,7 @@ import { ContextPanel } from '@/components/modryn/context-panel';
 import { InboxView } from '@/components/modryn/inbox-view';
 import { ThreadsView } from '@/components/modryn/threads-view';
 import { PlaceholderView } from '@/components/modryn/placeholder-view';
+import { TaskBoard } from '@/components/modryn/task-board';
 import { RedditView } from '@/components/modryn/reddit-view';
 import { SetupView } from '@/components/modryn/setup-view';
 import { MobileHeader } from '@/components/modryn/mobile-header';
@@ -33,6 +34,35 @@ export default function ModrynStudio() {
   const { members, refetch } = useMembers();
   const { profile } = useProfile();
 
+  // Briefing data — re-fetched when the active member changes.
+  // Tasks are filtered to the member's assignments; decisions are org-wide (all shown in every DM).
+  const [contextTasks, setContextTasks] = useState<{ text: string; due?: string }[]>([]);
+  const [contextDecisions, setContextDecisions] = useState<{ text: string }[]>([]);
+  useEffect(() => {
+    // Derive the active member ID here — activeMember is declared below this hook.
+    const activeMemberId =
+      members.find((m) => m.id === activeChat)?.id ??
+      (activeChat === '' ? members[0]?.id : undefined) ??
+      members[0]?.id;
+    if (!activeMemberId) return;
+    Promise.all([
+      fetch(`/api/tasks?assignedTo=${encodeURIComponent(activeMemberId)}`).then((r) => r.json()),
+      fetch('/api/decisions').then((r) => r.json()),
+    ])
+      .then(([tasksData, decisionsData]) => {
+        const taskRows: { title: string; due_at?: string | null; status?: string }[] =
+          tasksData.tasks ?? [];
+        setContextTasks(
+          taskRows
+            .filter((t) => t.status !== 'done')
+            .map((t) => ({ text: t.title, due: t.due_at ?? undefined }))
+        );
+        const decisionRows: { title: string }[] = decisionsData.decisions ?? [];
+        setContextDecisions(decisionRows.map((d) => ({ text: d.title })));
+      })
+      .catch(() => {});
+  }, [activeChat, members]);
+
   const handleViewChange = (view: View) => {
     setActiveView(view);
     localStorage.setItem('modryn:activeView', view);
@@ -43,10 +73,11 @@ export default function ModrynStudio() {
     localStorage.setItem('modryn:activeChat', memberId);
   };
 
-  // activeMember falls back to first member only when nothing is stored yet
+  // activeMember falls back to first member only when nothing is stored yet.
+  // 'founder' is not in the members table — treat it the same as empty (no prior selection).
   const activeMember =
     members.find((m) => m.id === activeChat) ??
-    (activeChat === '' ? members[0] : undefined) ??
+    (activeChat === '' || activeChat === 'founder' ? members[0] : undefined) ??
     members[0];
 
   const mainContent = (
@@ -71,13 +102,7 @@ export default function ModrynStudio() {
       )}
       {activeView === 'inbox' && <InboxView />}
       {activeView === 'threads' && <ThreadsView />}
-      {activeView === 'tasks' && (
-        <PlaceholderView
-          label="[ ]"
-          title="Task Board"
-          description="Shared task management with AI assignment and tracking — coming in the next release."
-        />
-      )}
+      {activeView === 'tasks' && <TaskBoard />}
       {activeView === 'calendar' && (
         <PlaceholderView
           label="##"
@@ -113,8 +138,8 @@ export default function ModrynStudio() {
         {activeView === 'chat' && activeMember && (
           <ContextPanel
             memberName={activeMember.name}
-            decisions={[]}
-            tasks={[]}
+            decisions={contextDecisions}
+            tasks={contextTasks}
             notes={[]}
             collapsed={contextCollapsed}
           />
@@ -178,8 +203,8 @@ export default function ModrynStudio() {
           open={mobileContextOpen}
           onToggle={() => setMobileContextOpen((v) => !v)}
           memberName={activeMember.name}
-          decisions={[]}
-          tasks={[]}
+          decisions={contextDecisions}
+          tasks={contextTasks}
           notes={[]}
         />
       )}

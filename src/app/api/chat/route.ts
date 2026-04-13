@@ -2,7 +2,12 @@ import { streamText, generateText, convertToModelMessages } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
-import { getCompanyContext, getOrgMemory, extractAndStoreOrgFacts } from '@/lib/context';
+import {
+  getCompanyContext,
+  getOrgMemory,
+  getMemberTasks,
+  extractAndStoreOrgFacts,
+} from '@/lib/context';
 import { assembleContext } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
@@ -45,30 +50,32 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Pull member system prompt, recent memory, and conversation history in parallel.
-    const [memberRows, episodicRows, semanticRows, orgMemory, historyRows] = await Promise.all([
-      sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
-      sql`
+    const [memberRows, episodicRows, semanticRows, orgMemory, memberTasks, historyRows] =
+      await Promise.all([
+        sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
+        sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'episodic'
         ORDER BY created_at DESC
         LIMIT 5
       `,
-      sql`
+        sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'semantic'
         ORDER BY created_at DESC
         LIMIT 3
       `,
-      getOrgMemory(),
-      conversationId
-        ? sql`
+        getOrgMemory(),
+        getMemberTasks(memberId),
+        conversationId
+          ? sql`
             SELECT id, role, content, created_at FROM messages
             WHERE conversation_id = ${conversationId}
             ORDER BY created_at DESC
             LIMIT 40
           `
-        : Promise.resolve([]),
-    ]);
+          : Promise.resolve([]),
+      ]);
 
     const memberSystemPrompt: string = memberRows[0]?.system_prompt ?? FALLBACK_SYSTEM;
 
@@ -92,8 +99,10 @@ export async function POST(req: Request): Promise<Response> {
 
     const formatInstruction = surface ? ROUTE_CONTEXT[surface] : null;
 
-    // Priority order per plan Phase 3:
-    // 1=format, 2=system prompt, 3=company context, 4=semantic, 5=org memory, 6=episodic
+    // Priority order: 1=format, 2=system prompt, 3=company context, 4=member tasks,
+    // 5=semantic, 6=org memory, 7=episodic
+    // Member task queue sits above behavioral patterns — knowing what you're working on
+    // is more operationally relevant than patterns from past conversations.
     const systemPrompt = assembleContext([
       ...(formatInstruction
         ? [
@@ -108,23 +117,26 @@ export async function POST(req: Request): Promise<Response> {
       ...(companyContext
         ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
         : []),
+      ...(memberTasks
+        ? [{ label: 'tasks', content: memberTasks, priority: 4, prunable: true }]
+        : []),
       ...(semanticSegments
         ? [
             {
               label: 'semantic',
               content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
-              priority: 4,
+              priority: 5,
               prunable: true,
             },
           ]
         : []),
-      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 5, prunable: true }] : []),
+      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 6, prunable: true }] : []),
       ...(episodicSegments
         ? [
             {
               label: 'episodic',
               content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
-              priority: 6,
+              priority: 7,
               prunable: true,
             },
           ]
@@ -176,10 +188,12 @@ export async function POST(req: Request): Promise<Response> {
     // Full allMessages is retained in scope for the episodic memory transcript below.
     const windowedMessages = allMessages.slice(-20);
 
-    // Server-side web search for Michelle only — Anthropic executes searches within one LLM call, no maxSteps needed
+    // Server-side web search for Michelle only — one targeted search per DM turn.
+    // 3 uses could compound to ~$0.66/message; one search at $0.22 is the right cost
+    // for a technical validation question where accuracy matters.
     const tools =
       memberId === 'michelle-lim'
-        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 3 }) }
+        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 1 }) }
         : undefined;
 
     const result = streamText({
@@ -204,10 +218,27 @@ export async function POST(req: Request): Promise<Response> {
         const contentToSave = text + sourcesBlock;
         if (conversationId && text) {
           try {
-            await sql`
+            // RETURNING id so we can identify and delete the stale response on retry.
+            const [newMsg] = await sql`
               INSERT INTO messages (conversation_id, sender_id, role, content)
               VALUES (${conversationId}, ${memberId}, 'assistant', ${contentToSave})
+              RETURNING id
             `;
+            // On retry: new response is confirmed written — now delete the previous
+            // assistant message. Subquery targets the index (conversation_id, created_at).
+            // Postgres doesn't support DELETE ... ORDER BY ... LIMIT directly.
+            if (isRetry && newMsg?.id) {
+              await sql`
+                DELETE FROM messages WHERE id = (
+                  SELECT id FROM messages
+                  WHERE conversation_id = ${conversationId}
+                    AND role = 'assistant'
+                    AND id != ${newMsg.id}
+                  ORDER BY created_at DESC
+                  LIMIT 1
+                )
+              `;
+            }
             await sql`
               UPDATE conversations SET updated_at = now() WHERE id = ${conversationId}
             `;

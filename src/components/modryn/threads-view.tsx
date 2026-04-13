@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Loader2,
   MessageSquarePlus,
   Paperclip,
   Send,
@@ -226,6 +227,18 @@ export function ThreadsView() {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Proposal/approval state — proposed decisions and tasks after each respond sequence
+  const [pendingProposals, setPendingProposals] = useState<{
+    decisions: { title: string; description: string }[];
+    tasks: { title: string; description: string; assigned_to: string }[];
+  } | null>(null);
+  // Tracks which proposal item is currently being confirmed (key = 'decision-N' | 'task-N')
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+  // Per-task member overrides keyed by task index — allows correcting Haiku's assignment before confirming
+  const [taskAssignOverrides, setTaskAssignOverrides] = useState<Record<number, string>>({});
+  // True while the on-demand synthesize button is calling decisions-draft
+  const [synthesizing, setSynthesizing] = useState(false);
+
   // Clear any pending long-press timer on unmount to prevent state updates after unmount.
   useEffect(() => {
     return () => {
@@ -283,11 +296,23 @@ export function ThreadsView() {
 
   // Guard against concurrent respond sequences
   const respondingRef = useRef(false);
+  // Tracks whether we've done the initial auto-open so subsequent thread list
+  // refreshes (after create/delete) don't clobber the user's current selection.
+  const hasAutoOpenedRef = useRef(false);
 
   // Load threads on mount
   useEffect(() => {
     fetchThreads();
   }, []);
+
+  // Auto-open the most recent thread on initial mount — once only.
+  useEffect(() => {
+    if (!loadingThreads && threads.length > 0 && !hasAutoOpenedRef.current) {
+      hasAutoOpenedRef.current = true;
+      handleSelectThread(threads[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingThreads, threads]);
 
   // Mobile keyboard safety — track on-screen keyboard
   useEffect(() => {
@@ -516,6 +541,25 @@ export function ThreadsView() {
         // Extraction failure is non-critical
       });
     }
+    // Fetch proposed decisions + tasks for this round — shown inline for approval.
+    // Awaited so proposals appear before the UI returns to idle.
+    try {
+      const draftRes = await fetch(`/api/threads/${threadId}/decisions-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (draftRes.ok) {
+        const draft = (await draftRes.json()) as {
+          decisions: { title: string; description: string }[];
+          tasks: { title: string; description: string; assigned_to: string }[];
+        };
+        if (draft.decisions.length > 0 || draft.tasks.length > 0) {
+          setPendingProposals(draft);
+        }
+      }
+    } catch {
+      // Draft failure is non-critical — proposals just won't appear
+    }
   }
 
   // ——— Thread selection ———
@@ -526,6 +570,8 @@ export function ThreadsView() {
     setLoading(true);
     setSelected(null);
     setReplyExcluded(new Set()); // Clear per-reply exclusions from previous thread
+    setPendingProposals(null); // Clear proposals from previous thread
+    setTaskAssignOverrides({});
 
     const data = await fetchThreadDetail(threadId);
     if (!data) {
@@ -553,6 +599,8 @@ export function ThreadsView() {
     setReplyValue('');
     if (replyInputRef.current) replyInputRef.current.style.height = 'auto';
     setSendingReply(true);
+    setPendingProposals(null); // Clear previous round's proposals before starting a new round
+    setTaskAssignOverrides({});
     // Capture excluded set at send-time — replyExcluded state resets in finally after the sequence
     const excludedAtSend = new Set(replyExcluded);
     try {
@@ -766,9 +814,14 @@ export function ThreadsView() {
               selected?.thread.id === thread.id && 'bg-panel-selected'
             )}
           >
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => handleSelectThread(thread.id)}
-              className="w-full px-5 py-4 text-left"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') handleSelectThread(thread.id);
+              }}
+              className="w-full cursor-pointer px-5 py-4 text-left"
             >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-panel-foreground truncate text-xs font-semibold">
@@ -803,7 +856,7 @@ export function ThreadsView() {
                   disabled={deletingThreadId === thread.id}
                   title={confirmDeleteThreadId === thread.id ? 'Confirm delete' : 'Delete thread'}
                   className={cn(
-                    'rounded-sm p-0.5 opacity-0 transition-colors group-hover:opacity-100 disabled:opacity-30',
+                    'rounded-sm p-0.5 transition-colors disabled:opacity-30 md:opacity-0 md:group-hover:opacity-100',
                     confirmDeleteThreadId === thread.id
                       ? 'text-red-500 hover:text-red-600'
                       : 'text-panel-faint hover:text-panel-muted'
@@ -816,7 +869,7 @@ export function ThreadsView() {
                   )}
                 </button>
               </div>
-            </button>
+            </div>
           </div>
         ))}
       </div>
@@ -874,11 +927,45 @@ export function ThreadsView() {
                 <ArrowLeft className="h-4 w-4" />
               </button>
             )}
-            <h1 className="text-panel-foreground text-base font-semibold text-balance">
+            <h1 className="text-panel-foreground min-w-0 flex-1 text-base font-semibold text-balance">
               {selected.thread.title || (
                 <span className="text-panel-faint font-normal italic">Untitled</span>
               )}
             </h1>
+            {/* Synthesize button — re-runs decisions-draft on demand for any existing thread */}
+            <button
+              type="button"
+              disabled={isSequenceRunning || sendingReply || synthesizing}
+              onClick={async () => {
+                setSynthesizing(true);
+                try {
+                  const res = await fetch(`/api/threads/${selected.thread.id}/decisions-draft`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                  });
+                  if (res.ok) {
+                    const draft = (await res.json()) as {
+                      decisions: { title: string; description: string }[];
+                      tasks: { title: string; description: string; assigned_to: string }[];
+                    };
+                    if (draft.decisions.length > 0 || draft.tasks.length > 0) {
+                      setPendingProposals(draft);
+                    }
+                  }
+                } finally {
+                  setSynthesizing(false);
+                }
+              }}
+              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+              title="Synthesize decisions + tasks from this round"
+              aria-label="Synthesize decisions and tasks"
+            >
+              {synthesizing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+            </button>
           </div>
 
           {/* Respond order strip */}
@@ -1218,6 +1305,193 @@ export function ThreadsView() {
             <ScrollButton className="bg-panel-input border-panel-border text-panel-muted hover:text-panel-foreground" />
           </div>
         </ChatContainerRoot>
+
+        {/* Proposals panel — decisions and tasks proposed by Haiku after each respond sequence */}
+        {pendingProposals &&
+          (pendingProposals.decisions.length > 0 || pendingProposals.tasks.length > 0) && (
+            <div className="border-panel-border bg-ai-surface max-h-[45vh] shrink-0 overflow-y-auto border-t">
+              {pendingProposals.decisions.length > 0 && (
+                <div
+                  className={cn(
+                    'px-6 py-3',
+                    pendingProposals.tasks.length > 0 && 'border-panel-border border-b'
+                  )}
+                >
+                  <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
+                    Decisions
+                  </ChromeLabel>
+                  <div className="flex flex-col gap-2">
+                    {pendingProposals.decisions.map((d, i) => {
+                      const key = `decision-${i}`;
+                      const isConfirming = confirmingKey === key;
+                      return (
+                        <div key={i} className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-panel-foreground text-sm leading-snug">{d.title}</p>
+                            {d.description && (
+                              <p className="text-panel-muted mt-0.5 text-xs leading-relaxed">
+                                {d.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                            {/* Intentionally raw <button> — non-standard icon-only shape */}
+                            <button
+                              type="button"
+                              disabled={!!confirmingKey}
+                              onClick={async () => {
+                                setConfirmingKey(key);
+                                try {
+                                  await fetch('/api/decisions', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      title: d.title,
+                                      description: d.description,
+                                      conversationId: selected?.thread.id,
+                                      loggedBy: 'founder',
+                                    }),
+                                  });
+                                  setPendingProposals((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          decisions: prev.decisions.filter((_, j) => j !== i),
+                                        }
+                                      : null
+                                  );
+                                } finally {
+                                  setConfirmingKey(null);
+                                }
+                              }}
+                              className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
+                              aria-label="Confirm decision"
+                            >
+                              {isConfirming ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!!confirmingKey}
+                              onClick={() =>
+                                setPendingProposals((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        decisions: prev.decisions.filter((_, j) => j !== i),
+                                      }
+                                    : null
+                                )
+                              }
+                              className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
+                              aria-label="Dismiss decision"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {pendingProposals.tasks.length > 0 && (
+                <div className="px-6 py-3">
+                  <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
+                    Tasks
+                  </ChromeLabel>
+                  <div className="flex flex-col gap-2">
+                    {pendingProposals.tasks.map((t, i) => {
+                      const key = `task-${i}`;
+                      const isConfirming = confirmingKey === key;
+                      return (
+                        <div key={i} className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-panel-foreground text-sm leading-snug">{t.title}</p>
+                            <div className="text-panel-muted mt-0.5 flex flex-wrap items-center gap-x-1 text-xs leading-relaxed">
+                              <select
+                                value={taskAssignOverrides[i] ?? t.assigned_to}
+                                onChange={(e) =>
+                                  setTaskAssignOverrides((prev) => ({
+                                    ...prev,
+                                    [i]: e.target.value,
+                                  }))
+                                }
+                                className="text-panel-muted cursor-pointer bg-transparent text-xs outline-none"
+                              >
+                                {members.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.name}
+                                  </option>
+                                ))}
+                                <option value="founder">{profile?.name || 'Founder'}</option>
+                              </select>
+                              {t.description && <span> — {t.description}</span>}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                            {/* Intentionally raw <button> — non-standard icon-only shape */}
+                            <button
+                              type="button"
+                              disabled={!!confirmingKey}
+                              onClick={async () => {
+                                setConfirmingKey(key);
+                                try {
+                                  await fetch('/api/tasks', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      title: t.title,
+                                      description: t.description,
+                                      assigned_to: taskAssignOverrides[i] ?? t.assigned_to,
+                                      conversationId: selected?.thread.id,
+                                    }),
+                                  });
+                                  setPendingProposals((prev) =>
+                                    prev
+                                      ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
+                                      : null
+                                  );
+                                } finally {
+                                  setConfirmingKey(null);
+                                }
+                              }}
+                              className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
+                              aria-label="Confirm task"
+                            >
+                              {isConfirming ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!!confirmingKey}
+                              onClick={() =>
+                                setPendingProposals((prev) =>
+                                  prev
+                                    ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
+                                    : null
+                                )
+                              }
+                              className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
+                              aria-label="Dismiss task"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
         {/* Reply input */}
         <div className="border-panel-border border-t px-6 py-4">
