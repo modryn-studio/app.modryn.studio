@@ -262,32 +262,50 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
 
-        // Memory write — only after 5 user turns. Token count alone is not a reliable
-        // signal at this scale; turn count ensures the conversation has real substance.
-        const userTurns = allMessages.filter((m: { role: string }) => m.role === 'user').length;
-        const meetsThreshold = userTurns >= 5;
+        // Build a plain transcript covering the full conversation + this response.
+        // Built unconditionally — used by both the episodic summarizer and org extraction.
+        const transcript =
+          conversationId && memberId && text
+            ? [
+                ...allMessages.map(
+                  (m: {
+                    role: string;
+                    parts?: { type: string; text: string }[];
+                    content?: string;
+                  }) => {
+                    const content =
+                      m.parts
+                        ?.filter((p) => p.type === 'text')
+                        .map((p) => p.text)
+                        .join('') ?? (typeof m.content === 'string' ? m.content : '');
+                    return `${m.role === 'user' ? 'Luke' : 'AI'}: ${content}`;
+                  }
+                ),
+                `AI: ${text}`,
+              ].join('\n\n')
+            : null;
 
-        if (conversationId && memberId && text && meetsThreshold) {
+        // Org memory extraction — runs on every turn, not gated by turn count.
+        // DELETE + full-transcript re-extract ensures org_memory always reflects the
+        // complete conversation. Handles retry and edit cleanly (prior facts replaced).
+        // extractAndStoreOrgFacts returns 0 and writes nothing when no facts qualify —
+        // the facts:[] return path is the density filter.
+        if (transcript && conversationId && memberId) {
           try {
-            // Build a plain transcript for the summarizer (incoming history + this response)
-            const transcript = [
-              ...allMessages.map(
-                (m: {
-                  role: string;
-                  parts?: { type: string; text: string }[];
-                  content?: string;
-                }) => {
-                  const content =
-                    m.parts
-                      ?.filter((p) => p.type === 'text')
-                      .map((p) => p.text)
-                      .join('') ?? (typeof m.content === 'string' ? m.content : '');
-                  return `${m.role === 'user' ? 'Luke' : 'AI'}: ${content}`;
-                }
-              ),
-              `AI: ${text}`,
-            ].join('\n\n');
+            await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
+            await extractAndStoreOrgFacts(transcript, conversationId, memberId, projectId);
+          } catch (e) {
+            log.err(ctx, e);
+          }
+        }
 
+        // Episodic memory — only after 2 user turns. A single-message exchange is too
+        // thin to produce a useful summary; 2 turns guarantees at least one back-and-forth.
+        const userTurns = allMessages.filter((m: { role: string }) => m.role === 'user').length;
+        const meetsThreshold = userTurns >= 2;
+
+        if (transcript && conversationId && memberId && text && meetsThreshold) {
+          try {
             const { text: summary } = await generateText({
               model: anthropic('claude-haiku-4-5-20251001'),
               messages: [
@@ -360,14 +378,6 @@ export async function POST(req: Request): Promise<Response> {
               `;
               log.info(ctx.reqId, 'Semantic memory written', { memberId, episodicCount: count });
             }
-
-            // Extract team-relevant facts from the summary for shared org context.
-            // Always clear prior extraction for this conversation before writing — handles
-            // retry, edit (handleEdit sends isRetry: false), and any future re-trigger paths.
-            if (conversationId) {
-              await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
-            }
-            await extractAndStoreOrgFacts(summary, conversationId, memberId, projectId);
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed
             log.err(ctx, e);
