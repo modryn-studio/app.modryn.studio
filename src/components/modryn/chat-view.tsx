@@ -277,9 +277,9 @@ function FounderMessage({
         ) : (
           <>
             {body && (
-              <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
-                {body}
-              </p>
+              <div className="prose prose-sm max-w-none">
+                <Markdown>{body}</Markdown>
+              </div>
             )}
             {attachments.map((a, i) => (
               <AttachmentChip key={i} name={a.name} content={a.content} />

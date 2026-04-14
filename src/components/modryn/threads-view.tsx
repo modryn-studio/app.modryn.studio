@@ -1128,9 +1128,9 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                     </div>
                     <div className="flex flex-col gap-2 pl-8.5">
                       {msgBody && (
-                        <p className="text-panel-foreground text-sm leading-relaxed whitespace-pre-wrap">
-                          {msgBody}
-                        </p>
+                        <div className="prose prose-sm max-w-none">
+                          <Markdown id={msg.id}>{msgBody}</Markdown>
+                        </div>
                       )}
                       {msgAttachments.map((a, i) => (
                         <AttachmentChip key={i} name={a.name} content={a.content} />

@@ -3,6 +3,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
+import { Markdown } from '@/components/prompt-kit/markdown';
 import { cn } from '@/lib/utils';
 
 interface InboxMessage {
@@ -155,10 +156,8 @@ export function InboxView() {
           </div>
         </div>
         <div className={cn('flex-1 overflow-y-auto', mobile ? 'px-5 py-5' : 'px-8 py-6')}>
-          <div className="max-w-prose">
-            <p className="text-panel-text text-sm leading-relaxed whitespace-pre-wrap">
-              {selected.body}
-            </p>
+          <div className="prose prose-sm max-w-prose">
+            <Markdown>{selected.body}</Markdown>
           </div>
         </div>
       </>
