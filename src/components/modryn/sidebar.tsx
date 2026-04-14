@@ -355,7 +355,7 @@ export function Sidebar({
           <div className="mt-auto flex w-full flex-col items-center px-2 pb-4">
             <button
               onClick={handleSignOut}
-              className="rounded-card text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground flex w-full flex-col items-center justify-center gap-1 border border-transparent py-1.5 transition-colors hover:border-white/5"
+              className="rounded-sm text-sidebar-muted hover:bg-sidebar-accent/45 hover:text-sidebar-foreground flex w-full flex-col items-center justify-center gap-1 border border-transparent py-1.5 transition-colors hover:border-white/5"
               title="Sign out"
             >
               <LogOut className="h-5 w-5" strokeWidth={1.5} />

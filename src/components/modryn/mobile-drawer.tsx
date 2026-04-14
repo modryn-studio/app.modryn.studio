@@ -141,7 +141,7 @@ export function MobileDrawer({
       {/* Drawer panel */}
       <div
         className={cn(
-          'bg-sidebar fixed top-0 left-0 z-50 flex h-full w-72 flex-col transition-transform duration-250 ease-in-out md:hidden',
+          'bg-sidebar fixed top-0 left-0 z-50 flex h-dvh w-72 flex-col transition-transform duration-250 ease-in-out md:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
         role="dialog"
@@ -235,7 +235,9 @@ export function MobileDrawer({
             title="Sign out"
           >
             <LogOut className="h-4 w-4" strokeWidth={1.5} />
-            <ChromeLabel className="leading-none tracking-[0.08em] normal-case">Sign out</ChromeLabel>
+            <ChromeLabel className="leading-none tracking-[0.08em] normal-case">
+              Sign out
+            </ChromeLabel>
           </button>
         </div>
       </div>

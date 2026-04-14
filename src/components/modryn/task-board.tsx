@@ -229,12 +229,17 @@ export function TaskBoard({ projectId }: { projectId: string }) {
   const { members } = useMembers();
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch(`/api/tasks?projectId=${encodeURIComponent(projectId)}`);
-    if (res.ok) {
-      const data = await res.json();
-      setTasks(data.tasks ?? []);
+    try {
+      const res = await fetch(`/api/tasks?projectId=${encodeURIComponent(projectId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.tasks ?? []);
+      }
+    } catch {
+      // Network error — keep existing tasks, loading clears in finally
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [projectId]);
 
   useEffect(() => {

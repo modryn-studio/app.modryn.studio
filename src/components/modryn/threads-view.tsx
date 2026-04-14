@@ -180,7 +180,7 @@ function AttachmentChip({ name, content }: { name: string; content: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="hover:bg-sidebar-hover flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
+        className="hover:bg-sidebar-accent/45 flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
       >
         <FileText className="text-sidebar-muted h-3 w-3 shrink-0" />
         <span className="text-sidebar-muted font-mono text-[10px]">{name}</span>
@@ -1500,7 +1500,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
           )}
 
         {/* Reply input */}
-        <div className="border-panel-border border-t px-6 py-4">
+        <div className="border-panel-border border-t px-5 py-4">
           <div className="border-panel-border bg-panel-input focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-3 transition-colors focus-within:ring-4">
             <textarea
               ref={replyInputRef}
@@ -1609,7 +1609,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                 {attachedFiles.map((f, i) => (
                   <span
                     key={i}
-                    className="bg-sidebar-hover text-sidebar-foreground flex items-center gap-1 rounded-sm px-2 py-0.5 font-mono text-[10px]"
+                    className="bg-sidebar-accent text-sidebar-foreground flex items-center gap-1 rounded-sm px-2 py-0.5 font-mono text-[10px]"
                   >
                     {f.name}
                     <button
@@ -1651,7 +1651,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                       'rounded-sm px-3 py-1.5 text-[11px] font-medium transition-colors',
                       threadType === type
                         ? 'bg-sidebar-ring text-sidebar-foreground'
-                        : 'bg-sidebar-hover text-sidebar-muted hover:text-sidebar-foreground'
+                        : 'bg-sidebar-accent/60 text-sidebar-muted hover:text-sidebar-foreground'
                     )}
                   >
                     {PRESET_LABELS[type]}
@@ -1766,7 +1766,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                 (!newBrief.trim() && attachedFiles.length === 0) ||
                 getEffectiveOrder().length === 0
               }
-              className="bg-sidebar-ring text-sidebar-foreground hover:bg-sidebar-hover mt-2 rounded-sm py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-sidebar-ring text-sidebar-foreground hover:bg-sidebar-accent/45 mt-2 rounded-sm py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               {creating ? 'Starting...' : 'Start Thread'}
             </button>

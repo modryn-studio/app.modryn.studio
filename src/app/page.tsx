@@ -86,14 +86,16 @@ export default function ModrynStudio() {
       (activeChat === '' ? members[0]?.id : undefined) ??
       members[0]?.id;
     if (!activeMemberId) return;
+    const controller = new AbortController();
+    const { signal } = controller;
     const taskParams = new URLSearchParams({ assignedTo: activeMemberId });
     if (activeProjectId) taskParams.set('projectId', activeProjectId);
     const decisionParams = activeProjectId
       ? `?projectId=${encodeURIComponent(activeProjectId)}`
       : '';
     Promise.all([
-      fetch(`/api/tasks?${taskParams}`).then((r) => r.json()),
-      fetch(`/api/decisions${decisionParams}`).then((r) => r.json()),
+      fetch(`/api/tasks?${taskParams}`, { signal }).then((r) => r.json()),
+      fetch(`/api/decisions${decisionParams}`, { signal }).then((r) => r.json()),
     ])
       .then(([tasksData, decisionsData]) => {
         const taskRows: { title: string; due_at?: string | null; status?: string }[] =
@@ -107,6 +109,7 @@ export default function ModrynStudio() {
         setContextDecisions(decisionRows.map((d) => ({ text: d.title })));
       })
       .catch(() => {});
+    return () => controller.abort();
   }, [activeChat, activeProjectId, members]);
 
   const handleViewChange = (view: View) => {

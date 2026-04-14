@@ -618,9 +618,10 @@ export function ChatView({
       .catch(() => {});
   }
 
-  function handleEdit(idx: number, messageId: string | undefined, newText: string) {
+  async function handleEdit(idx: number, messageId: string | undefined, newText: string) {
     setMessages((prev) => prev.slice(0, idx));
-    if (messageId) deleteFromMessage(messageId);
+    // Await DELETE so history is clean before the chat route re-loads it
+    if (messageId) await deleteFromMessage(messageId);
     sendMessage({ text: newText });
   }
 

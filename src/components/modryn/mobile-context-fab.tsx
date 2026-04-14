@@ -46,7 +46,7 @@ export function MobileContextFab({
       )}
       <div
         className={cn(
-          'bg-context border-context-border fixed right-0 bottom-0 left-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-sm border-t transition-transform duration-250 ease-in-out md:hidden',
+          'bg-context border-context-border fixed right-0 bottom-0 left-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-sm border-t transition-transform duration-250 ease-in-out md:hidden',
           open ? 'translate-y-0' : 'translate-y-full'
         )}
         role="dialog"
