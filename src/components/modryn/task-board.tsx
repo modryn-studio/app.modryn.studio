@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { Markdown } from '@/components/prompt-kit/markdown';
 import { useMembers, type AIMember } from '@/hooks/use-members';
+import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
 
 interface Task {
@@ -59,10 +60,14 @@ function TaskBoardSkeleton() {
 function TaskCard({
   task,
   members,
+  founderName,
+  founderInitials,
   onExecuted,
 }: {
   task: Task;
   members: AIMember[];
+  founderName: string;
+  founderInitials: string;
   onExecuted: (id: string, output: string) => void;
 }) {
   const [executing, setExecuting] = useState(false);
@@ -83,7 +88,8 @@ function TaskCard({
     task.status === 'done' ? 'done' : executing ? 'in_progress' : task.status;
   const hasOutput = !!task.output;
 
-  const assignedMember = members.find((m) => m.id === task.assigned_to);
+  const isFounder = task.assigned_to === 'founder';
+  const assignedMember = isFounder ? null : members.find((m) => m.id === task.assigned_to);
 
   async function handleExecute() {
     setExecuting(true);
@@ -126,9 +132,12 @@ function TaskCard({
                 className="h-7 w-7 rounded-sm object-cover"
               />
             ) : (
-              <div className="bg-panel-chrome-strong flex h-7 w-7 items-center justify-center rounded-sm">
+              <div className={cn(
+                'flex h-7 w-7 items-center justify-center rounded-sm',
+                isFounder ? 'bg-panel-chrome' : 'bg-panel-chrome-strong'
+              )}>
                 <span className="text-panel-chrome-foreground font-mono text-[9px] font-semibold">
-                  {assignedMember?.initials ?? task.assigned_to.slice(0, 2).toUpperCase()}
+                  {isFounder ? founderInitials : (assignedMember?.initials ?? task.assigned_to.slice(0, 2).toUpperCase())}
                 </span>
               </div>
             )}
@@ -152,7 +161,7 @@ function TaskCard({
                 {STATUS_LABELS[displayStatus]}
               </ChromeLabel>
               <ChromeLabel className="text-panel-faint text-[9px]">
-                {assignedMember?.name ?? task.assigned_to_name ?? task.assigned_to}
+                {isFounder ? founderName : (assignedMember?.name ?? task.assigned_to_name ?? task.assigned_to)}
               </ChromeLabel>
             </div>
             {executeError && (
@@ -227,6 +236,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const { members } = useMembers();
+  const { profile } = useProfile();
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -262,7 +272,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
   function handleOpenSheet() {
     setNewTitle('');
     setNewDescription('');
-    setNewAssignedTo(members[0]?.id ?? '');
+    setNewAssignedTo(members[0]?.id ?? 'founder');
     setCreateError(null);
     setSheetOpen(true);
   }
@@ -289,7 +299,10 @@ export function TaskBoard({ projectId }: { projectId: string }) {
       const data = await res.json();
       const enriched = {
         ...data.task,
-        assigned_to_name: members.find((m) => m.id === newAssignedTo)?.name ?? null,
+        assigned_to_name:
+          newAssignedTo === 'founder'
+            ? null // displayed via founderName prop in TaskCard
+            : (members.find((m) => m.id === newAssignedTo)?.name ?? null),
       };
       setTasks((prev) => [enriched, ...prev]);
       setSheetOpen(false);
@@ -382,6 +395,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                       {m.name}
                     </option>
                   ))}
+                  <option value="founder">{profile.name || 'Luke'} (You)</option>
                 </select>
               </div>
               {createError && (
@@ -439,7 +453,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                   Pending
                 </ChromeLabel>
                 {pending.map((t) => (
-                  <TaskCard key={t.id} task={t} members={members} onExecuted={handleExecuted} />
+                  <TaskCard key={t.id} task={t} members={members} founderName={profile.name || 'Luke'} founderInitials={profile.initials || 'LH'} onExecuted={handleExecuted} />
                 ))}
               </div>
             )}
@@ -449,7 +463,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                   Done
                 </ChromeLabel>
                 {done.map((t) => (
-                  <TaskCard key={t.id} task={t} members={members} onExecuted={handleExecuted} />
+                  <TaskCard key={t.id} task={t} members={members} founderName={profile.name || 'Luke'} founderInitials={profile.initials || 'LH'} onExecuted={handleExecuted} />
                 ))}
               </div>
             )}

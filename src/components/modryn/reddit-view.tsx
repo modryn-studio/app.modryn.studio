@@ -351,7 +351,9 @@ export function RedditView({ projectId }: { projectId: string }) {
                   role="button"
                   tabIndex={0}
                   onClick={() => handleLoadSaved(row.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLoadSaved(row.id); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') handleLoadSaved(row.id);
+                  }}
                   className="border-panel-border group hover:bg-panel-selected flex w-full cursor-pointer items-start gap-3 border-b px-5 py-4 text-left transition-colors"
                 >
                   <div className="min-w-0 flex-1">
