@@ -178,7 +178,7 @@ export default function ModrynStudio() {
           description="Scheduling, milestones, and AI-coordinated meeting prep — coming in the next release."
         />
       )}
-      {activeView === 'reddit' && <RedditView />}
+      {activeView === 'reddit' && <RedditView projectId={activeProjectId ?? ''} />}
     </>
   ) : null;
 
