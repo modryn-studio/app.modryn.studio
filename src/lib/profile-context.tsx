@@ -39,6 +39,7 @@ function writeCache(p: Profile) {
 
 interface ProfileContextValue {
   profile: Profile;
+  profileLoaded: boolean;
   save: (updates: Partial<Omit<Profile, 'initials'>>) => Promise<void>;
 }
 
@@ -46,10 +47,16 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile>(DEFAULT);
+  // false until the /api/profile fetch resolves (success or failure)
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
-  // Hydrate from localStorage after mount (avoids SSR/client mismatch)
+  // Hydrate from localStorage after mount (avoids SSR/client mismatch).
+  // If the cache already has a name, mark as loaded immediately so the app
+  // doesn't blank-panel on returning devices while the network fetch is in flight.
   useEffect(() => {
-    setProfile(readCache());
+    const cached = readCache();
+    setProfile(cached);
+    if (cached.name) setProfileLoaded(true);
   }, []);
 
   // Single fetch on mount — shared across all consumers
@@ -58,14 +65,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     async function load() {
       try {
         const res = await fetch('/api/profile');
-        if (!res.ok) return;
-        const data: Profile = await res.json();
-        if (!cancelled) {
-          setProfile(data);
-          writeCache(data);
+        if (res.ok) {
+          const data: Profile = await res.json();
+          if (!cancelled) {
+            setProfile(data);
+            writeCache(data);
+          }
         }
       } catch {
         // cache is fine as fallback
+      } finally {
+        if (!cancelled) setProfileLoaded(true);
       }
     }
     load();
@@ -117,7 +127,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, []); // stable — no profile dep needed with functional update pattern
 
-  return <ProfileContext.Provider value={{ profile, save }}>{children}</ProfileContext.Provider>;
+  return (
+    <ProfileContext.Provider value={{ profile, profileLoaded, save }}>
+      {children}
+    </ProfileContext.Provider>
+  );
 }
 
 export function useProfileContext(): ProfileContextValue {

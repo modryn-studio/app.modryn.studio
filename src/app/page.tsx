@@ -73,7 +73,7 @@ export default function ModrynStudio() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const { members, refetch } = useMembers();
-  const { profile } = useProfile();
+  const { profile, profileLoaded } = useProfile();
 
   // Briefing data — re-fetched when the active member or project changes.
   // Tasks are filtered to the member's assignments within the project; decisions are project-scoped.
@@ -179,16 +179,18 @@ export default function ModrynStudio() {
     </>
   ) : null;
 
-  const centreContent =
-    profile.name === '' ? (
-      <SetupView />
-    ) : showNewProject ? (
-      <ProjectSetupView onCreated={handleProjectCreated} />
-    ) : projectsLoaded && !activeProjectId ? (
-      <ProjectSetupView onCreated={handleProjectCreated} />
-    ) : (
-      mainContent
-    );
+  const centreContent = !profileLoaded ? (
+    // Waiting for /api/profile — show blank panel to avoid false setup screen on new device
+    <div className="bg-panel flex flex-1 flex-col" />
+  ) : profile.name === '' ? (
+    <SetupView />
+  ) : showNewProject ? (
+    <ProjectSetupView onCreated={handleProjectCreated} />
+  ) : projectsLoaded && !activeProjectId ? (
+    <ProjectSetupView onCreated={handleProjectCreated} />
+  ) : (
+    mainContent
+  );
 
   return (
     <div className="bg-background flex h-screen w-screen overflow-hidden">
