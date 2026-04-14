@@ -132,12 +132,16 @@ function TaskCard({
                 className="h-7 w-7 rounded-sm object-cover"
               />
             ) : (
-              <div className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-sm',
-                isFounder ? 'bg-panel-chrome' : 'bg-panel-chrome-strong'
-              )}>
+              <div
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-sm',
+                  isFounder ? 'bg-panel-chrome' : 'bg-panel-chrome-strong'
+                )}
+              >
                 <span className="text-panel-chrome-foreground font-mono text-[9px] font-semibold">
-                  {isFounder ? founderInitials : (assignedMember?.initials ?? task.assigned_to.slice(0, 2).toUpperCase())}
+                  {isFounder
+                    ? founderInitials
+                    : (assignedMember?.initials ?? task.assigned_to.slice(0, 2).toUpperCase())}
                 </span>
               </div>
             )}
@@ -161,7 +165,9 @@ function TaskCard({
                 {STATUS_LABELS[displayStatus]}
               </ChromeLabel>
               <ChromeLabel className="text-panel-faint text-[9px]">
-                {isFounder ? founderName : (assignedMember?.name ?? task.assigned_to_name ?? task.assigned_to)}
+                {isFounder
+                  ? founderName
+                  : (assignedMember?.name ?? task.assigned_to_name ?? task.assigned_to)}
               </ChromeLabel>
             </div>
             {executeError && (
@@ -453,7 +459,14 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                   Pending
                 </ChromeLabel>
                 {pending.map((t) => (
-                  <TaskCard key={t.id} task={t} members={members} founderName={profile.name || 'Luke'} founderInitials={profile.initials || 'LH'} onExecuted={handleExecuted} />
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    members={members}
+                    founderName={profile.name || 'Luke'}
+                    founderInitials={profile.initials || 'LH'}
+                    onExecuted={handleExecuted}
+                  />
                 ))}
               </div>
             )}
@@ -463,7 +476,14 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                   Done
                 </ChromeLabel>
                 {done.map((t) => (
-                  <TaskCard key={t.id} task={t} members={members} founderName={profile.name || 'Luke'} founderInitials={profile.initials || 'LH'} onExecuted={handleExecuted} />
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    members={members}
+                    founderName={profile.name || 'Luke'}
+                    founderInitials={profile.initials || 'LH'}
+                    onExecuted={handleExecuted}
+                  />
                 ))}
               </div>
             )}

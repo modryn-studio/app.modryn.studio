@@ -558,6 +558,10 @@ export function ChatView({
   // Load conversation history on mount
   useEffect(() => {
     if (!memberId) return;
+    // Reset proposals state when the active DM changes
+    setPendingProposals(null);
+    setConfirmingKey(null);
+    setTaskAssignOverrides({});
     let cancelled = false;
     async function loadHistory() {
       try {
@@ -708,6 +712,29 @@ export function ChatView({
     }
   };
 
+  const handleSynthesize = async () => {
+    if (!conversationIdRef.current) return;
+    setSynthesizing(true);
+    try {
+      const res = await fetch(
+        `/api/conversations/${conversationIdRef.current}/decisions-draft`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+      );
+      if (res.ok) {
+        const draft = (await res.json()) as {
+          decisions: { title: string; description: string }[];
+          tasks: { title: string; description: string; assigned_to: string }[];
+        };
+        if (draft.decisions.length > 0 || draft.tasks.length > 0) {
+          setPendingProposals(draft);
+          setTaskAssignOverrides({});
+        }
+      }
+    } finally {
+      setSynthesizing(false);
+    }
+  };
+
   return (
     <div className="bg-panel flex h-full flex-col">
       {/* Header - hidden on mobile (handled by MobileHeader) */}
@@ -758,29 +785,8 @@ export function ChatView({
             <button
               type="button"
               disabled={isStreaming || synthesizing}
-              onClick={async () => {
-                if (!conversationIdRef.current) return;
-                setSynthesizing(true);
-                try {
-                  const res = await fetch(
-                    `/api/conversations/${conversationIdRef.current}/decisions-draft`,
-                    { method: 'POST', headers: { 'Content-Type': 'application/json' } }
-                  );
-                  if (res.ok) {
-                    const draft = (await res.json()) as {
-                      decisions: { title: string; description: string }[];
-                      tasks: { title: string; description: string; assigned_to: string }[];
-                    };
-                    if (draft.decisions.length > 0 || draft.tasks.length > 0) {
-                      setPendingProposals(draft);
-                      setTaskAssignOverrides({});
-                    }
-                  }
-                } finally {
-                  setSynthesizing(false);
-                }
-              }}
-              className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-30"
+              onClick={handleSynthesize}
+              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
               title="Synthesize decisions + tasks from this conversation"
               aria-label="Synthesize decisions and tasks"
             >
@@ -938,7 +944,10 @@ export function ChatView({
                                 });
                                 setPendingProposals((prev) =>
                                   prev
-                                    ? { ...prev, decisions: prev.decisions.filter((_, j) => j !== i) }
+                                    ? {
+                                        ...prev,
+                                        decisions: prev.decisions.filter((_, j) => j !== i),
+                                      }
                                     : null
                                 );
                               } finally {
@@ -1135,6 +1144,22 @@ export function ChatView({
               >
                 <Paperclip className="h-3.5 w-3.5" />
               </button>
+              {/* Synthesize button — mobile only; desktop uses the header button */}
+              {historyLoaded && messages.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isStreaming || synthesizing}
+                  onClick={handleSynthesize}
+                  className="text-panel-faint hover:text-panel-muted transition-colors disabled:opacity-30 md:hidden"
+                  aria-label="Synthesize decisions and tasks"
+                >
+                  {synthesizing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleSend}
                 disabled={
