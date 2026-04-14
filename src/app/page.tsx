@@ -164,8 +164,10 @@ export default function ModrynStudio() {
         </div>
       )}
       {activeView === 'inbox' && <InboxView />}
-      {activeView === 'threads' && <ThreadsView projectId={activeProjectId} />}
-      {activeView === 'tasks' && <TaskBoard projectId={activeProjectId} />}
+      {activeView === 'threads' && (
+        <ThreadsView key={activeProjectId} projectId={activeProjectId} />
+      )}
+      {activeView === 'tasks' && <TaskBoard key={activeProjectId} projectId={activeProjectId} />}
       {activeView === 'calendar' && (
         <PlaceholderView
           label="##"
