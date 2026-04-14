@@ -10,6 +10,8 @@ const schema = z.object({
 
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().optional(),
+  // Cloudflare Worker proxy for Reddit fetches (bypasses server IP blocks)
+  REDDIT_PROXY_URL: z.string().url().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
