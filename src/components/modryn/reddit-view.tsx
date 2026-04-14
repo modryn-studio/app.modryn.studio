@@ -15,9 +15,36 @@ export function RedditView() {
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  function toJsonUrl(rawUrl: string): string {
+    const u = new URL(rawUrl);
+    u.hostname = 'www.reddit.com';
+    u.hash = '';
+    u.search = '';
+    let pathname = u.pathname;
+    if (pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+    if (pathname.endsWith('.json')) pathname = pathname.slice(0, -5);
+    return `https://www.reddit.com${pathname}.json?limit=100`;
+  }
+
   async function handleFetch() {
     const trimmed = url.trim();
     if (!trimmed || status === 'fetching') return;
+
+    // Validate URL before kicking off any state changes
+    let jsonUrl: string;
+    try {
+      const hostname = new URL(trimmed).hostname.replace(/^www\./, '');
+      if (hostname !== 'reddit.com' && !hostname.endsWith('.reddit.com')) {
+        setErrorMsg('URL must be a reddit.com link');
+        setStatus('error');
+        return;
+      }
+      jsonUrl = toJsonUrl(trimmed);
+    } catch {
+      setErrorMsg('Invalid URL');
+      setStatus('error');
+      return;
+    }
 
     setStatus('fetching');
     setResult('');
@@ -25,10 +52,24 @@ export function RedditView() {
     setCopied(false);
 
     try {
+      // Fetch Reddit directly from the browser — user's IP is never blocked
+      const redditRes = await fetch(jsonUrl);
+      if (!redditRes.ok) {
+        setErrorMsg(
+          redditRes.status === 429
+            ? 'Reddit is rate limiting, try again in a moment'
+            : 'Could not fetch thread.'
+        );
+        setStatus('error');
+        return;
+      }
+      const rawJson = await redditRes.json();
+
+      // Send raw JSON to our API for formatting
       const res = await fetch('/api/reddit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trimmed, depth }),
+        body: JSON.stringify({ rawJson, depth }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) {
