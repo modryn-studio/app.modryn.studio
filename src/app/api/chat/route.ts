@@ -80,7 +80,8 @@ export async function POST(req: Request): Promise<Response> {
         LIMIT 3
       `,
       projectId ? getOrgMemory(projectId) : Promise.resolve(null),
-      projectId ? getMemberTasks(memberId, projectId) : getMemberTasks(memberId),
+      // Tasks are project-scoped — same pattern as getOrgMemory. Never show tasks from other projects.
+      projectId ? getMemberTasks(memberId, projectId) : Promise.resolve(null),
       projectId ? getProjectContext(projectId) : Promise.resolve(null),
       conversationId
         ? sql`
