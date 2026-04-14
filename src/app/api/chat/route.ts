@@ -61,12 +61,18 @@ export async function POST(req: Request): Promise<Response> {
       historyRows,
     ] = await Promise.all([
       sql`SELECT system_prompt FROM members WHERE id = ${memberId} LIMIT 1`,
-      sql`
-        SELECT summary FROM member_memory
-        WHERE member_id = ${memberId} AND memory_type = 'episodic'
-        ORDER BY created_at DESC
-        LIMIT 5
-      `,
+      // Episodic memory is project-scoped — only surface conversations from this project.
+      projectId
+        ? sql`
+            SELECT summary FROM member_memory
+            WHERE member_id = ${memberId}
+              AND memory_type = 'episodic'
+              AND project_id = ${projectId}
+            ORDER BY created_at DESC
+            LIMIT 5
+          `
+        : Promise.resolve([]),
+      // Semantic memory is intentionally cross-project (project_id IS NULL on these rows).
       sql`
         SELECT summary FROM member_memory
         WHERE member_id = ${memberId} AND memory_type = 'semantic'
