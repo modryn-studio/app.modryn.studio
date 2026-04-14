@@ -1,10 +1,13 @@
 'use client';
 
 import Image from 'next/image';
+import { LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { ProjectSwitcher } from '@/components/modryn/project-switcher';
 import { useProfile } from '@/lib/use-profile';
+import { authClient } from '@/lib/auth/client';
 import type { AIMember } from '@/hooks/use-members';
 
 interface Member {
@@ -108,6 +111,12 @@ export function MobileDrawer({
   onChatSelect,
 }: MobileDrawerProps) {
   const { profile } = useProfile();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push('/auth/sign-in');
+  }
   const founder: Member = {
     id: 'founder',
     name: profile.name,
@@ -215,10 +224,19 @@ export function MobileDrawer({
           })}
         </div>
 
-        <div className="border-sidebar-border border-t px-5 py-3">
+        <div className="border-sidebar-border flex items-center justify-between border-t px-5 py-3">
           <ChromeLabel as="p" className="text-sidebar-ring tracking-widest">
             v0.1 — prototype
           </ChromeLabel>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="text-sidebar-muted hover:text-sidebar-foreground flex items-center gap-1.5 transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.5} />
+            <ChromeLabel className="leading-none tracking-[0.08em] normal-case">Sign out</ChromeLabel>
+          </button>
         </div>
       </div>
     </>

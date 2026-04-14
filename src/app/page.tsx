@@ -193,7 +193,7 @@ export default function ModrynStudio() {
   );
 
   return (
-    <div className="bg-background flex h-screen w-screen overflow-hidden">
+    <div className="bg-background flex h-dvh w-dvw overflow-hidden">
       {/* —— Desktop layout —— */}
       {/* Left sidebar — hidden on mobile */}
       <div className="hidden md:flex">
