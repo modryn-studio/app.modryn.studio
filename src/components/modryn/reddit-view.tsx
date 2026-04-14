@@ -121,6 +121,7 @@ export function RedditView() {
               setErrorMsg('');
             }
           }}
+          onFocus={(e) => e.target.select()}
           onKeyDown={handleKeyDown}
           placeholder="https://www.reddit.com/r/..."
           className={cn(
