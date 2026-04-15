@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",
-    "check-deps": "npx npm-check-updates"
+    "check-deps": "npx npm-check-updates",
+    "sync-prompts": "node scripts/sync-prompts.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.66",

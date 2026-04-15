@@ -88,7 +88,7 @@ export async function POST(req: Request): Promise<Response> {
             SELECT id, role, content, created_at FROM messages
             WHERE conversation_id = ${conversationId}
             ORDER BY created_at DESC
-            LIMIT 40
+            LIMIT 60
           `
         : Promise.resolve([]),
     ]);
@@ -170,16 +170,28 @@ export async function POST(req: Request): Promise<Response> {
       assembled_tokens_est: estimateTokens(systemPrompt),
     });
 
-    // Build allMessages: DB history (last 40, reversed to chronological) + the new incoming message.
+    // Build allMessages: DB history (newest-first, token-budget-limited) + the new incoming message.
     // The server owns history — the client only sends the last message.
     // Strip the <sources> block appended by onFinish — it's for UI only, not model context
     const stripSources = (content: string) =>
       content.replace(/\n\n<sources>[\s\S]+?<\/sources>$/, '');
 
-    const dbMessages = (
-      historyRows as { id: string; role: string; content: string; created_at: string }[]
-    )
-      .reverse()
+    // Token-aware history window: accumulate rows newest-first until HISTORY_TOKEN_BUDGET is
+    // exhausted, then reverse to chronological. Prevents a single long message (e.g. pasted docs)
+    // from silently consuming the entire conversation context budget.
+    const HISTORY_TOKEN_BUDGET = 8000;
+    const rawRows = historyRows as { id: string; role: string; content: string; created_at: string }[];
+    const selectedRows: typeof rawRows = [];
+    let historyTokensUsed = 0;
+    for (const row of rawRows) {
+      // rows arrive newest-first from the ORDER BY DESC query
+      const tokens = estimateTokens(stripSources(row.content));
+      if (historyTokensUsed + tokens > HISTORY_TOKEN_BUDGET) break;
+      selectedRows.push(row);
+      historyTokensUsed += tokens;
+    }
+    const dbMessages = selectedRows
+      .reverse() // back to chronological
       .map((row) => ({
         id: row.id,
         role: row.role as 'user' | 'assistant',
@@ -211,9 +223,9 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // 20-message sliding window — only the last 20 messages are sent to the model.
+    // allMessages is already token-budget-limited via HISTORY_TOKEN_BUDGET above.
     // Full allMessages is retained in scope for the episodic memory transcript below.
-    const windowedMessages = allMessages.slice(-20);
+    const windowedMessages = allMessages;
 
     // Server-side web search for Michelle only — one targeted search per DM turn.
     // 3 uses could compound to ~$0.66/message; one search at $0.22 is the right cost
