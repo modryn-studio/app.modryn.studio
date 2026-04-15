@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Copy, Loader2, Play, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Download, Loader2, Play, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { Markdown } from '@/components/prompt-kit/markdown';
@@ -76,20 +76,40 @@ function TaskCard({
   const [outputOpen, setOutputOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [executeError, setExecuteError] = useState<string | null>(null);
-  // Phase 1: fallback when image fails to load (e.g. large base64 on mobile Safari)
+  // Fallback when image fails to load (e.g. large base64 on mobile Safari)
   const [imgError, setImgError] = useState(false);
-  // Phase 3: optimistic local status (pending → in_progress without refetch)
+  // Optimistic local status (pending → in_progress without refetch)
   const [localStatus, setLocalStatus] = useState<Task['status']>(task.status);
-  // Phase 3: inline completion form state
-  const [completing, setCompleting] = useState(false);
-  const [completionNote, setCompletionNote] = useState('');
   const [completingLoading, setCompletingLoading] = useState(false);
+  // Elapsed seconds — resets when execution completes. Gives the user a live signal
+  // that the task is running, not stalled. Tasks typically take 20–60s.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!executing) {
+      setElapsed(0);
+      return;
+    }
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [executing]);
 
   function handleCopy() {
     if (!task.output) return;
     navigator.clipboard.writeText(task.output);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleDownload() {
+    if (!task.output) return;
+    const slug = task.title.trim().split(/\s+/).slice(0, 5).join('-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const blob = new Blob([task.output], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Prefer task.status from parent when it's already 'done' — avoids a one-render
@@ -112,50 +132,48 @@ function TaskCard({
         return;
       }
       const data = await res.json();
-      if (data.output) {
-        onExecuted(task.id, data.output);
-        setOutputOpen(true);
+      // Gate on status, not output — output can be null/empty on the idempotency path,
+      // which would leave the task stuck in pending with the play button active.
+      if (data.status === 'done') {
+        onExecuted(task.id, data.output ?? '');
+        if (data.output) setOutputOpen(true);
       }
     } finally {
       setExecuting(false);
     }
   }
 
-  // Phase 3: advance pending → in_progress for founder tasks (optimistic)
+  // Advance pending → in_progress for founder tasks (optimistic)
   async function handleStatusAdvance() {
     if (localStatus !== 'pending' || !isFounder) return;
     setLocalStatus('in_progress');
     try {
-      await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'in_progress' }),
       });
+      if (!res.ok) throw new Error('patch failed');
     } catch {
-      setLocalStatus('pending'); // revert on network failure
+      setLocalStatus('pending');
+      setExecuteError('Could not update status. Try again.');
     }
   }
 
-  // Phase 3: submit founder completion with optional note
   async function handleComplete() {
     setCompletingLoading(true);
     setExecuteError(null);
     try {
-      const body: { status: string; output?: string } = { status: 'done' };
-      if (completionNote.trim()) body.output = completionNote.trim();
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ status: 'done' }),
       });
       if (!res.ok) {
         setExecuteError('Could not complete task. Try again.');
         return;
       }
-      onExecuted(task.id, completionNote.trim());
-      setCompleting(false);
-      setCompletionNote('');
-      if (completionNote.trim()) setOutputOpen(true);
+      onExecuted(task.id, '');
     } finally {
       setCompletingLoading(false);
     }
@@ -263,18 +281,20 @@ function TaskCard({
                 )}
               </button>
             )}
-            {/* Phase 3: founder complete button — symmetrical to Play */}
+            {/* Founder complete button — symmetrical to Play */}
             {task.status !== 'done' && isFounder && (
               <button
                 type="button"
-                onClick={() => setCompleting((v) => !v)}
-                className={cn(
-                  'rounded-sm p-1.5 transition-colors',
-                  completing ? 'text-status-online' : 'text-panel-faint hover:text-status-online'
-                )}
+                onClick={handleComplete}
+                disabled={completingLoading}
+                className="text-panel-faint hover:text-status-online rounded-sm p-1.5 transition-colors disabled:opacity-40"
                 aria-label="Complete task"
               >
-                <Check className="h-3.5 w-3.5" />
+                {completingLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
               </button>
             )}
             {hasOutput && (
@@ -294,39 +314,17 @@ function TaskCard({
           </div>
         </div>
       </div>
-      {/* Inline completion form — same visual zone as output panel */}
-      {completing && (
-        <div className="border-panel-border bg-ai-surface border-t px-4 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <ChromeLabel className="text-panel-faint text-[9px] tracking-widest">Note</ChromeLabel>
-          </div>
-          <textarea
-            value={completionNote}
-            onChange={(e) => setCompletionNote(e.target.value)}
-            placeholder="What did you complete? (optional)"
-            rows={3}
-            className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-chrome w-full resize-none rounded-sm border px-3 py-2 text-[13px] outline-none"
-          />
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={handleComplete}
-              disabled={completingLoading}
-              className="text-panel-foreground bg-panel-chrome hover:bg-panel-chrome-strong rounded-sm px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50"
-            >
-              {completingLoading ? 'Saving…' : 'Done'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCompleting(false);
-                setCompletionNote('');
-                setExecuteError(null);
-              }}
-              className="text-panel-muted hover:text-panel-foreground rounded-sm px-3 py-1.5 text-[12px] transition-colors"
-            >
-              Cancel
-            </button>
+      {/* Executing panel — shown while the task is running. Timer prevents "is it frozen?" anxiety. */}
+      {executing && (
+        <div className="border-panel-border bg-ai-surface border-t px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="bg-status-generating h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" />
+            <ChromeLabel className="text-status-generating text-[9px] tracking-widest">
+              generating
+            </ChromeLabel>
+            <span className="text-panel-faint ml-auto min-w-8 text-right font-mono text-[10px] tabular-nums">
+              {elapsed}s
+            </span>
           </div>
         </div>
       )}
@@ -334,16 +332,26 @@ function TaskCard({
         <div className="border-panel-border bg-ai-surface border-t px-4 py-4">
           <div className="mb-3 flex items-center gap-2">
             <ChromeLabel className="text-panel-faint text-[9px] tracking-widest">
-              Output
+              output
             </ChromeLabel>
-            <button
-              type="button"
-              onClick={handleCopy}
-              title="Copy"
-              className="text-panel-muted hover:text-panel-foreground ml-auto rounded-sm p-1 transition-colors"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDownload}
+                title="Download as Markdown"
+                className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleCopy}
+                title="Copy"
+                className="text-panel-muted hover:text-panel-foreground rounded-sm p-1 transition-colors"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
           </div>
           <div className="prose prose-sm max-w-none">
             <Markdown>{task.output}</Markdown>

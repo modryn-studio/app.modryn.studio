@@ -1,4 +1,4 @@
-import { generateText, stepCountIs } from 'ai';
+import { generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createRouteLogger } from '@/lib/route-logger';
 import { getCompanyContext, getProjectContext, getOrgMemory } from '@/lib/context';
@@ -103,23 +103,33 @@ export async function POST(
       total_input_est: estimateTokens(systemPrompt) + promptTokensEst,
     });
 
-    // Michelle gets web search on tasks — capped at 1 use. Tasks need a targeted fact-check
-    // (current API endpoint, auth header format), not deep research. Each search compounds
-    // input tokens (results accumulate across steps), so 3 uses at 5–15k tokens each
-    // multiplies cost fast. One search is enough to ground a technical deliverable.
-    const tools =
-      task.assigned_to === 'michelle-lim'
-        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 1 }) }
-        : undefined;
-
+    // No web search for tasks — it fires when the model decides it's relevant but consumes
+    // the entire output token budget on search results before generating any text, yielding
+    // 0 chars of actual deliverable. Internal design/architecture tasks don't need web search.
     const { text, usage, steps } = await generateText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
       prompt,
-      maxOutputTokens: 1500,
-      stopWhen: stepCountIs(3), // search (1) + result synthesis (1) + final answer (1) — hard ceiling on compounding input
-      ...(tools && { tools }),
+      maxOutputTokens: 8000,
     });
+
+    // Log per-step breakdown so we can see exactly what each step produced.
+    // This is diagnostic — informs the correct output-assembly strategy.
+    if (steps && steps.length > 0) {
+      log.info(ctx.reqId, 'Step breakdown', {
+        step_count: steps.length,
+        steps: steps.map((s, i) => ({
+          index: i,
+          text_chars: (s.text ?? '').length,
+          text_words: (s.text ?? '').split(/\s+/).filter(Boolean).length,
+          tool_calls: s.toolCalls?.map((t) => t.toolName) ?? [],
+          finish_reason: s.finishReason,
+        })),
+      });
+    }
+
+    // text = AI SDK's built-in aggregation. Verified against step breakdown above.
+    const fullText = text;
 
     // Sonnet 4.6 pricing: $3/MTok input, $15/MTok output
     const inputCost = ((usage?.inputTokens ?? 0) / 1_000_000) * 3;
@@ -136,18 +146,18 @@ export async function POST(
       output_cost_usd: outputCost.toFixed(5),
       total_cost_usd: (inputCost + outputCost).toFixed(5),
       web_search_uses: webSearchUses,
-      output_words: text.split(/\s+/).filter(Boolean).length,
-      output_chars: text.length,
+      output_words: fullText.split(/\s+/).filter(Boolean).length,
+      output_chars: fullText.length,
     });
 
     await sql`
       UPDATE tasks
-      SET status = 'done', output = ${text}, updated_at = now()
+      SET status = 'done', output = ${fullText}, updated_at = now()
       WHERE id = ${id}
     `;
 
     log.info(ctx.reqId, 'Task executed', { id, assigned_to: task.assigned_to });
-    return log.end(ctx, Response.json({ id, status: 'done', output: text }));
+    return log.end(ctx, Response.json({ id, status: 'done', output: fullText }));
   } catch (error) {
     // Roll back in_progress on failure so the task stays executable
     await sql`UPDATE tasks SET status = 'pending', updated_at = now() WHERE id = ${id}`.catch(
