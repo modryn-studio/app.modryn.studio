@@ -87,6 +87,7 @@ Create the `docs/` directory if it doesn't exist. Generate or update `docs/guide
 - Describe what the user literally sees and clicks — exact button labels, exact field names from the component code.
 - Mark stubbed features honestly (e.g. "generates a preview but doesn't send email yet").
 - Never document something that isn't in the code. No aspirational docs.
+- Document user-facing features only. Do not include API routes, HTTP methods, or request body schemas — that is developer reference material, not a user guide.
 - End with a status table: what works ✅, what's stubbed ⏳, what's missing ❌.
 
 If `docs/guide.md` already exists, update it to reflect current state. Remove outdated information. Do not preserve anything that's no longer true.
@@ -120,6 +121,7 @@ If a genuinely new capability exists in the source files that has no correspondi
 
 **Rules:**
 
+- `architecture.md` covers AI plumbing only: models, system prompts, memory, thread orchestration, DB schema. Stack, conventions, and routes are documented in `copilot-instructions.md` — do not duplicate them here.
 - Keep it lean — one or two sentences per section max, tables where they help
 - Do not add commentary or reasoning — just facts about how it's built
 - Do not remove sections that are still accurate

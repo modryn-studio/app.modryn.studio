@@ -290,7 +290,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   const [excludedMembers, setExcludedMembers] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -315,21 +315,9 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingThreads, threads]);
 
-  // Mobile keyboard safety — track on-screen keyboard
+  // Detect touch device — Enter inserts newline on mobile, sends on desktop.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const vp = window.visualViewport;
-    const update = () => {
-      const offset = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
-      setKeyboardOffset(offset > 120 ? offset : 0);
-    };
-    update();
-    vp.addEventListener('resize', update);
-    vp.addEventListener('scroll', update);
-    return () => {
-      vp.removeEventListener('resize', update);
-      vp.removeEventListener('scroll', update);
-    };
+    setIsTouchDevice('ontouchstart' in window);
   }, []);
 
   // Initialise drag order to member list order when members first load
@@ -629,7 +617,8 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   }
 
   const handleReplyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // On touch devices, Enter inserts a newline — user must tap the send button.
+    if (e.key === 'Enter' && !e.shiftKey && !isTouchDevice) {
       e.preventDefault();
       handleSendReply();
     }
@@ -913,10 +902,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     );
 
     return (
-      <div
-        className="flex flex-1 flex-col overflow-hidden"
-        style={{ paddingBottom: mobile && keyboardOffset ? `${keyboardOffset}px` : undefined }}
-      >
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Detail header */}
         <div className={cn('border-panel-border border-b', mobile ? 'px-5 py-4' : 'px-8 py-5')}>
           <div className="mb-2 flex items-center gap-2">
@@ -1507,6 +1493,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
               value={replyValue}
               onChange={(e) => setReplyValue(e.target.value)}
               onKeyDown={handleReplyKeyDown}
+              enterKeyHint={isTouchDevice ? 'enter' : 'send'}
               disabled={inputDisabled}
               placeholder={isSequenceRunning ? 'Team is responding...' : 'Reply to thread...'}
               rows={1}

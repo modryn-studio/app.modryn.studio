@@ -62,12 +62,14 @@ function TaskCard({
   members,
   founderName,
   founderInitials,
+  founderAvatarDataUrl,
   onExecuted,
 }: {
   task: Task;
   members: AIMember[];
   founderName: string;
   founderInitials: string;
+  founderAvatarDataUrl?: string;
   onExecuted: (id: string, output: string) => void;
 }) {
   const [executing, setExecuting] = useState(false);
@@ -122,7 +124,16 @@ function TaskCard({
         <div className="flex items-start gap-3">
           {/* Member avatar */}
           <div className="mt-0.5 shrink-0">
-            {assignedMember?.avatarUrl ? (
+            {isFounder && founderAvatarDataUrl ? (
+              <Image
+                src={founderAvatarDataUrl}
+                alt={founderName}
+                width={28}
+                height={28}
+                unoptimized
+                className="h-7 w-7 rounded-sm object-cover"
+              />
+            ) : assignedMember?.avatarUrl ? (
               <Image
                 src={assignedMember.avatarUrl}
                 alt={assignedMember.name}
@@ -176,7 +187,7 @@ function TaskCard({
           </div>
           <div className="flex shrink-0 items-center gap-1 pt-0.5">
             {/* Intentionally raw <button> — non-standard icon-only shape */}
-            {task.status !== 'done' && (
+            {task.status !== 'done' && !isFounder && (
               <button
                 type="button"
                 disabled={executing}
@@ -465,6 +476,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                     members={members}
                     founderName={profile.name || 'Luke'}
                     founderInitials={profile.initials || 'LH'}
+                    founderAvatarDataUrl={profile.avatarDataUrl}
                     onExecuted={handleExecuted}
                   />
                 ))}
@@ -482,6 +494,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                     members={members}
                     founderName={profile.name || 'Luke'}
                     founderInitials={profile.initials || 'LH'}
+                    founderAvatarDataUrl={profile.avatarDataUrl}
                     onExecuted={handleExecuted}
                   />
                 ))}

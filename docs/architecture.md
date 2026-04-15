@@ -99,16 +99,18 @@ The founder is identified as `sender_id = 'founder'` in messages — not a membe
 
 ## Database Tables
 
-| Table                  | What it stores                                                                                  |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `projects`             | Top-level containers — name, optional context field, timestamps                                 |
-| `members`              | AI member profiles — ID, name, role, initials, system prompt, status                            |
-| `conversations`        | DM or thread containers — type (`dm` or `thread`), title, timestamps                            |
-| `conversation_members` | Join table — which members (+ founder) are in each conversation, with respond order for threads |
-| `messages`             | All messages — sender_id, role (`user`/`assistant`), content, conversation_id                   |
-| `member_memory`        | Episodic and semantic memory rows per member — memory_type, summary, conversation_id            |
-| `org_memory`           | Team-wide facts extracted from threads — fact text, source_conversation_id                      |
-| `decisions`            | Logged decisions — title, description, logged_by, conversation_id                               |
-| `user_roles`           | Neon Auth user ID → role (`admin`/`member`)                                                     |
-| `invites`              | Single-use invite tokens for sign-up gating                                                     |
-| `founder_profile`      | Founder name + company description (set on first launch)                                        |
+| Table                  | What it stores                                                                                                                                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`             | Top-level containers — name, optional context field, timestamps                                                                                                                                                             |
+| `members`              | AI member profiles — ID, name, role, initials, system prompt, status                                                                                                                                                        |
+| `conversations`        | DM or thread containers — type (`dm` or `thread`), title, timestamps                                                                                                                                                        |
+| `conversation_members` | Join table — which members (+ founder) are in each conversation, with respond order for threads                                                                                                                             |
+| `messages`             | All messages — sender_id, role (`user`/`assistant`), content, conversation_id                                                                                                                                               |
+| `member_memory`        | Episodic and semantic memory rows per member — memory_type, summary, conversation_id                                                                                                                                        |
+| `org_memory`           | Team-wide facts extracted from threads — fact text, source_conversation_id                                                                                                                                                  |
+| `decisions`            | Logged decisions — title, description, logged_by, conversation_id                                                                                                                                                           |
+| `user_roles`           | Neon Auth user ID → role (`admin`/`member`)                                                                                                                                                                                 |
+| `tasks`                | Work units assigned to members — title, description, status (pending/in_progress/done/blocked), output (work product), due_at, conversation_id. `assigned_to` is a logical ID (member slug or 'founder'), no FK constraint. |
+| `invites`              | Single-use invite tokens for sign-up gating                                                                                                                                                                                 |
+| `founder_profile`      | Founder name + company description (set on first launch)                                                                                                                                                                    |
+| `saved_reddit_urls`    | Saved Reddit threads per project — url, label, full thread text cached at save time, depth                                                                                                                                  |

@@ -20,6 +20,7 @@ interface MobileTabBarProps {
   onViewChange: (view: View) => void;
   showBriefingStrip?: boolean;
   briefingOpen?: boolean;
+  keyboardOpen?: boolean;
   onOpenBriefing?: () => void;
 }
 
@@ -28,6 +29,7 @@ export function MobileTabBar({
   onViewChange,
   showBriefingStrip = false,
   briefingOpen = false,
+  keyboardOpen = false,
   onOpenBriefing,
 }: MobileTabBarProps) {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
@@ -44,7 +46,12 @@ export function MobileTabBar({
   };
 
   return (
-    <div className="bg-sidebar border-sidebar-border shrink-0 border-t md:hidden">
+    <div
+      className={cn(
+        'bg-sidebar border-sidebar-border shrink-0 overflow-hidden border-t transition-[max-height,border] duration-150 md:hidden',
+        keyboardOpen ? 'max-h-0 border-t-0' : 'max-h-32'
+      )}
+    >
       {showBriefingStrip && !briefingOpen && (
         <button
           onClick={onOpenBriefing}

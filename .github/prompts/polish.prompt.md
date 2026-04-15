@@ -43,7 +43,9 @@ For each file, check ALL of the following:
 
 ### Mobile Keyboard Safety
 
-- [ ] Any `fixed` or `sticky` bottom container that includes a text input — check for `visualViewport` keyboard offset tracking. If missing: HIGH priority fix.
+- [ ] Any textarea with an Enter-to-send `onKeyDown` handler — confirm it is gated by `isTouchDevice` so Enter inserts a newline on mobile instead of sending.
+- [ ] Any new bottom nav chrome (tab bars, floating bars) — confirm `keyboardOpen` prop is wired and `max-h-0` collapse is applied when keyboard opens.
+- [ ] Do NOT add `keyboardOffset` / `visualViewport` padding to individual components — the root `interactiveWidget: 'resizes-content'` viewport contract handles layout shrinking globally.
 
 ### Touch Targets
 
@@ -59,7 +61,7 @@ Apply all changes found in Phase 2. For each file edited:
 2. Replace raw elements with primitives, preserving any per-element className overrides
 3. Fix `[var(--color-*)]` → named utilities
 4. Fix responsive spacing
-5. Add `visualViewport` keyboard offset tracking where needed (use the pattern from `.github/instructions/design-system.instructions.md`)
+5. Verify mobile keyboard safety using the pattern in `.github/instructions/design-system.instructions.md` (root `interactiveWidget` contract + `keyboardOpen` collapse, not per-component `keyboardOffset`)
 6. Increase touch targets where too small
 
 For anything ambiguous (complex custom shapes, intentional design choices), leave a `// TODO: CHECK — [reason]` comment instead of guessing.

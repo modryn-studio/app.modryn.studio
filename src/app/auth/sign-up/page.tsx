@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation';
 import { SignUpForm } from './sign-up-form';
 
 export const metadata: Metadata = {
-  title: 'Accept Invite — Modryn Studio',
-  description: 'Accept your invite to join Modryn Studio.',
+  title: 'Accept Invite — Modryn Studio | AI Company Operating System',
+  description:
+    'Accept your invite and create your Modryn Studio account — the AI company operating system for chat, tasks, decisions, and threads.',
 };
 
 // Server component — reads searchParams so the invite token is available in

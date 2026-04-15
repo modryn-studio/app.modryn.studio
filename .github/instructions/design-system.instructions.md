@@ -77,17 +77,20 @@ Body text: `text-[15px] sm:text-base` or `text-sm sm:text-base` on dense copy bl
 
 ## Mobile Keyboard Safety
 
-Any panel with text input that is `fixed` or `sticky` at the bottom of the screen must track the on-screen keyboard using `window.visualViewport`. Without this, the keyboard covers the input on iOS/Android.
+The layout uses `interactiveWidget: 'resizes-content'` in the `viewport` export (`src/app/layout.tsx`). This tells the browser to shrink the layout viewport when the on-screen keyboard opens, so `h-dvh` containers automatically exclude keyboard height. **Do not add `keyboardOffset` / `visualViewport` padding hacks to individual components** — the viewport contract handles it at the root level.
+
+For mobile nav chrome (tab bars, bottom bars) that should disappear when the keyboard opens, track keyboard state in the page and pass it down:
 
 ```tsx
-const [keyboardOffset, setKeyboardOffset] = useState(0);
-
+// In the page component — mobile only (guard with innerWidth check):
+const [keyboardOpen, setKeyboardOpen] = useState(false);
 useEffect(() => {
   if (typeof window === 'undefined' || !window.visualViewport) return;
+  if (window.innerWidth >= 768) return; // desktop/tablet: tab bar is already hidden
   const vp = window.visualViewport;
   const update = () => {
     const offset = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
-    setKeyboardOffset(offset > 120 ? offset : 0); // ignore browser chrome jitter
+    setKeyboardOpen(offset > 120);
   };
   update();
   vp.addEventListener('resize', update);
@@ -98,10 +101,32 @@ useEffect(() => {
   };
 }, []);
 
-// Apply to the fixed wrapper — style= is needed because Tailwind can't handle dynamic values:
-<div className="fixed inset-x-0 bottom-0" style={{ bottom: keyboardOffset }}>
-  <div className="pb-[calc(1rem+env(safe-area-inset-bottom))]">{/* inputs here */}</div>
-</div>;
+// In the tab bar / bottom chrome — use max-h to animate cleanly:
+<div
+  className={cn(
+    'bg-sidebar shrink-0 overflow-hidden transition-[max-height] duration-150 md:hidden',
+    keyboardOpen ? 'max-h-0' : 'max-h-32'
+  )}
+/>;
+```
+
+**Enter key on mobile:** Never wire Enter to send in a textarea when the feature is used on mobile. Use `isTouchDevice` state (set in `useEffect` after mount) to gate the send path — touch devices use the send button only.
+
+```tsx
+const [isTouchDevice, setIsTouchDevice] = useState(false);
+useEffect(() => {
+  setIsTouchDevice('ontouchstart' in window);
+}, []);
+
+const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  if (e.key === 'Enter' && !e.shiftKey && !isTouchDevice) {
+    e.preventDefault();
+    handleSend();
+  }
+};
+
+// Also set enterKeyHint to signal the correct key label to the soft keyboard:
+<textarea enterKeyHint={isTouchDevice ? 'enter' : 'send'} />;
 ```
 
 ## Touch Targets
@@ -110,9 +135,9 @@ All tappable elements must be at least 44×44px. Primary action buttons: `h-12`.
 
 ## Class Merging
 
-Use `cn()` from `@/lib/cn` when combining base classes with conditional or override classes:
+Use `cn()` from `@/lib/utils` when combining base classes with conditional or override classes:
 
 ```tsx
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils';
 <div className={cn('base-classes', condition && 'conditional-class', className)} />;
 ```

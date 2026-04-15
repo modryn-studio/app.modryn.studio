@@ -517,7 +517,7 @@ export function ChatView({
   const [inputValue, setInputValue] = useDraft(`dm-${memberId}`);
   const [messageTimestamps, setMessageTimestamps] = useState<Record<string, string>>({});
   const [pendingTimestamp, setPendingTimestamp] = useState<string | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
@@ -604,21 +604,9 @@ export function ChatView({
     };
   }, [memberId, projectId, setMessages]);
 
-  // Mobile keyboard safety — track on-screen keyboard
+  // Detect touch device — Enter inserts newline on mobile, sends on desktop.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const vp = window.visualViewport;
-    const update = () => {
-      const offset = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
-      setKeyboardOffset(offset > 120 ? offset : 0);
-    };
-    update();
-    vp.addEventListener('resize', update);
-    vp.addEventListener('scroll', update);
-    return () => {
-      vp.removeEventListener('resize', update);
-      vp.removeEventListener('scroll', update);
-    };
+    setIsTouchDevice('ontouchstart' in window);
   }, []);
 
   const isSubmitted = status === 'submitted';
@@ -706,7 +694,8 @@ export function ChatView({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // On touch devices, Enter inserts a newline — user must tap the send button.
+    if (e.key === 'Enter' && !e.shiftKey && !isTouchDevice) {
       e.preventDefault();
       handleSend();
     }
@@ -716,10 +705,10 @@ export function ChatView({
     if (!conversationIdRef.current) return;
     setSynthesizing(true);
     try {
-      const res = await fetch(
-        `/api/conversations/${conversationIdRef.current}/decisions-draft`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
-      );
+      const res = await fetch(`/api/conversations/${conversationIdRef.current}/decisions-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
       if (res.ok) {
         const draft = (await res.json()) as {
           decisions: { title: string; description: string }[];
@@ -1078,10 +1067,7 @@ export function ChatView({
         )}
 
       {/* Input */}
-      <div
-        className="border-panel-border bg-panel border-t px-4 py-3 transition-[padding]"
-        style={{ paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined }}
-      >
+      <div className="border-panel-border bg-panel border-t px-4 py-3">
         <label htmlFor="chat-input" className="sr-only">
           Message {memberName}
         </label>
@@ -1121,6 +1107,7 @@ export function ChatView({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              enterKeyHint={isTouchDevice ? 'enter' : 'send'}
               placeholder={`Message ${memberName}...`}
               rows={1}
               disabled={isStreaming || !historyLoaded}

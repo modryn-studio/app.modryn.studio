@@ -72,6 +72,28 @@ export default function ModrynStudio() {
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // Hide the mobile tab bar when the on-screen keyboard is open so it doesn't
+  // sit between the keyboard and the input area. Guard to mobile only — skip on
+  // tablet/desktop (md breakpoint and above) where the tab bar is already hidden.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (window.innerWidth >= 768) return;
+    const vp = window.visualViewport;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
+      setKeyboardOpen(offset > 120);
+    };
+    update();
+    vp.addEventListener('resize', update);
+    vp.addEventListener('scroll', update);
+    return () => {
+      vp.removeEventListener('resize', update);
+      vp.removeEventListener('scroll', update);
+    };
+  }, []);
+
   const { members, refetch } = useMembers();
   const { profile, profileLoaded } = useProfile();
 
@@ -259,6 +281,7 @@ export default function ModrynStudio() {
           activeView={activeView}
           showBriefingStrip={activeView === 'chat'}
           briefingOpen={mobileContextOpen}
+          keyboardOpen={keyboardOpen}
           onOpenBriefing={() => setMobileContextOpen(true)}
           onViewChange={(v) => {
             handleViewChange(v);
