@@ -32,7 +32,7 @@ Built from 5 priority-ordered layers with an 8k token budget. No episodic or sem
 4. Project context — project name + context field, not prunable
 5. Org memory — decisions + org facts (newest 20, prunable)
 
-Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web search + `maxSteps: 3`.
+Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web search + `stopWhen: stepCountIs(3)`.
 
 ---
 
@@ -50,7 +50,7 @@ Only Michelle (`michelle-lim`) has web search access via `anthropic.tools.webSea
 
 - DMs: `maxUses: 1`
 - Threads: `maxUses: 1`
-- Tasks: `maxUses: 1`, `maxSteps: 3`
+- Tasks: `maxUses: 1`
 - All other members: no tools
 
 When Michelle searches, citations are saved as a `<sources>` JSON block appended to her DB message and rendered as links in the UI.
@@ -59,11 +59,17 @@ When Michelle searches, citations are saved as a `<sources>` JSON block appended
 
 ## Memory
 
-- **Episodic**: written after a DM conversation with 5+ user turns — one summary per conversation
+- **Episodic**: written after a DM conversation with 2+ user turns — one summary per conversation, upserted. DM reads are project-scoped; thread respond reads are cross-project (no `project_id` filter).
 - **Semantic**: written every 5th episodic entry — cross-conversation behavioural patterns
 - **Org facts**: extracted after each thread respond sequence completes
 
 All stored in `member_memory` (episodic, semantic) and `org_memory` (org facts) tables in Neon.
+
+---
+
+## Thread Decisions Draft
+
+`POST /api/threads/[threadId]/decisions-draft` — triggered manually by the user via the synthesize button in thread view. Runs Haiku against the full thread transcript and returns structured proposals: `{ decisions: [...], tasks: [...] }`. Returned to the client for review — the user confirms or dismisses each item before it’s written to the DB. Distinct from automatic org extraction (`/extract`), which fires after every respond sequence without user input.
 
 ---
 

@@ -75,6 +75,15 @@ function TaskCard({
   const [executing, setExecuting] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [executeError, setExecuteError] = useState<string | null>(null);
+  // Phase 1: fallback when image fails to load (e.g. large base64 on mobile Safari)
+  const [imgError, setImgError] = useState(false);
+  // Phase 3: optimistic local status (pending → in_progress without refetch)
+  const [localStatus, setLocalStatus] = useState<Task['status']>(task.status);
+  // Phase 3: inline completion form state
+  const [completing, setCompleting] = useState(false);
+  const [completionNote, setCompletionNote] = useState('');
+  const [completingLoading, setCompletingLoading] = useState(false);
 
   function handleCopy() {
     if (!task.output) return;
@@ -82,12 +91,12 @@ function TaskCard({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
-  const [executeError, setExecuteError] = useState<string | null>(null);
 
   // Prefer task.status from parent when it's already 'done' — avoids a one-render
   // flash of 'in_progress' caused by the local `executing` flag settling after onExecuted fires.
+  // localStatus handles optimistic pending → in_progress advance for founder tasks.
   const displayStatus: Task['status'] =
-    task.status === 'done' ? 'done' : executing ? 'in_progress' : task.status;
+    task.status === 'done' ? 'done' : executing ? 'in_progress' : localStatus;
   const hasOutput = !!task.output;
 
   const isFounder = task.assigned_to === 'founder';
@@ -112,10 +121,52 @@ function TaskCard({
     }
   }
 
+  // Phase 3: advance pending → in_progress for founder tasks (optimistic)
+  async function handleStatusAdvance() {
+    if (localStatus !== 'pending' || !isFounder) return;
+    setLocalStatus('in_progress');
+    try {
+      await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+    } catch {
+      setLocalStatus('pending'); // revert on network failure
+    }
+  }
+
+  // Phase 3: submit founder completion with optional note
+  async function handleComplete() {
+    setCompletingLoading(true);
+    setExecuteError(null);
+    try {
+      const body: { status: string; output?: string } = { status: 'done' };
+      if (completionNote.trim()) body.output = completionNote.trim();
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setExecuteError('Could not complete task. Try again.');
+        return;
+      }
+      onExecuted(task.id, completionNote.trim());
+      setCompleting(false);
+      setCompletionNote('');
+      if (completionNote.trim()) setOutputOpen(true);
+    } finally {
+      setCompletingLoading(false);
+    }
+  }
+
   return (
     <div
       className={cn(
         'border-panel-border rounded-sm border',
+        // Phase 2: founder tasks get a warmer tint — makes them scannable at a glance
+        isFounder && 'bg-panel-selected',
         // Left accent while executing — matches DM AI message bubble border-l-status-generating
         executing && 'border-l-status-generating border-l-2'
       )}
@@ -124,7 +175,7 @@ function TaskCard({
         <div className="flex items-start gap-3">
           {/* Member avatar */}
           <div className="mt-0.5 shrink-0">
-            {isFounder && founderAvatarDataUrl ? (
+            {isFounder && founderAvatarDataUrl && !imgError ? (
               <Image
                 src={founderAvatarDataUrl}
                 alt={founderName}
@@ -132,8 +183,9 @@ function TaskCard({
                 height={28}
                 unoptimized
                 className="h-7 w-7 rounded-sm object-cover"
+                onError={() => setImgError(true)}
               />
-            ) : assignedMember?.avatarUrl ? (
+            ) : !isFounder && assignedMember?.avatarUrl && !imgError ? (
               <Image
                 src={assignedMember.avatarUrl}
                 alt={assignedMember.name}
@@ -141,6 +193,7 @@ function TaskCard({
                 height={28}
                 unoptimized
                 className="h-7 w-7 rounded-sm object-cover"
+                onError={() => setImgError(true)}
               />
             ) : (
               <div
@@ -170,8 +223,16 @@ function TaskCard({
               {displayStatus === 'done' && (
                 <span className="bg-status-online h-1.5 w-1.5 shrink-0 rounded-full" />
               )}
+              {/* Phase 3: clicking pending status on founder tasks advances to in_progress */}
               <ChromeLabel
-                className={cn('text-[9px] tracking-widest', STATUS_COLORS[displayStatus])}
+                className={cn(
+                  'text-[9px] tracking-widest',
+                  STATUS_COLORS[displayStatus],
+                  isFounder &&
+                    displayStatus === 'pending' &&
+                    'hover:text-status-generating cursor-pointer'
+                )}
+                onClick={isFounder && displayStatus === 'pending' ? handleStatusAdvance : undefined}
               >
                 {STATUS_LABELS[displayStatus]}
               </ChromeLabel>
@@ -202,6 +263,20 @@ function TaskCard({
                 )}
               </button>
             )}
+            {/* Phase 3: founder complete button — symmetrical to Play */}
+            {task.status !== 'done' && isFounder && (
+              <button
+                type="button"
+                onClick={() => setCompleting((v) => !v)}
+                className={cn(
+                  'rounded-sm p-1.5 transition-colors',
+                  completing ? 'text-status-online' : 'text-panel-faint hover:text-status-online'
+                )}
+                aria-label="Complete task"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            )}
             {hasOutput && (
               <button
                 type="button"
@@ -219,6 +294,42 @@ function TaskCard({
           </div>
         </div>
       </div>
+      {/* Inline completion form — same visual zone as output panel */}
+      {completing && (
+        <div className="border-panel-border bg-ai-surface border-t px-4 py-4">
+          <div className="mb-2 flex items-center gap-2">
+            <ChromeLabel className="text-panel-faint text-[9px] tracking-widest">Note</ChromeLabel>
+          </div>
+          <textarea
+            value={completionNote}
+            onChange={(e) => setCompletionNote(e.target.value)}
+            placeholder="What did you complete? (optional)"
+            rows={3}
+            className="border-panel-border bg-panel-input text-panel-foreground placeholder:text-panel-faint focus:border-panel-chrome w-full resize-none rounded-sm border px-3 py-2 text-[13px] outline-none"
+          />
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={completingLoading}
+              className="text-panel-foreground bg-panel-chrome hover:bg-panel-chrome-strong rounded-sm px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50"
+            >
+              {completingLoading ? 'Saving…' : 'Done'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCompleting(false);
+                setCompletionNote('');
+                setExecuteError(null);
+              }}
+              className="text-panel-muted hover:text-panel-foreground rounded-sm px-3 py-1.5 text-[12px] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {outputOpen && task.output && (
         <div className="border-panel-border bg-ai-surface border-t px-4 py-4">
           <div className="mb-3 flex items-center gap-2">

@@ -9,7 +9,7 @@ import {
   getMemberTasks,
   extractAndStoreOrgFacts,
 } from '@/lib/context';
-import { assembleContext } from '@/lib/tokens';
+import { assembleContext, estimateTokens } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
 import '@/lib/env'; // validate required env vars on cold start
@@ -158,6 +158,18 @@ export async function POST(req: Request): Promise<Response> {
         : []),
     ]);
 
+    log.info(ctx.reqId, 'Context layers (estimated tokens)', {
+      ...(formatInstruction ? { format: estimateTokens(formatInstruction) } : {}),
+      system_prompt: estimateTokens(memberSystemPrompt),
+      company_context: companyContext ? estimateTokens(companyContext) : 0,
+      project_context: projectContext ? estimateTokens(projectContext) : 0,
+      tasks: memberTasks ? estimateTokens(memberTasks) : 0,
+      semantic: semanticSegments ? estimateTokens(semanticSegments) : 0,
+      org_memory: orgMemory ? estimateTokens(orgMemory) : 0,
+      episodic: episodicSegments ? estimateTokens(episodicSegments) : 0,
+      assembled_tokens_est: estimateTokens(systemPrompt),
+    });
+
     // Build allMessages: DB history (last 40, reversed to chronological) + the new incoming message.
     // The server owns history — the client only sends the last message.
     // Strip the <sources> block appended by onFinish — it's for UI only, not model context
@@ -219,7 +231,15 @@ export async function POST(req: Request): Promise<Response> {
       temperature: 0.7,
       ...(tools && { tools }),
       async onFinish({ text, usage, sources }) {
-        log.info(ctx.reqId, `[chat] tokens: in=${usage?.inputTokens} out=${usage?.outputTokens}`);
+        const inputCost = ((usage?.inputTokens ?? 0) / 1_000_000) * 3;
+        const outputCost = ((usage?.outputTokens ?? 0) / 1_000_000) * 15;
+        log.info(ctx.reqId, 'Stream complete', {
+          input_tokens: usage?.inputTokens,
+          output_tokens: usage?.outputTokens,
+          input_cost_usd: inputCost.toFixed(5),
+          output_cost_usd: outputCost.toFixed(5),
+          total_cost_usd: (inputCost + outputCost).toFixed(5),
+        });
         // Save the AI response to DB. Append <sources> block for Michelle's web-search responses
         // so citations survive page reload. Stripped from model context in dbMessages above.
         const urlSources = sources

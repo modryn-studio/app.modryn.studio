@@ -107,13 +107,12 @@ basePath:
   | 5 | Org memory (project-scoped) | Yes |
 
 - Memory tiers:
-  - Episodic: one summary per DM conversation (upserted), written by Haiku after 5+ user turns. Scoped to a project via `conversation_id → project_id`.
+  - Episodic: one summary per DM conversation (upserted), written by Haiku after 2+ user turns. DM writes and reads are project-scoped (`project_id`); thread reads fetch cross-project (no project filter in the respond route).
   - Semantic: behavioural patterns across all episodic summaries for a member — cross-project, `project_id = NULL`. Written every 5th episodic entry.
   - Org memory: team-wide facts extracted from DM summaries and full thread transcripts (auto) or logged manually. Project-scoped (`project_id` required on all rows). Merged with decisions table via UNION in `getOrgMemory(projectId)`.
-- Org fact extraction: uses `Output.object()` with `maxSteps: 2` + `NoObjectGeneratedError` handling — schema-enforced, no manual JSON parsing
+- Org fact extraction: uses `Output.object()` + `NoObjectGeneratedError` handling — schema-enforced, no manual JSON parsing
 - Member-to-member orchestration (threads): sequenced Claude calls via `/api/threads/[threadId]/respond` — each member gets full thread transcript + their own system prompt + memory context; idempotency check prevents double-responses; extraction runs post-sequence via `/api/threads/[threadId]/extract`
-- Proactive messaging governor: members can initiate messages, rate-limited by per-member cooldown (default 24h) or event trigger, to prevent runaway activity
-- Task structure: each task has { title, brief, assigned_member, deliverable_type, status (pending/in-progress/review/done), output (text), created_at, completed_at }; deliverable_type drives how the member's system prompt frames its response
+- Task structure: each task has { title, description, assigned_to, status (pending/in_progress/done/blocked), output (text), due_at, created_at, updated_at }
 
 ## Route Map
 

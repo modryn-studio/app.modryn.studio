@@ -74,10 +74,13 @@ When in DM chat view, the mobile header shows the active member's name and role 
 
 ### Icon rail
 
-Two active navigation icons:
+Five navigation icons:
 
 - **DMs** (`MessageSquare` icon) — one-on-one chat (default view)
 - **Inbox** (`Inbox` icon) — async messages from members
+- **Threads** (`MessagesSquare` icon) — group async threads
+- **Tasks** (`CheckSquare` icon) — task board
+- **Reddit** (`Globe` icon) — Reddit thread fetcher
 
 ### Team roster
 
@@ -133,7 +136,7 @@ Click an AI member in the roster to open a conversation.
 
 **Web search citations (Michelle only):** After a response that used web search, citation chips appear below the message body under a "Sources" label. Each chip shows the domain name and links to the source URL.
 
-The context panel on the right (desktop) shows **Recent Decisions**, **Active Tasks**, and **Conversation Notes** for the active member. Each section is expandable/collapsible. Data is currently hardcoded per member — not yet persisted from conversations.
+The context panel on the right (desktop) shows **Decisions** and **Tasks** for the active member, fetched live from the database (active/pending tasks assigned to this member within this project, and logged decisions for this project). Each section is expandable/collapsible. Click the toggle icon in the top-right of the chat header to collapse or expand the panel.
 
 ---
 
@@ -156,6 +159,7 @@ Switch to Threads via the sidebar icon or mobile tab bar.
 - Hover any completed AI response (desktop) to reveal **Copy**, **Log Decision**, and **Log Org Memory** buttons — identical behavior to DM chat.
 - Web search citation chips appear below Michelle's responses when she performed a search.
 - Org facts are extracted from the full thread transcript after all members have responded.
+- A **synthesize button** (document icon, top-right of the thread view) runs Haiku against the current transcript and proposes decisions and tasks. A panel slides up at the bottom with the proposed items — confirm each one to save it to the DB, or click ✕ to dismiss.
 
 ---
 
@@ -246,7 +250,8 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 | Invite person sheet                               | ✅ Works                       |
 | Founder profile editor (name, description, photo) | ✅ Works                       |
 | Sidebar navigation                                | ✅ Works                       |
-| Context panel (decisions, tasks, notes)           | ⏳ UI only — data is hardcoded |
+| Context panel (decisions, tasks)                  | ✅ Works                       |
+| Thread decision/task synthesis                    | ✅ Works                       |
 | Inbox                                             | ⏳ UI only — no messages yet   |
 | Member-initiated async messages                   | ❌ Not built                   |
 | Task board                                        | ✅ Works                       |

@@ -22,11 +22,11 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
 - `ai` 6.x · `@ai-sdk/react` 3.x · `@ai-sdk/anthropic` 3.x — streaming via `/api/chat`
   - `claude-sonnet-4-6` — main member responses (DMs + threads + tasks)
   - `claude-haiku-4-5-20251001` — episodic summarization, semantic memory, org fact extraction
-  - `Output.object()` with `maxSteps: 2` + `NoObjectGeneratedError` — schema-enforced structured extraction, no manual JSON parsing
+  - `Output.object()` + `NoObjectGeneratedError` handling — schema-enforced structured extraction, no manual JSON parsing
 - `@/lib/tokens.ts` — `assembleContext()` builds the system prompt from priority-ordered layers with a token budget; lower-priority layers pruned first. DMs + threads: 12k budget, 8 layers (format → system → company → project → tasks → semantic → org → episodic). Tasks: 8k budget, 5 layers (format → system → company → project → org) — no episodic/semantic.
 - `@/lib/context.ts` — `getMemberTasks()` injects a member's active task queue (pending/in_progress/blocked, LIMIT 5) + recently completed task titles (LIMIT 3) at priority 5. Returns `null` if no tasks → layer silently skipped. `getProjectContext(projectId)` returns project name + context field at priority 4, wrapped in `<project-context>` tags.
 - Memory tiers (all in `member_memory` / `org_memory` tables):
-  - Episodic — one summary per DM conversation, upserted by Haiku after 2+ user turns. Project-scoped via `conversation_id → project_id`.
+  - Episodic — one summary per DM conversation, upserted by Haiku after 2+ user turns. DM writes/reads are project-scoped; thread reads are cross-project.
   - Semantic — behavioural patterns across episodic summaries, written every 5th episodic entry. Cross-project (`project_id = NULL`).
   - Org — team-wide facts merged from `decisions` + `org_memory` tables via UNION in `getOrgMemory(projectId)`. Project-scoped.
 - Neon (serverless Postgres) · `@neondatabase/auth` — Neon Auth active, invite-gated access
