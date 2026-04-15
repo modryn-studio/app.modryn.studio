@@ -183,10 +183,14 @@ export async function POST(req: Request): Promise<Response> {
     const rawRows = historyRows as { id: string; role: string; content: string; created_at: string }[];
     const selectedRows: typeof rawRows = [];
     let historyTokensUsed = 0;
-    for (const row of rawRows) {
+    for (let i = 0; i < rawRows.length; i++) {
       // rows arrive newest-first from the ORDER BY DESC query
+      const row = rawRows[i];
       const tokens = estimateTokens(stripSources(row.content));
-      if (historyTokensUsed + tokens > HISTORY_TOKEN_BUDGET) break;
+      // Always include the most recent message (i===0) regardless of size — it's the most
+      // relevant context and excluding it would leave the model with no prior turn at all.
+      // For subsequent messages stop when budget is exhausted to keep a contiguous window.
+      if (i > 0 && historyTokensUsed + tokens > HISTORY_TOKEN_BUDGET) break;
       selectedRows.push(row);
       historyTokensUsed += tokens;
     }

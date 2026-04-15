@@ -14,9 +14,9 @@
  *   michelle-lim-system-prompt.md    →  michelle-lim
  *   steve-jobs-system-prompt.md      →  steve-jobs
  *
- * Run this after every prompt file edit. It is safe to run repeatedly — only rows
- * where the content has actually changed will be touched (Postgres UPDATE is a no-op
- * if the new value equals the old value).
+ * Run this after every prompt file edit. It is safe to run repeatedly — Postgres will
+ * execute the UPDATE regardless of whether the value changed, but the observable result
+ * is the same and the cost is negligible for 5 rows.
  */
 
 import fs from 'fs';
