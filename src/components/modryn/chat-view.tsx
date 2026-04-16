@@ -147,6 +147,7 @@ function FounderMessage({
   founderInitials,
   founderAvatarDataUrl,
   onConfirmEdit,
+  imageParts,
 }: {
   text: string;
   timestamp: string;
@@ -154,6 +155,7 @@ function FounderMessage({
   founderInitials: string;
   founderAvatarDataUrl: string;
   onConfirmEdit?: (newText: string) => void;
+  imageParts?: { url: string; contentType: string }[];
 }) {
   const { body, attachments } = parseMessageContent(text);
   const [copied, setCopied] = useState(false);
@@ -279,6 +281,19 @@ function FounderMessage({
           </>
         ) : (
           <>
+            {imageParts && imageParts.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {imageParts.map((img, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={img.url}
+                    alt=""
+                    className="max-h-48 max-w-xs rounded-sm object-contain"
+                  />
+                ))}
+              </div>
+            )}
             {body && (
               <div className="prose prose-sm max-w-none">
                 <Markdown>{body}</Markdown>
@@ -521,7 +536,12 @@ export function ChatView({
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
+  type TextAttachment = { type: 'text'; name: string; content: string };
+  type ImageAttachment = { type: 'image'; id: string; name: string; url: string; contentType: string; uploading: boolean };
+  type Attachment = TextAttachment | ImageAttachment;
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // Carries image URLs into prepareSendMessagesRequest — set immediately before sendMessage, cleared after
+  const imageUrlsRef = useRef<{ url: string; contentType: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Signals to the chat route that this is a retry — skip re-inserting the user message
   const isRetryRef = useRef(false);
@@ -550,6 +570,7 @@ export function ChatView({
             conversationId: conversationIdRef.current,
             surface,
             isRetry,
+            imageUrls: imageUrlsRef.current,
           },
         };
       },
@@ -577,12 +598,22 @@ export function ChatView({
 
         if (data.messages.length > 0) {
           const loaded = data.messages.map(
-            (m: { id: string; role: string; content: string; createdAt: string }) => ({
-              id: m.id,
-              role: m.role,
-              parts: [{ type: 'text' as const, text: m.content }],
-              createdAt: new Date(m.createdAt),
-            })
+            (m: { id: string; role: string; content: string; createdAt: string }) => {
+              // User messages with images are stored as a JSON array of parts.
+              // Try parsing; fall back to plain text if content is not a JSON array.
+              let parts: { type: string; text?: string; url?: string; contentType?: string }[] = [
+                { type: 'text', text: m.content },
+              ];
+              if (m.role === 'user') {
+                try {
+                  const parsed = JSON.parse(m.content);
+                  if (Array.isArray(parsed)) parts = parsed;
+                } catch {
+                  /* plain text — keep default */
+                }
+              }
+              return { id: m.id, role: m.role, parts, createdAt: new Date(m.createdAt) };
+            }
           );
           setMessages(loaded);
 
@@ -684,30 +715,59 @@ export function ChatView({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAttachedFiles((prev) => [
+      if (file.type.startsWith('image/')) {
+        const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        setAttachments((prev) => [
           ...prev,
-          { name: file.name, content: reader.result as string },
+          { type: 'image', id, name: file.name, url: '', contentType: file.type, uploading: true },
         ]);
-      };
-      reader.readAsText(file);
+        const form = new FormData();
+        form.append('file', file);
+        fetch('/api/upload', { method: 'POST', body: form })
+          .then((r) => r.json())
+          .then((data: { url: string; contentType: string }) => {
+            setAttachments((prev) =>
+              prev.map((a) =>
+                a.type === 'image' && a.id === id ? { ...a, url: data.url, uploading: false } : a
+              )
+            );
+          })
+          .catch(() => {
+            setAttachments((prev) => prev.filter((a) => !(a.type === 'image' && a.id === id)));
+          });
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setAttachments((prev) => [
+            ...prev,
+            { type: 'text', name: file.name, content: reader.result as string },
+          ]);
+        };
+        reader.readAsText(file);
+      }
     });
     e.target.value = '';
   };
 
   const handleSend = () => {
-    if (!inputValue.trim() && attachedFiles.length === 0) return;
+    const textAttachments = attachments.filter((a): a is TextAttachment => a.type === 'text');
+    const imageAttachments = attachments.filter((a): a is ImageAttachment => a.type === 'image');
+    if (!inputValue.trim() && attachments.length === 0) return;
     if (isStreaming) return;
-    const parts = [
+    // Block send while any image is still uploading to blob storage
+    if (imageAttachments.some((a) => a.uploading)) return;
+    const msgParts = [
       inputValue.trim(),
-      ...attachedFiles.map((f) => `---\n**${f.name}**\n\n${f.content}`),
+      ...textAttachments.map((f) => `---\n**${f.name}**\n\n${f.content}`),
     ].filter(Boolean);
-    const text = parts.join('\n\n');
+    const text = msgParts.join('\n\n');
+    // Provide image URLs to prepareSendMessagesRequest via ref — called synchronously by sendMessage
+    imageUrlsRef.current = imageAttachments.map((a) => ({ url: a.url, contentType: a.contentType }));
     setPendingTimestamp(formatTime(new Date()));
     sendMessage({ text });
+    imageUrlsRef.current = [];
     setInputValue('');
-    setAttachedFiles([]);
+    setAttachments([]);
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
     }
@@ -842,6 +902,11 @@ export function ChatView({
                   const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
 
                   if (message.role === 'user') {
+                    const msgImageParts = (
+                      message.parts as { type: string; url?: string; contentType?: string }[]
+                    )
+                      ?.filter((p) => p.type === 'image' && p.url)
+                      .map((p) => ({ url: p.url!, contentType: p.contentType ?? 'image/jpeg' }));
                     return (
                       <FounderMessage
                         key={message.id ?? idx}
@@ -850,6 +915,7 @@ export function ChatView({
                         founderName={profile.name}
                         founderInitials={profile.initials}
                         founderAvatarDataUrl={profile.avatarDataUrl}
+                        imageParts={msgImageParts?.length ? msgImageParts : undefined}
                         onConfirmEdit={
                           !isStreaming
                             ? (newText) => handleEdit(idx, message.id, newText)
@@ -1095,24 +1161,36 @@ export function ChatView({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".md,.txt"
+          accept=".md,.txt,image/jpeg,image/png,image/gif,image/webp"
           className="hidden"
           onChange={handleFileChange}
         />
         <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex flex-col rounded-sm border px-4 py-2.5 transition-colors focus-within:ring-4">
-          {attachedFiles.length > 0 && (
+          {attachments.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {attachedFiles.map((f, i) => (
+              {attachments.map((a, i) => (
                 <span
                   key={i}
-                  className="bg-panel border-panel-border text-panel-muted flex items-center gap-1 rounded-sm border px-2 py-0.5 font-mono text-[10px]"
+                  className="bg-panel border-panel-border text-panel-muted flex items-center gap-1 rounded-sm border font-mono text-[10px]"
                 >
-                  {f.name}
+                  {a.type === 'image' ? (
+                    a.uploading ? (
+                      <span className="flex items-center gap-1 px-2 py-0.5">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {a.name}
+                      </span>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.url} alt={a.name} className="h-8 w-8 rounded-sm object-cover" />
+                    )
+                  ) : (
+                    <span className="px-2 py-0.5">{a.name}</span>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-panel-faint hover:text-panel-muted ml-0.5 leading-none"
-                    aria-label={`Remove ${f.name}`}
+                    onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-panel-faint hover:text-panel-muted px-1 leading-none"
+                    aria-label={`Remove ${a.name}`}
                   >
                     ×
                   </button>
@@ -1162,9 +1240,10 @@ export function ChatView({
               <button
                 onClick={handleSend}
                 disabled={
-                  (!inputValue.trim() && attachedFiles.length === 0) ||
+                  (!inputValue.trim() && attachments.length === 0) ||
                   isStreaming ||
-                  !historyLoaded
+                  !historyLoaded ||
+                  attachments.some((a) => a.type === 'image' && a.uploading)
                 }
                 className="bg-panel-foreground hover:bg-panel-foreground-hover flex h-8 w-8 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
                 aria-label="Send message"

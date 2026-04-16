@@ -41,6 +41,9 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json();
     const { message, memberId, conversationId, isRetry, projectId } = body;
+    const typedImageUrls = ((body.imageUrls ?? []) as { url: string; contentType: string }[]).filter(
+      (u) => u.url && u.contentType
+    );
     const surface = surfaceSchema.parse(body.surface);
 
     if (!message || !memberId) {
@@ -196,13 +199,52 @@ export async function POST(req: Request): Promise<Response> {
     }
     const dbMessages = selectedRows
       .reverse() // back to chronological
-      .map((row) => ({
-        id: row.id,
-        role: row.role as 'user' | 'assistant',
-        parts: [{ type: 'text' as const, text: stripSources(row.content) }],
-        createdAt: new Date(row.created_at),
-      }));
-    const allMessages = [...dbMessages, message];
+      .map((row) => {
+        // User messages containing images are stored as a JSON parts array.
+        // Parse it; fall back to plain text for all other messages.
+        let parts: { type: string; text?: string; image?: URL; mediaType?: string }[] = [
+          { type: 'text' as const, text: stripSources(row.content) },
+        ];
+        if (row.role === 'user') {
+          try {
+            const parsed = JSON.parse(row.content);
+            if (Array.isArray(parsed)) {
+              parts = parsed.map(
+                (p: { type: string; text?: string; url?: string; contentType?: string }) =>
+                  p.type === 'image' && p.url
+                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
+                    : { type: 'text' as const, text: p.text ?? '' }
+              );
+            }
+          } catch {
+            /* plain text — keep default */
+          }
+        }
+        return {
+          id: row.id,
+          role: row.role as 'user' | 'assistant',
+          parts,
+          createdAt: new Date(row.created_at),
+        };
+      });
+
+    // Inject image parts into the incoming user message so Claude receives them.
+    // imageUrls contains { url, contentType } pairs uploaded to Vercel Blob.
+    const incomingMessage =
+      typedImageUrls.length > 0
+        ? {
+            ...message,
+            parts: [
+              ...typedImageUrls.map(({ url, contentType }) => ({
+                type: 'image' as const,
+                image: new URL(url),
+                mediaType: contentType,
+              })),
+              ...(message.parts ?? []),
+            ],
+          }
+        : message;
+    const allMessages = [...dbMessages, incomingMessage];
 
     log.info(ctx.reqId, 'Chat request', {
       memberId,
@@ -219,10 +261,18 @@ export async function POST(req: Request): Promise<Response> {
           .join('') ??
         message.content ??
         '';
-      if (text) {
+      // When images are attached, store as a JSON parts array for history reconstruction.
+      const contentToStore =
+        typedImageUrls.length > 0
+          ? JSON.stringify([
+              ...typedImageUrls.map(({ url, contentType }) => ({ type: 'image', url, contentType })),
+              ...(text ? [{ type: 'text', text }] : []),
+            ])
+          : text;
+      if (contentToStore) {
         await sql`
           INSERT INTO messages (conversation_id, sender_id, role, content)
-          VALUES (${conversationId}, 'founder', 'user', ${text})
+          VALUES (${conversationId}, 'founder', 'user', ${contentToStore})
         `;
       }
     }
