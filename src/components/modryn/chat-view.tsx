@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useDraft } from '@/hooks/use-draft';
 import { useLongPress } from '@/hooks/use-long-press';
 import { ActionSheet } from '@/components/ui/action-sheet';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Check,
   ChevronDown,
@@ -1120,7 +1121,7 @@ export function ChatView({
             </div>
           )}
           <div className="flex items-end gap-3">
-            <textarea
+            <Textarea
               id="chat-input"
               ref={inputRef}
               value={inputValue}
@@ -1130,15 +1131,7 @@ export function ChatView({
               placeholder={`Message ${memberName}...`}
               rows={1}
               disabled={isStreaming || !historyLoaded}
-              className="text-panel-foreground placeholder:text-panel-faint max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-relaxed outline-none disabled:opacity-50"
-              style={{
-                height: 'auto',
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-              }}
+              maxHeight={240}
             />
             <div className="flex shrink-0 items-center gap-2">
               <button

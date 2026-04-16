@@ -27,6 +27,7 @@ import { Markdown } from '@/components/prompt-kit/markdown';
 import { Sheet } from '@/components/ui/sheet';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { ModalShell, SHEET_FIELD_CLASS } from '@/components/ui/modal-shell';
+import { Textarea } from '@/components/ui/textarea';
 import { useMembers } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
@@ -1488,7 +1489,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
         {/* Reply input */}
         <div className="border-panel-border border-t px-5 py-4">
           <div className="border-panel-border bg-panel-input focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-3 transition-colors focus-within:ring-4">
-            <textarea
+            <Textarea
               ref={replyInputRef}
               value={replyValue}
               onChange={(e) => setReplyValue(e.target.value)}
@@ -1497,13 +1498,8 @@ export function ThreadsView({ projectId }: { projectId: string }) {
               disabled={inputDisabled}
               placeholder={isSequenceRunning ? 'Team is responding...' : 'Reply to thread...'}
               rows={1}
-              className="text-panel-foreground placeholder:text-panel-faint flex-1 resize-none bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ maxHeight: '120px', overflowY: 'auto' }}
-              onInput={(e) => {
-                const t = e.currentTarget;
-                t.style.height = 'auto';
-                t.style.height = `${Math.min(t.scrollHeight, 120)}px`;
-              }}
+              className="disabled:cursor-not-allowed"
+              maxHeight={240}
             />
             <button
               onClick={handleSendReply}
@@ -1569,12 +1565,13 @@ export function ThreadsView({ projectId }: { projectId: string }) {
               <label className="text-sidebar-muted mb-2 block text-[10px] font-semibold tracking-widest uppercase">
                 Brief
               </label>
-              <textarea
+              <Textarea
                 value={newBrief}
                 onChange={(e) => setNewBrief(e.target.value)}
                 placeholder="Context, question, or decision for the team."
                 rows={4}
-                className={cn(SHEET_FIELD_CLASS, 'resize-none')}
+                maxHeight={320}
+                className={cn(SHEET_FIELD_CLASS, 'leading-relaxed')}
               />
               <input
                 ref={fileInputRef}
