@@ -76,7 +76,7 @@ basePath:
 - /migrations — Neon SQL migration files (schema source of truth)
 - /docs — Human-readable docs including the founding document (modryn-studio-founding-document.md) used for company context injection
 - /src/lib/context.ts — `getCompanyContext()` reads the founding document from disk; `getProjectContext(projectId)` queries the projects table and returns project name + context wrapped in `<project-context>` tags for injection
-- /src/components/modryn/project-switcher.tsx — Inline project selector in the sidebar and mobile drawer; floating dropdown (never pushes layout), inline rename on hover (pencil icon → Enter saves, Escape cancels, blur saves), "New project" row at the bottom; optimistic name update with revert on failure
+- /src/components/modryn/project-switcher.tsx — Inline project selector in the sidebar and mobile drawer; floating dropdown (never pushes layout), inline rename on hover (pencil icon → Enter saves, Escape cancels, blur saves), typed-name confirmation delete flow (trash icon → inline panel requiring project name re-entry → hard delete via DELETE /api/projects/[id]), "New project" row at the bottom; optimistic name update with revert on failure
 - /src/components/modryn/project-setup-view.tsx — Full-panel creation form; shown when no projects exist, or when "New project" is triggered from the switcher
 
 ## Data Layer Notes

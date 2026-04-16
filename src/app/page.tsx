@@ -160,6 +160,29 @@ export default function ModrynStudio() {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
   };
 
+  const handleProjectDeleted = useCallback((id: string) => {
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      const fallback = next[0]?.id ?? null;
+
+      setActiveProjectId((current) => {
+        const currentStillExists = current ? next.some((p) => p.id === current) : false;
+        const resolved = current === id || !currentStillExists ? fallback : current;
+
+        if (resolved) {
+          localStorage.setItem('modryn_active_project', resolved);
+        } else {
+          localStorage.removeItem('modryn_active_project');
+        }
+
+        return resolved;
+      });
+
+      setShowNewProject(false);
+      return next;
+    });
+  }, []);
+
   // activeMember falls back to first member only when nothing is stored yet.
   // 'founder' is not in the members table — treat it the same as empty (no prior selection).
   const activeMember =
@@ -231,6 +254,7 @@ export default function ModrynStudio() {
           onProjectChange={handleProjectChange}
           onNewProject={() => setShowNewProject(true)}
           onProjectNameChanged={handleProjectNameChanged}
+          onProjectDeleted={handleProjectDeleted}
           onViewChange={handleViewChange}
           onChatSelect={handleChatSelect}
           onMemberAdded={refetch}
@@ -304,6 +328,7 @@ export default function ModrynStudio() {
           setMobileDrawerOpen(false);
         }}
         onProjectNameChanged={handleProjectNameChanged}
+        onProjectDeleted={handleProjectDeleted}
         onClose={() => setMobileDrawerOpen(false)}
         onChatSelect={(id) => {
           handleChatSelect(id);

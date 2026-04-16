@@ -34,22 +34,21 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     if (file.size > MAX_BYTES) {
-      return log.end(
-        ctx,
-        Response.json({ error: 'File exceeds 5 MB limit' }, { status: 400 })
-      );
+      return log.end(ctx, Response.json({ error: 'File exceeds 5 MB limit' }, { status: 400 }));
     }
 
     const blob = await put(file.name, file, {
       access: 'public',
       contentType: file.type,
+      // Same local filenames are common (e.g. image.png). Avoid 500s on collisions.
+      addRandomSuffix: true,
     });
 
     log.info(ctx.reqId, 'Image uploaded', { url: blob.url, size: file.size, type: file.type });
 
     return log.end(ctx, Response.json({ url: blob.url, contentType: file.type }));
   } catch (err) {
-    log.err(ctx.reqId, 'Upload failed', err);
+    log.err(ctx, err);
     return log.end(ctx, Response.json({ error: 'Upload failed' }, { status: 500 }));
   }
 }

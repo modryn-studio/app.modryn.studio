@@ -44,6 +44,16 @@ On mobile, open the team drawer (top-left menu icon) to find the project switche
 
 Renames are saved immediately to the database. The sidebar updates optimistically and reverts silently if the save fails.
 
+### Deleting a project
+
+1. Open the project dropdown
+2. Hover a project row — a trash icon appears to the right of the pencil (always visible on mobile)
+3. Click the trash icon — the dropdown replaces the project list with a confirmation panel
+4. Type the project name exactly in the input field
+5. Click **Delete** (or press Enter) to confirm — or click **Cancel** (or press Escape) to go back
+
+Deleting a project permanently removes all conversations, messages, tasks, decisions, and memory scoped to that project. Uploaded images that are not referenced by any other project are also deleted from storage. The workspace switches to the next available project automatically. If no projects remain, the New Project screen appears.
+
 ---
 
 ## Authentication
@@ -225,35 +235,36 @@ Click the **`UserPlus` icon** at the bottom of the sidebar. A sheet opens:
 
 ## Status
 
-| Feature                                           | Status                         |
-| ------------------------------------------------- | ------------------------------ |
-| Sign in / sign out (Neon Auth)                    | ✅ Works                       |
-| Invite-gated sign up                              | ✅ Works                       |
-| Admin role gate (add member, invite)              | ✅ Works                       |
-| Setup screen (first launch)                       | ✅ Works                       |
-| Multi-project architecture (create, switch)       | ✅ Works                       |
-| Rename project (inline in dropdown)               | ✅ Works                       |
-| Project context injection into AI prompts         | ✅ Works                       |
-| DM chat with AI members (streaming)               | ✅ Works                       |
-| Conversation persistence (DB)                     | ✅ Works                       |
-| Member system prompt + memory injection           | ✅ Works                       |
-| Company context injection (founding doc)          | ✅ Works                       |
-| Episodic memory summarization (post-session)      | ✅ Works                       |
-| Semantic memory (behavioural patterns)            | ✅ Works                       |
-| Org memory extraction (DMs + threads)             | ✅ Works                       |
-| Token budget context assembly                     | ✅ Works                       |
-| Group threads (multi-member, sequential)          | ✅ Works                       |
-| Michelle web search (DMs + threads + tasks)       | ✅ Works                       |
-| Add AI member sheet                               | ✅ Works                       |
-| Edit AI member sheet (hover row → pencil icon)    | ✅ Works                       |
-| Drag-to-reorder members                           | ✅ Works                       |
-| Invite person sheet                               | ✅ Works                       |
-| Founder profile editor (name, description, photo) | ✅ Works                       |
-| Sidebar navigation                                | ✅ Works                       |
-| Context panel (decisions, tasks)                  | ✅ Works                       |
-| Thread decision/task synthesis                    | ✅ Works                       |
-| Inbox                                             | ⏳ UI only — no messages yet   |
-| Member-initiated async messages                   | ❌ Not built                   |
-| Task board                                        | ✅ Works                       |
-| Calendar                                          | ❌ Not built                   |
-| Reddit thread fetcher + saved threads             | ✅ Works                       |
+| Feature                                            | Status                       |
+| -------------------------------------------------- | ---------------------------- |
+| Sign in / sign out (Neon Auth)                     | ✅ Works                     |
+| Invite-gated sign up                               | ✅ Works                     |
+| Admin role gate (add member, invite)               | ✅ Works                     |
+| Setup screen (first launch)                        | ✅ Works                     |
+| Multi-project architecture (create, switch)        | ✅ Works                     |
+| Rename project (inline in dropdown)                | ✅ Works                     |
+| Delete project (typed-name confirm + blob cleanup) | ✅ Works                     |
+| Project context injection into AI prompts          | ✅ Works                     |
+| DM chat with AI members (streaming)                | ✅ Works                     |
+| Conversation persistence (DB)                      | ✅ Works                     |
+| Member system prompt + memory injection            | ✅ Works                     |
+| Company context injection (founding doc)           | ✅ Works                     |
+| Episodic memory summarization (post-session)       | ✅ Works                     |
+| Semantic memory (behavioural patterns)             | ✅ Works                     |
+| Org memory extraction (DMs + threads)              | ✅ Works                     |
+| Token budget context assembly                      | ✅ Works                     |
+| Group threads (multi-member, sequential)           | ✅ Works                     |
+| Michelle web search (DMs + threads + tasks)        | ✅ Works                     |
+| Add AI member sheet                                | ✅ Works                     |
+| Edit AI member sheet (hover row → pencil icon)     | ✅ Works                     |
+| Drag-to-reorder members                            | ✅ Works                     |
+| Invite person sheet                                | ✅ Works                     |
+| Founder profile editor (name, description, photo)  | ✅ Works                     |
+| Sidebar navigation                                 | ✅ Works                     |
+| Context panel (decisions, tasks)                   | ✅ Works                     |
+| Thread decision/task synthesis                     | ✅ Works                     |
+| Inbox                                              | ⏳ UI only — no messages yet |
+| Member-initiated async messages                    | ❌ Not built                 |
+| Task board                                         | ✅ Works                     |
+| Calendar                                           | ❌ Not built                 |
+| Reddit thread fetcher + saved threads              | ✅ Works                     |

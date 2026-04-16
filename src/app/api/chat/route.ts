@@ -1,4 +1,4 @@
-import { streamText, generateText, convertToModelMessages } from 'ai';
+import { streamText, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { createRouteLogger } from '@/lib/route-logger';
@@ -41,9 +41,9 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json();
     const { message, memberId, conversationId, isRetry, projectId } = body;
-    const typedImageUrls = ((body.imageUrls ?? []) as { url: string; contentType: string }[]).filter(
-      (u) => u.url && u.contentType
-    );
+    const typedImageUrls = (
+      (body.imageUrls ?? []) as { url: string; contentType: string }[]
+    ).filter((u) => u.url && u.contentType);
     const surface = surfaceSchema.parse(body.surface);
 
     if (!message || !memberId) {
@@ -183,7 +183,12 @@ export async function POST(req: Request): Promise<Response> {
     // exhausted, then reverse to chronological. Prevents a single long message (e.g. pasted docs)
     // from silently consuming the entire conversation context budget.
     const HISTORY_TOKEN_BUDGET = 8000;
-    const rawRows = historyRows as { id: string; role: string; content: string; created_at: string }[];
+    const rawRows = historyRows as {
+      id: string;
+      role: string;
+      content: string;
+      created_at: string;
+    }[];
     const selectedRows: typeof rawRows = [];
     let historyTokensUsed = 0;
     for (let i = 0; i < rawRows.length; i++) {
@@ -209,12 +214,16 @@ export async function POST(req: Request): Promise<Response> {
           try {
             const parsed = JSON.parse(row.content);
             if (Array.isArray(parsed)) {
-              parts = parsed.map(
-                (p: { type: string; text?: string; url?: string; contentType?: string }) =>
+              parts = parsed
+                .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
                   p.type === 'image' && p.url
                     ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
                     : { type: 'text' as const, text: p.text ?? '' }
-              );
+                )
+                // Filter empty text parts so Anthropic never receives blank text blocks in history.
+                .filter(
+                  (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
+                );
             }
           } catch {
             /* plain text — keep default */
@@ -228,8 +237,23 @@ export async function POST(req: Request): Promise<Response> {
         };
       });
 
+    const textFromIncoming =
+      (message.parts ?? [])
+        .filter((p: { type: string; text?: string }) => p.type === 'text' && p.text?.trim())
+        .map((p: { text?: string }) => p.text ?? '')
+        .join('') || (typeof message.content === 'string' ? message.content.trim() : '');
+
+    // Guard against accidental empty sends (e.g. upload failed and no text entered).
+    if (message?.role === 'user' && typedImageUrls.length === 0 && !textFromIncoming) {
+      return log.end(
+        ctx,
+        Response.json({ error: 'Message must include text or an uploaded image' }, { status: 400 })
+      );
+    }
+
     // Inject image parts into the incoming user message so Claude receives them.
     // imageUrls contains { url, contentType } pairs uploaded to Vercel Blob.
+    // Filter out empty text parts — Anthropic rejects content arrays that contain blank text blocks.
     const incomingMessage =
       typedImageUrls.length > 0
         ? {
@@ -240,7 +264,9 @@ export async function POST(req: Request): Promise<Response> {
                 image: new URL(url),
                 mediaType: contentType,
               })),
-              ...(message.parts ?? []),
+              ...(message.parts ?? []).filter(
+                (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
+              ),
             ],
           }
         : message;
@@ -253,19 +279,19 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     // Save the incoming user message to DB. Skip on retry — it already exists.
+
+    // Save the incoming user message to DB. Skip on retry — it already exists.
     if (conversationId && message?.role === 'user' && !isRetry) {
-      const text =
-        message.parts
-          ?.filter((p: { type: string }) => p.type === 'text')
-          .map((p: { text: string }) => p.text)
-          .join('') ??
-        message.content ??
-        '';
+      const text = textFromIncoming;
       // When images are attached, store as a JSON parts array for history reconstruction.
       const contentToStore =
         typedImageUrls.length > 0
           ? JSON.stringify([
-              ...typedImageUrls.map(({ url, contentType }) => ({ type: 'image', url, contentType })),
+              ...typedImageUrls.map(({ url, contentType }) => ({
+                type: 'image',
+                url,
+                contentType,
+              })),
               ...(text ? [{ type: 'text', text }] : []),
             ])
           : text;
@@ -277,9 +303,62 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // allMessages is already token-budget-limited via HISTORY_TOKEN_BUDGET above.
-    // Full allMessages is retained in scope for the episodic memory transcript below.
-    const windowedMessages = allMessages;
+    // Build CoreMessages directly for the Anthropic API call.
+    // We cannot pass allMessages through convertToModelMessages because that function
+    // expects UIMessage UI-layer parts (type 'file', 'text', etc.), but our dbMessages and
+    // incomingMessage contain model-layer image parts (type 'image'). The SDK drops unknown
+    // UI part types silently, producing empty content and a 400 from Anthropic.
+    // Building CoreMessages directly gives us full control over what the model receives.
+    const incomingImageParts = typedImageUrls.map(({ url, contentType }) => ({
+      type: 'image' as const,
+      image: new URL(url),
+      mediaType: contentType,
+    }));
+    const incomingTextParts = textFromIncoming
+      ? [{ type: 'text' as const, text: textFromIncoming }]
+      : [];
+    const incomingContent = [...incomingImageParts, ...incomingTextParts];
+
+    const coreMessages = [
+      // History — selectedRows is in chronological order after the .reverse() above
+      ...selectedRows
+        .map((row) => {
+          if (row.role === 'assistant') {
+            return { role: 'assistant' as const, content: stripSources(row.content) };
+          }
+          // User — may contain images stored as JSON parts array
+          try {
+            const parsed = JSON.parse(row.content);
+            if (Array.isArray(parsed)) {
+              const parts = parsed
+                .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
+                  p.type === 'image' && p.url
+                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
+                    : { type: 'text' as const, text: p.text ?? '' }
+                )
+                .filter(
+                  (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
+                );
+              if (parts.length > 0) return { role: 'user' as const, content: parts };
+            }
+          } catch {
+            /* plain text — fall through */
+          }
+          const t = stripSources(row.content);
+          return t ? { role: 'user' as const, content: t } : null;
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null),
+      // Incoming user message
+      {
+        role: 'user' as const,
+        // When content is an array it must be non-empty — Anthropic rejects empty arrays.
+        // Fall back to plain string if we somehow end up with no parts (safety net).
+        content:
+          incomingContent.length > 0
+            ? incomingContent
+            : textFromIncoming || 'Continue the conversation.',
+      },
+    ];
 
     // Server-side web search for Michelle only. maxUses: 2 lets her do a follow-up search
     // when the first result is insufficient (e.g. multi-step research), without tripling cost.
@@ -291,7 +370,7 @@ export async function POST(req: Request): Promise<Response> {
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
       system: systemPrompt,
-      messages: await convertToModelMessages(windowedMessages),
+      messages: coreMessages,
       maxOutputTokens: 800,
       temperature: 0.7,
       ...(tools && { tools }),

@@ -289,7 +289,9 @@ function FounderMessage({
                     key={i}
                     src={img.url}
                     alt=""
-                    className="max-h-48 max-w-xs rounded-sm object-contain"
+                    className="border-panel-border max-h-64 max-w-sm cursor-pointer rounded-sm border object-contain shadow-sm transition-opacity hover:opacity-90"
+                    title="View full image"
+                    onClick={() => window.open(img.url, '_blank')}
                   />
                 ))}
               </div>
@@ -537,11 +539,23 @@ export function ChatView({
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   type TextAttachment = { type: 'text'; name: string; content: string };
-  type ImageAttachment = { type: 'image'; id: string; name: string; url: string; contentType: string; uploading: boolean };
+  type ImageAttachment = {
+    type: 'image';
+    id: string;
+    name: string;
+    url: string;
+    localPreviewUrl?: string; // object URL for immediate preview before blob upload resolves
+    contentType: string;
+    uploading: boolean;
+  };
   type Attachment = TextAttachment | ImageAttachment;
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   // Carries image URLs into prepareSendMessagesRequest — set immediately before sendMessage, cleared after
   const imageUrlsRef = useRef<{ url: string; contentType: string }[]>([]);
+  // Tracks images just sent so they appear in the founder message before DB round-trip
+  const [pendingImageUrls, setPendingImageUrls] = useState<{ url: string; contentType: string }[]>(
+    []
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Signals to the chat route that this is a retry — skip re-inserting the user message
   const isRetryRef = useRef(false);
@@ -561,6 +575,9 @@ export function ChatView({
       prepareSendMessagesRequest: ({ id, messages }) => {
         const isRetry = isRetryRef.current;
         isRetryRef.current = false; // consume
+        const imageUrls = imageUrlsRef.current;
+        // Consume here (same tick as request body creation) to avoid races.
+        imageUrlsRef.current = [];
         return {
           body: {
             id,
@@ -570,7 +587,7 @@ export function ChatView({
             conversationId: conversationIdRef.current,
             surface,
             isRetry,
-            imageUrls: imageUrlsRef.current,
+            imageUrls,
           },
         };
       },
@@ -717,14 +734,26 @@ export function ChatView({
     files.forEach((file) => {
       if (file.type.startsWith('image/')) {
         const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const localPreviewUrl = URL.createObjectURL(file);
         setAttachments((prev) => [
           ...prev,
-          { type: 'image', id, name: file.name, url: '', contentType: file.type, uploading: true },
+          {
+            type: 'image',
+            id,
+            name: file.name,
+            url: '',
+            localPreviewUrl,
+            contentType: file.type,
+            uploading: true,
+          },
         ]);
         const form = new FormData();
         form.append('file', file);
         fetch('/api/upload', { method: 'POST', body: form })
-          .then((r) => r.json())
+          .then((r) => {
+            if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
+            return r.json();
+          })
           .then((data: { url: string; contentType: string }) => {
             setAttachments((prev) =>
               prev.map((a) =>
@@ -733,6 +762,8 @@ export function ChatView({
             );
           })
           .catch(() => {
+            // Revoke the local preview URL on upload failure to free memory
+            URL.revokeObjectURL(localPreviewUrl);
             setAttachments((prev) => prev.filter((a) => !(a.type === 'image' && a.id === id)));
           });
       } else {
@@ -762,10 +793,18 @@ export function ChatView({
     ].filter(Boolean);
     const text = msgParts.join('\n\n');
     // Provide image URLs to prepareSendMessagesRequest via ref — called synchronously by sendMessage
-    imageUrlsRef.current = imageAttachments.map((a) => ({ url: a.url, contentType: a.contentType }));
+    imageUrlsRef.current = imageAttachments.map((a) => ({
+      url: a.url,
+      contentType: a.contentType,
+    }));
     setPendingTimestamp(formatTime(new Date()));
+    // Capture images now — useChat doesn't include them in message.parts, so we surface them separately
+    setPendingImageUrls(imageAttachments.map((a) => ({ url: a.url, contentType: a.contentType })));
     sendMessage({ text });
-    imageUrlsRef.current = [];
+    // Revoke local preview object URLs to free memory before clearing state
+    imageAttachments.forEach((a) => {
+      if (a.localPreviewUrl) URL.revokeObjectURL(a.localPreviewUrl);
+    });
     setInputValue('');
     setAttachments([]);
     if (inputRef.current) {
@@ -892,60 +931,73 @@ export function ChatView({
           ) : (
             <div className="flex min-h-full flex-col justify-end">
               <div>
-                {messages.map((message, idx) => {
-                  const text = getMessageText(message);
-                  const key = message.id ?? `idx-${idx}`;
-                  const createdAt = (message as { createdAt?: Date | string }).createdAt;
-                  const timestamp =
-                    messageTimestamps[key] ??
-                    formatTime(createdAt ? new Date(createdAt) : new Date());
-                  const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
+                {(() => {
+                  const lastUserIdx = messages.reduce(
+                    (acc, m, i) => (m.role === 'user' ? i : acc),
+                    -1
+                  );
+                  return messages.map((message, idx) => {
+                    const text = getMessageText(message);
+                    const key = message.id ?? `idx-${idx}`;
+                    const createdAt = (message as { createdAt?: Date | string }).createdAt;
+                    const timestamp =
+                      messageTimestamps[key] ??
+                      formatTime(createdAt ? new Date(createdAt) : new Date());
+                    const isLastAI = message.role === 'assistant' && idx === messages.length - 1;
 
-                  if (message.role === 'user') {
-                    const msgImageParts = (
-                      message.parts as { type: string; url?: string; contentType?: string }[]
-                    )
-                      ?.filter((p) => p.type === 'image' && p.url)
-                      .map((p) => ({ url: p.url!, contentType: p.contentType ?? 'image/jpeg' }));
+                    if (message.role === 'user') {
+                      const dbImageParts = (
+                        message.parts as { type: string; url?: string; contentType?: string }[]
+                      )
+                        ?.filter((p) => p.type === 'image' && p.url)
+                        .map((p) => ({ url: p.url!, contentType: p.contentType ?? 'image/jpeg' }));
+                      const msgImageParts = dbImageParts?.length
+                        ? dbImageParts
+                        : idx === lastUserIdx
+                          ? pendingImageUrls
+                          : [];
+                      return (
+                        <FounderMessage
+                          key={message.id ?? idx}
+                          text={text}
+                          timestamp={timestamp}
+                          founderName={profile.name}
+                          founderInitials={profile.initials}
+                          founderAvatarDataUrl={profile.avatarDataUrl}
+                          imageParts={msgImageParts?.length ? msgImageParts : undefined}
+                          onConfirmEdit={
+                            !isStreaming
+                              ? (newText) => handleEdit(idx, message.id, newText)
+                              : undefined
+                          }
+                        />
+                      );
+                    }
+
                     return (
-                      <FounderMessage
+                      <AIMessage
                         key={message.id ?? idx}
                         text={text}
+                        memberName={memberName}
+                        memberInitials={memberInitials}
+                        memberAvatarUrl={memberAvatarUrl}
                         timestamp={timestamp}
-                        founderName={profile.name}
-                        founderInitials={profile.initials}
-                        founderAvatarDataUrl={profile.avatarDataUrl}
-                        imageParts={msgImageParts?.length ? msgImageParts : undefined}
-                        onConfirmEdit={
-                          !isStreaming
-                            ? (newText) => handleEdit(idx, message.id, newText)
-                            : undefined
+                        isStreaming={isLastAI && isStreaming}
+                        isSearching={
+                          isLastAI && isStreaming && memberId === 'michelle-lim' && !text
                         }
+                        onRetry={!isStreaming ? () => handleRetry(message.id) : undefined}
+                        messageId={message.id ?? `idx-${idx}`}
+                        memberId={memberId}
+                        conversationId={conversationIdRef.current}
+                        projectId={projectId}
+                        sources={message.parts
+                          ?.filter((p): p is SourceUrlUIPart => p.type === 'source-url')
+                          .map((p) => ({ url: p.url, title: p.title }))}
                       />
                     );
-                  }
-
-                  return (
-                    <AIMessage
-                      key={message.id ?? idx}
-                      text={text}
-                      memberName={memberName}
-                      memberInitials={memberInitials}
-                      memberAvatarUrl={memberAvatarUrl}
-                      timestamp={timestamp}
-                      isStreaming={isLastAI && isStreaming}
-                      isSearching={isLastAI && isStreaming && memberId === 'michelle-lim' && !text}
-                      onRetry={!isStreaming ? () => handleRetry(message.id) : undefined}
-                      messageId={message.id ?? `idx-${idx}`}
-                      memberId={memberId}
-                      conversationId={conversationIdRef.current}
-                      projectId={projectId}
-                      sources={message.parts
-                        ?.filter((p): p is SourceUrlUIPart => p.type === 'source-url')
-                        .map((p) => ({ url: p.url, title: p.title }))}
-                    />
-                  );
-                })}
+                  });
+                })()}
 
                 {/* Streaming placeholder when submitted but no AI message yet */}
                 {status === 'submitted' && (
@@ -1167,35 +1219,52 @@ export function ChatView({
         />
         <div className="group bg-panel-input border-panel-border focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex flex-col rounded-sm border px-4 py-2.5 transition-colors focus-within:ring-4">
           {attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {attachments.map((a, i) => (
-                <span
-                  key={i}
-                  className="bg-panel border-panel-border text-panel-muted flex items-center gap-1 rounded-sm border font-mono text-[10px]"
-                >
-                  {a.type === 'image' ? (
-                    a.uploading ? (
-                      <span className="flex items-center gap-1 px-2 py-0.5">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        {a.name}
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((a, i) =>
+                a.type === 'image' ? (
+                  // Image chip: standalone thumbnail with overlay X — no text-chip chrome
+                  // Raw <button> intentional: non-standard shape (absolute positioned corner icon)
+                  <span key={i} className="relative inline-block shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={a.localPreviewUrl ?? a.url}
+                      alt={a.name}
+                      className="h-16 w-auto max-w-30 rounded-sm object-cover"
+                    />
+                    {a.uploading && (
+                      <span className="absolute inset-0 flex items-center justify-center rounded-sm bg-black/40">
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
                       </span>
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={a.url} alt={a.name} className="h-8 w-8 rounded-sm object-cover" />
-                    )
-                  ) : (
-                    <span className="px-2 py-0.5">{a.name}</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-panel-faint hover:text-panel-muted px-1 leading-none"
-                    aria-label={`Remove ${a.name}`}
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (a.localPreviewUrl) URL.revokeObjectURL(a.localPreviewUrl);
+                        setAttachments((prev) => prev.filter((_, j) => j !== i));
+                      }}
+                      className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-sm bg-black/70 text-white hover:bg-black/90"
+                      aria-label={`Remove ${a.name}`}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <span
+                    key={i}
+                    className="bg-panel border-panel-border text-panel-muted flex items-center gap-1 rounded-sm border font-mono text-[10px]"
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
+                    <span className="px-2 py-0.5">{a.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-panel-faint hover:text-panel-muted px-1 leading-none"
+                      aria-label={`Remove ${a.name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )
+              )}
             </div>
           )}
           <div className="flex items-end gap-3">

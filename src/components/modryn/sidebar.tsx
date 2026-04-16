@@ -49,6 +49,7 @@ interface SidebarProps {
   onProjectChange: (projectId: string) => void;
   onNewProject?: () => void;
   onProjectNameChanged?: (id: string, name: string) => void;
+  onProjectDeleted?: (id: string) => void;
   onViewChange: (view: View) => void;
   onChatSelect: (memberId: string) => void;
   onMemberAdded: () => void;
@@ -211,6 +212,7 @@ export function Sidebar({
   onProjectChange,
   onNewProject,
   onProjectNameChanged,
+  onProjectDeleted,
   onViewChange,
   onChatSelect,
   onMemberAdded,
@@ -379,6 +381,7 @@ export function Sidebar({
               onProjectChange={onProjectChange}
               onNewProject={onNewProject}
               onNameChanged={onProjectNameChanged}
+              onProjectDeleted={onProjectDeleted}
             />
           </div>
 

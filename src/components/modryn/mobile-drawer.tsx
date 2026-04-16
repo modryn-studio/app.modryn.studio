@@ -35,6 +35,7 @@ interface MobileDrawerProps {
   onProjectChange: (projectId: string) => void;
   onNewProject?: () => void;
   onProjectNameChanged?: (id: string, name: string) => void;
+  onProjectDeleted?: (id: string) => void;
   onClose: () => void;
   onChatSelect: (id: string) => void;
 }
@@ -107,6 +108,7 @@ export function MobileDrawer({
   onProjectChange,
   onNewProject,
   onProjectNameChanged,
+  onProjectDeleted,
   onClose,
   onChatSelect,
 }: MobileDrawerProps) {
@@ -177,6 +179,10 @@ export function MobileDrawer({
                 onClose();
               }}
               onNameChanged={onProjectNameChanged}
+              onProjectDeleted={(id) => {
+                onProjectDeleted?.(id);
+                onClose();
+              }}
             />
           </div>
         )}
