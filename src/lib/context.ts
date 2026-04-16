@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText, Output, NoObjectGeneratedError, NoOutputGeneratedError } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import sql from '@/lib/db';
@@ -167,8 +167,10 @@ export async function extractAndStoreOrgFacts(
     }
     return facts.length;
   } catch (err) {
-    if (err instanceof NoObjectGeneratedError) {
-      // Extraction failed to produce a valid object — degrade gracefully, don't surface to user
+    // Both error types mean Haiku produced no usable structured output — degrade gracefully.
+    // NoOutputGeneratedError: model returned no content at all (e.g. large web-search transcripts).
+    // NoObjectGeneratedError: model returned content but no valid JSON object.
+    if (err instanceof NoObjectGeneratedError || err instanceof NoOutputGeneratedError) {
       return 0;
     }
     throw err;

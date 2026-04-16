@@ -32,7 +32,7 @@ Built from 5 priority-ordered layers with an 8k token budget. No episodic or sem
 4. Project context — project name + context field, not prunable
 5. Org memory — decisions + org facts (newest 20, prunable)
 
-Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web search + `stopWhen: stepCountIs(3)`.
+Uses `generateText` rather than `streamText`. Michelle does not have web search in tasks — web search is DM + thread only.
 
 ---
 
@@ -48,9 +48,9 @@ Uses `generateText` rather than `streamText`. Michelle gets `maxUses: 1` web sea
 
 Only Michelle (`michelle-lim`) has web search access via `anthropic.tools.webSearch_20260209`. The model decides when to use it — it is not forced.
 
-- DMs: `maxUses: 1`
-- Threads: `maxUses: 1`
-- Tasks: `maxUses: 1`
+- DMs: `maxUses: 2`
+- Threads: `maxUses: 2`
+- Tasks: no web search
 - All other members: no tools
 
 When Michelle searches, citations are saved as a `<sources>` JSON block appended to her DB message and rendered as links in the UI.

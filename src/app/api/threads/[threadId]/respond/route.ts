@@ -235,10 +235,10 @@ export async function POST(
         : []),
     ]);
 
-    // Michelle gets web search in threads — same gate as DMs.
+    // Michelle gets web search in threads — same gate as DMs. maxUses: 2 for consistency.
     const tools =
       memberId === 'michelle-lim'
-        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 1 }) }
+        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 2 }) }
         : undefined;
 
     const result = streamText({

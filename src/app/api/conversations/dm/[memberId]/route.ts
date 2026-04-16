@@ -99,6 +99,13 @@ export async function DELETE(
       return log.end(ctx, Response.json({ error: 'messageId required' }, { status: 400 }));
     }
 
+    // Client-generated message IDs (AI SDK nanoids) are not UUIDs and will never be in the DB.
+    // Return a no-op 200 instead of letting Postgres throw a uuid parse error.
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(messageId)) {
+      return log.end(ctx, Response.json({ deleted: 0 }));
+    }
+
     // Find the message and its conversation (scoped to this member's DM)
     const found = await sql`
       SELECT m.id, m.created_at, m.conversation_id

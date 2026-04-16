@@ -231,12 +231,11 @@ export async function POST(req: Request): Promise<Response> {
     // Full allMessages is retained in scope for the episodic memory transcript below.
     const windowedMessages = allMessages;
 
-    // Server-side web search for Michelle only — one targeted search per DM turn.
-    // 3 uses could compound to ~$0.66/message; one search at $0.22 is the right cost
-    // for a technical validation question where accuracy matters.
+    // Server-side web search for Michelle only. maxUses: 2 lets her do a follow-up search
+    // when the first result is insufficient (e.g. multi-step research), without tripling cost.
     const tools =
       memberId === 'michelle-lim'
-        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 1 }) }
+        ? { web_search: anthropic.tools.webSearch_20260209({ maxUses: 2 }) }
         : undefined;
 
     const result = streamText({

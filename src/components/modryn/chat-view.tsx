@@ -623,9 +623,28 @@ export function ChatView({
   }
 
   async function handleEdit(idx: number, messageId: string | undefined, newText: string) {
+    // Messages sent in the current session have client-generated nanoid IDs, not DB UUIDs.
+    // Re-fetch history to resolve the real UUID at this index before attempting the DELETE —
+    // otherwise Postgres throws a uuid parse error and the old rows are never cleaned up.
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let idToDelete = messageId;
+    if (messageId && !UUID_REGEX.test(messageId)) {
+      try {
+        const res = await fetch(
+          `/api/conversations/dm/${encodeURIComponent(memberId)}?projectId=${encodeURIComponent(projectId)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          idToDelete = (data.messages as { id: string }[])[idx]?.id;
+        }
+      } catch {
+        idToDelete = undefined;
+      }
+    }
+
     setMessages((prev) => prev.slice(0, idx));
     // Await DELETE so history is clean before the chat route re-loads it
-    if (messageId) await deleteFromMessage(messageId);
+    if (idToDelete) await deleteFromMessage(idToDelete);
     sendMessage({ text: newText });
   }
 
