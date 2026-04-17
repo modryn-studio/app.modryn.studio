@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 export interface ActionSheetItem {
   label: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   onClick: () => void;
   destructive?: boolean;
 }

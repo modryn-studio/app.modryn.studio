@@ -43,7 +43,9 @@ Click a team member in the sidebar to start a conversation.
 4. Optionally exclude members (eye icon) or drag to reorder.
 5. Send — members respond one at a time in sequence.
 
-After all members respond, use **Synthesize** (top-right) to extract decisions and tasks.
+Before sending a **reply**, you can also reorder or exclude members for that round only using the avatar chips in the respond-order strip — drag on desktop, long-press on mobile. The order resets after the sequence completes.
+
+After all members respond, use **Synthesize** (top-right) to extract decisions and tasks. The proposals panel can be collapsed and re-expanded using the chevron toggle.
 
 ---
 
@@ -51,7 +53,8 @@ After all members respond, use **Synthesize** (top-right) to extract decisions a
 
 1. Click **New Task**, enter a title, optional description, and pick a member.
 2. Click **Play** on a task card to run it — the member produces a structured deliverable.
-3. Click the chevron on any card to read the output.
+3. Click **Check** on a task card to mark it complete manually — use this when the work happened outside the app.
+4. Click the chevron on any card to read the output.
 
 ---
 
@@ -65,18 +68,18 @@ After all members respond, use **Synthesize** (top-right) to extract decisions a
 
 ## Status
 
-| Feature | Status |
-| --- | --- |
-| Sign in / sign up (invite-gated) | ✅ Works |
-| Profile + first-launch setup | ✅ Works |
-| Projects (create, switch, rename, delete) | ✅ Works |
-| DM chat with AI members | ✅ Works |
-| Memory (episodic, semantic, org) | ✅ Works |
-| Decision/task synthesis (DM + threads) | ✅ Works |
-| Group threads (multi-member, sequential) | ✅ Works |
-| Michelle web search (DMs + threads + tasks) | ✅ Works |
-| Task board (assign, execute, review output) | ✅ Works |
-| Inbox | ⏳ UI only — no messages yet |
-| Member-initiated async messages | ❌ Not built |
-| Calendar | ❌ Not built |
-| Reddit thread fetcher | ✅ Works |
+| Feature                                     | Status                       |
+| ------------------------------------------- | ---------------------------- |
+| Sign in / sign up (invite-gated)            | ✅ Works                     |
+| Profile + first-launch setup                | ✅ Works                     |
+| Projects (create, switch, rename, delete)   | ✅ Works                     |
+| DM chat with AI members                     | ✅ Works                     |
+| Memory (episodic, semantic, org)            | ✅ Works                     |
+| Decision/task synthesis (DM + threads)      | ✅ Works                     |
+| Group threads (multi-member, sequential)    | ✅ Works                     |
+| Michelle web search (DMs + threads + tasks) | ✅ Works                     |
+| Task board (assign, execute, review output) | ✅ Works                     |
+| Inbox                                       | ⏳ UI only — no messages yet |
+| Member-initiated async messages             | ❌ Not built                 |
+| Calendar                                    | ❌ Not built                 |
+| Reddit thread fetcher                       | ✅ Works                     |

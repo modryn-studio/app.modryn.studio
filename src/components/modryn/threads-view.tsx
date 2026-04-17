@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  ChevronRight,
   Copy,
   Eye,
   EyeOff,
@@ -226,6 +227,17 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Per-round member reorder — null = use thread's persisted memberOrder (no customization)
+  const [replyOrder, setReplyOrder] = useState<string[] | null>(null);
+  // Desktop drag state for reply order strip
+  const replyDragSource = useRef<number | null>(null);
+  const [replyDropIndex, setReplyDropIndex] = useState<number | null>(null);
+  // Mobile long-press on a respond-order chip
+  const [replyChipLongPressId, setReplyChipLongPressId] = useState<string | null>(null);
+  const replyChipLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True when a long-press fired this touch — suppresses the synthetic click that follows touchEnd
+  const replyChipLongPressFiredRef = useRef(false);
+
   // Proposal/approval state — proposed decisions and tasks after each respond sequence
   const [pendingProposals, setPendingProposals] = useState<{
     decisions: { title: string; description: string }[];
@@ -239,11 +251,15 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   const [synthesizing, setSynthesizing] = useState(false);
   // Dot indicator — true after a respond sequence completes, cleared when Synthesize runs or thread changes
   const [hasNewRoundResponses, setHasNewRoundResponses] = useState(false);
+  // Whether the proposals panel is minimized — auto-expands when new proposals arrive
+  const [proposalsPanelCollapsed, setProposalsPanelCollapsed] = useState(false);
 
-  // Clear any pending long-press timer on unmount to prevent state updates after unmount.
+  // Clear any pending long-press timers on unmount to prevent state updates after unmount.
   useEffect(() => {
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      if (replyChipLongPressTimerRef.current) clearTimeout(replyChipLongPressTimerRef.current);
+      replyChipLongPressFiredRef.current = false;
     };
   }, []);
 
@@ -557,6 +573,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
         };
         if (draft.decisions.length > 0 || draft.tasks.length > 0) {
           setPendingProposals(draft);
+          setProposalsPanelCollapsed(false);
         }
       }
     } catch {
@@ -572,7 +589,9 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     setLoading(true);
     setSelected(null);
     setReplyExcluded(new Set()); // Clear per-reply exclusions from previous thread
+    setReplyOrder(null); // Clear per-reply order customization from previous thread
     setPendingProposals(null); // Clear proposals from previous thread
+    setProposalsPanelCollapsed(false);
     setTaskAssignOverrides({});
 
     const data = await fetchThreadDetail(threadId);
@@ -603,8 +622,9 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     setSendingReply(true);
     setPendingProposals(null); // Clear previous round's proposals before starting a new round
     setTaskAssignOverrides({});
-    // Capture excluded set at send-time — replyExcluded state resets in finally after the sequence
+    // Capture order/excluded at send-time — both reset after the sequence resolves.
     const excludedAtSend = new Set(replyExcluded);
+    const orderAtSend = replyOrder ?? selected.memberOrder;
     try {
       const res = await fetch(`/api/threads/${selected.thread.id}/reply`, {
         method: 'POST',
@@ -619,11 +639,11 @@ export function ThreadsView({ projectId }: { projectId: string }) {
       const msgs = [...selected.messages, message];
       setSelected((prev) => (prev ? { ...prev, messages: msgs } : prev));
       setSendingReply(false);
-      const filteredOrder = selected.memberOrder.filter((id) => !excludedAtSend.has(id));
+      const filteredOrder = orderAtSend.filter((id) => !excludedAtSend.has(id));
       await runRespondSequence(selected.thread.id, filteredOrder, msgs);
-      // Reset exclusions only after the sequence fully resolves — not on failure/early return,
-      // so the user can retry without re-toggling.
+      // Reset both exclusions and order after the sequence fully resolves.
       setReplyExcluded(new Set());
+      setReplyOrder(null);
     } catch {
       setSendingReply(false);
     }
@@ -763,6 +783,41 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     },
     [threadType, resolvePresetOrder, handleDragStart]
   );
+
+  // ——— Reply-order drag-to-reorder ———
+
+  const handleReplyDragStart = useCallback((idx: number, e: React.DragEvent) => {
+    replyDragSource.current = idx;
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleReplyDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const insertBefore = e.clientX < rect.left + rect.width / 2;
+    setReplyDropIndex(insertBefore ? idx : idx + 1);
+  }, []);
+
+  const handleReplyDrop = useCallback(() => {
+    const srcIdx = replyDragSource.current;
+    const insertAt = replyDropIndex;
+    replyDragSource.current = null;
+    setReplyDropIndex(null);
+    if (srcIdx === null || insertAt === null) return;
+    setReplyOrder((prev) => {
+      const base = [...(prev ?? selected?.memberOrder ?? [])];
+      const [item] = base.splice(srcIdx, 1);
+      const adjusted = insertAt > srcIdx ? insertAt - 1 : insertAt;
+      base.splice(adjusted, 0, item);
+      return base;
+    });
+  }, [replyDropIndex, selected?.memberOrder]);
+
+  const handleReplyDragEnd = useCallback(() => {
+    replyDragSource.current = null;
+    setReplyDropIndex(null);
+  }, []);
 
   // ——— Derived ———
 
@@ -953,6 +1008,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                       };
                       if (draft.decisions.length > 0 || draft.tasks.length > 0) {
                         setPendingProposals(draft);
+                        setProposalsPanelCollapsed(false);
                       }
                     }
                   } finally {
@@ -975,87 +1031,145 @@ export function ThreadsView({ projectId }: { projectId: string }) {
           </div>
 
           {/* Respond order strip */}
-          {selected.memberOrder.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {selected.memberOrder.map((memberId) => {
-                const m = getMemberById(memberId);
-                const isDone = currentRoundSenderIds.has(memberId);
-                const isActive = memberId === respondingMemberId;
-                const isWaiting = isSequenceRunning && !isDone && !isActive;
-                const isExcluded = replyExcluded.has(memberId);
-                const isInteractive = !isSequenceRunning && !sendingReply;
-                return (
-                  <div
-                    key={memberId}
-                    title={
-                      isExcluded
-                        ? `${m?.name ?? memberId} — excluded this cycle`
-                        : (m?.name ?? memberId)
-                    }
-                    onClick={
-                      isInteractive
-                        ? () =>
-                            setReplyExcluded((prev) => {
-                              const next = new Set(prev);
-                              next.has(memberId) ? next.delete(memberId) : next.add(memberId);
-                              return next;
-                            })
-                        : undefined
-                    }
-                    className={cn(
-                      'group relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm font-mono text-[8px] font-bold transition-all',
-                      isInteractive && 'cursor-pointer',
-                      isExcluded
-                        ? 'bg-panel-chrome text-panel-chrome-foreground opacity-25'
-                        : isActive
-                          ? 'bg-panel-chrome-strong text-panel-inverse ring-status-generating animate-pulse ring-1'
-                          : isDone
-                            ? 'bg-panel-chrome text-panel-chrome-foreground'
-                            : isWaiting
-                              ? 'bg-panel-chrome text-panel-chrome-foreground opacity-40'
-                              : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
-                    )}
-                  >
-                    {m?.avatarUrl ? (
-                      <Image
-                        src={m.avatarUrl}
-                        alt={m.name ?? memberId}
-                        width={20}
-                        height={20}
-                        unoptimized
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      (m?.initials ?? memberId.slice(0, 2).toUpperCase())
-                    )}
-                    {/* EyeOff: always visible when excluded (idle or mid-sequence) */}
-                    {isExcluded && (
-                      <div className="bg-panel-chrome/85 absolute inset-0 flex items-center justify-center">
-                        <EyeOff className="text-panel-muted h-2.5 w-2.5" />
+          {selected.memberOrder.length > 0 &&
+            (() => {
+              const effectiveOrder = replyOrder ?? selected.memberOrder;
+              return (
+                <div className="flex flex-wrap items-center gap-1">
+                  {effectiveOrder.map((memberId, idx) => {
+                    const m = getMemberById(memberId);
+                    const isDone = currentRoundSenderIds.has(memberId);
+                    const isActive = memberId === respondingMemberId;
+                    const isWaiting = isSequenceRunning && !isDone && !isActive;
+                    const isExcluded = replyExcluded.has(memberId);
+                    const isInteractive = !isSequenceRunning && !sendingReply;
+                    const isDraggable = isInteractive && !isExcluded;
+                    return (
+                      <div key={memberId} className="flex items-center">
+                        {/* Drop indicator before this chip */}
+                        {replyDropIndex === idx && (
+                          <div className="bg-panel-foreground/40 mr-0.5 h-5 w-px rounded-full" />
+                        )}
+                        <div
+                          draggable={isDraggable}
+                          onDragStart={
+                            isDraggable ? (e) => handleReplyDragStart(idx, e) : undefined
+                          }
+                          onDragOver={
+                            isInteractive ? (e) => handleReplyDragOver(e, idx) : undefined
+                          }
+                          onDrop={isInteractive ? handleReplyDrop : undefined}
+                          onDragEnd={handleReplyDragEnd}
+                          onContextMenu={(e) => e.preventDefault()}
+                          onTouchStart={
+                            isInteractive
+                              ? () => {
+                                  replyChipLongPressFiredRef.current = false;
+                                  replyChipLongPressTimerRef.current = setTimeout(() => {
+                                    replyChipLongPressFiredRef.current = true;
+                                    setReplyChipLongPressId(memberId);
+                                  }, 500);
+                                }
+                              : undefined
+                          }
+                          onTouchEnd={(e) => {
+                            if (replyChipLongPressTimerRef.current) {
+                              clearTimeout(replyChipLongPressTimerRef.current);
+                              replyChipLongPressTimerRef.current = null;
+                            }
+                            // Suppress the synthetic click that fires after touchEnd when long-press already opened the sheet
+                            if (replyChipLongPressFiredRef.current) {
+                              e.preventDefault();
+                              replyChipLongPressFiredRef.current = false;
+                            }
+                          }}
+                          onTouchMove={() => {
+                            if (replyChipLongPressTimerRef.current) {
+                              clearTimeout(replyChipLongPressTimerRef.current);
+                              replyChipLongPressTimerRef.current = null;
+                            }
+                          }}
+                          title={
+                            isExcluded
+                              ? `${m?.name ?? memberId} — excluded this cycle`
+                              : isDraggable
+                                ? `${m?.name ?? memberId} — drag to reorder`
+                                : (m?.name ?? memberId)
+                          }
+                          onClick={
+                            isInteractive
+                              ? () =>
+                                  setReplyExcluded((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(memberId) ? next.delete(memberId) : next.add(memberId);
+                                    return next;
+                                  })
+                              : undefined
+                          }
+                          className={cn(
+                            'group relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm font-mono text-[8px] font-bold transition-all',
+                            isDraggable
+                              ? 'cursor-grab active:cursor-grabbing'
+                              : isInteractive
+                                ? 'cursor-pointer'
+                                : '',
+                            isExcluded
+                              ? 'bg-panel-chrome text-panel-chrome-foreground opacity-25'
+                              : isActive
+                                ? 'bg-panel-chrome-strong text-panel-inverse ring-status-generating animate-pulse ring-1'
+                                : isDone
+                                  ? 'bg-panel-chrome text-panel-chrome-foreground'
+                                  : isWaiting
+                                    ? 'bg-panel-chrome text-panel-chrome-foreground opacity-40'
+                                    : 'bg-panel-chrome text-panel-chrome-foreground opacity-60'
+                          )}
+                        >
+                          {m?.avatarUrl ? (
+                            <Image
+                              src={m.avatarUrl}
+                              alt={m.name ?? memberId}
+                              width={20}
+                              height={20}
+                              unoptimized
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            (m?.initials ?? memberId.slice(0, 2).toUpperCase())
+                          )}
+                          {/* EyeOff: always visible when excluded (idle or mid-sequence) */}
+                          {isExcluded && (
+                            <div className="bg-panel-chrome/85 absolute inset-0 flex items-center justify-center">
+                              <EyeOff className="text-panel-muted h-2.5 w-2.5" />
+                            </div>
+                          )}
+                          {/* Eye: hover hint when idle and not excluded */}
+                          {!isExcluded && isInteractive && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="bg-panel-chrome/75 absolute inset-0" />
+                              <Eye className="text-panel-muted relative h-2.5 w-2.5" />
+                            </div>
+                          )}
+                        </div>
+                        {/* Drop indicator after the last chip */}
+                        {replyDropIndex === idx + 1 && idx === effectiveOrder.length - 1 && (
+                          <div className="bg-panel-foreground/40 ml-0.5 h-5 w-px rounded-full" />
+                        )}
                       </div>
-                    )}
-                    {/* Eye: hover hint when idle and not excluded */}
-                    {!isExcluded && isInteractive && (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-                        <div className="bg-panel-chrome/75 absolute inset-0" />
-                        <Eye className="text-panel-muted relative h-2.5 w-2.5" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {isSequenceRunning && (
-                <ChromeLabel className="text-panel-faint ml-0.5 font-mono text-[10px] tracking-[0.08em]">
-                  {`${selected.memberOrder.filter((id) => currentRoundSenderIds.has(id)).length} / ${selected.memberOrder.filter((id) => !replyExcluded.has(id)).length}`}
-                </ChromeLabel>
-              )}
-              {respondingMember && (
-                <ChromeLabel className="text-status-generating ml-1 text-[10px] tracking-[0.06em] normal-case">
-                  {respondingMember.name} is responding...
-                </ChromeLabel>
-              )}
-            </div>
-          )}
+                    );
+                  })}
+                  {isSequenceRunning && (
+                    <ChromeLabel className="text-panel-faint ml-0.5 font-mono text-[10px] tracking-[0.08em]">
+                      {`${effectiveOrder.filter((id) => currentRoundSenderIds.has(id)).length} / ${effectiveOrder.filter((id) => !replyExcluded.has(id)).length}`}
+                    </ChromeLabel>
+                  )}
+                  {respondingMember && (
+                    <ChromeLabel className="text-status-generating ml-1 text-[10px] tracking-[0.06em] normal-case">
+                      {respondingMember.name} is responding...
+                    </ChromeLabel>
+                  )}
+                </div>
+              );
+            })()}
         </div>
 
         {/* Messages */}
@@ -1305,188 +1419,228 @@ export function ThreadsView({ projectId }: { projectId: string }) {
         {/* Proposals panel — decisions and tasks proposed by Haiku after each respond sequence */}
         {pendingProposals &&
           (pendingProposals.decisions.length > 0 || pendingProposals.tasks.length > 0) && (
-            <div className="border-panel-border bg-ai-surface max-h-[45vh] shrink-0 overflow-y-auto border-t">
-              {pendingProposals.decisions.length > 0 && (
-                <div
-                  className={cn(
-                    'px-6 py-3',
-                    pendingProposals.tasks.length > 0 && 'border-panel-border border-b'
-                  )}
-                >
-                  <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
-                    Decisions
+            <div className="border-panel-border bg-ai-surface shrink-0 border-t">
+              {/* Panel header — full-width toggle. Matches context-panel Section pattern. */}
+              <button
+                type="button"
+                onClick={() => setProposalsPanelCollapsed((v) => !v)}
+                className="border-panel-border hover:bg-panel-selected/70 flex w-full items-center justify-between border-b px-6 py-2 text-left transition-colors"
+                aria-label={proposalsPanelCollapsed ? 'Expand proposals' : 'Collapse proposals'}
+              >
+                <div className="flex items-center gap-2">
+                  <ChromeLabel className="text-panel-muted">Review</ChromeLabel>
+                  <ChromeLabel className="text-panel-faint tracking-normal normal-case">
+                    {[
+                      pendingProposals.decisions.length > 0
+                        ? `${pendingProposals.decisions.length} decision${
+                            pendingProposals.decisions.length > 1 ? 's' : ''
+                          }`
+                        : null,
+                      pendingProposals.tasks.length > 0
+                        ? `${pendingProposals.tasks.length} task${
+                            pendingProposals.tasks.length > 1 ? 's' : ''
+                          }`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </ChromeLabel>
-                  <div className="flex flex-col gap-2">
-                    {pendingProposals.decisions.map((d, i) => {
-                      const key = `decision-${i}`;
-                      const isConfirming = confirmingKey === key;
-                      return (
-                        <div key={i} className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-panel-foreground text-sm leading-snug">{d.title}</p>
-                            {d.description && (
-                              <p className="text-panel-muted mt-0.5 text-xs leading-relaxed">
-                                {d.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1 pt-0.5">
-                            {/* Intentionally raw <button> — non-standard icon-only shape */}
-                            <button
-                              type="button"
-                              disabled={!!confirmingKey}
-                              onClick={async () => {
-                                setConfirmingKey(key);
-                                try {
-                                  await fetch('/api/decisions', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      title: d.title,
-                                      description: d.description,
-                                      conversationId: selected?.thread.id,
-                                      loggedBy: 'founder',
-                                      projectId,
-                                    }),
-                                  });
-                                  window.dispatchEvent(new Event('modryn:decision-logged'));
-                                  setPendingProposals((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          decisions: prev.decisions.filter((_, j) => j !== i),
-                                        }
-                                      : null
-                                  );
-                                } finally {
-                                  setConfirmingKey(null);
-                                }
-                              }}
-                              className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
-                              aria-label="Confirm decision"
-                            >
-                              {isConfirming ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Check className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!!confirmingKey}
-                              onClick={() =>
-                                setPendingProposals((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        decisions: prev.decisions.filter((_, j) => j !== i),
-                                      }
-                                    : null
-                                )
-                              }
-                              className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
-                              aria-label="Dismiss decision"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
-              )}
-              {pendingProposals.tasks.length > 0 && (
-                <div className="px-6 py-3">
-                  <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
-                    Tasks
-                  </ChromeLabel>
-                  <div className="flex flex-col gap-2">
-                    {pendingProposals.tasks.map((t, i) => {
-                      const key = `task-${i}`;
-                      const isConfirming = confirmingKey === key;
-                      return (
-                        <div key={i} className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-panel-foreground text-sm leading-snug">{t.title}</p>
-                            <div className="text-panel-muted mt-0.5 flex flex-wrap items-center gap-x-1 text-xs leading-relaxed">
-                              <select
-                                value={taskAssignOverrides[i] ?? t.assigned_to}
-                                onChange={(e) =>
-                                  setTaskAssignOverrides((prev) => ({
-                                    ...prev,
-                                    [i]: e.target.value,
-                                  }))
-                                }
-                                className="text-panel-muted cursor-pointer bg-transparent text-xs outline-none"
-                              >
-                                {members.map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.name}
-                                  </option>
-                                ))}
-                                <option value="founder">{profile?.name || 'Founder'}</option>
-                              </select>
-                              {t.description && <span> — {t.description}</span>}
+                {proposalsPanelCollapsed ? (
+                  <ChevronRight className="text-panel-muted h-3 w-3" />
+                ) : (
+                  <ChevronDown className="text-panel-muted h-3 w-3" />
+                )}
+              </button>
+              {!proposalsPanelCollapsed && (
+                <div className="max-h-[45vh] overflow-y-auto">
+                  {pendingProposals.decisions.length > 0 && (
+                    <div
+                      className={cn(
+                        'px-6 py-3',
+                        pendingProposals.tasks.length > 0 && 'border-panel-border border-b'
+                      )}
+                    >
+                      <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
+                        Decisions
+                      </ChromeLabel>
+                      <div className="flex flex-col gap-2">
+                        {pendingProposals.decisions.map((d, i) => {
+                          const key = `decision-${i}`;
+                          const isConfirming = confirmingKey === key;
+                          return (
+                            <div key={i} className="flex items-start gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-panel-foreground text-sm leading-snug">
+                                  {d.title}
+                                </p>
+                                {d.description && (
+                                  <p className="text-panel-muted mt-0.5 text-xs leading-relaxed">
+                                    {d.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                                {/* Intentionally raw <button> — non-standard icon-only shape */}
+                                <button
+                                  type="button"
+                                  disabled={!!confirmingKey}
+                                  onClick={async () => {
+                                    setConfirmingKey(key);
+                                    try {
+                                      await fetch('/api/decisions', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          title: d.title,
+                                          description: d.description,
+                                          conversationId: selected?.thread.id,
+                                          loggedBy: 'founder',
+                                          projectId,
+                                        }),
+                                      });
+                                      window.dispatchEvent(new Event('modryn:decision-logged'));
+                                      setPendingProposals((prev) =>
+                                        prev
+                                          ? {
+                                              ...prev,
+                                              decisions: prev.decisions.filter((_, j) => j !== i),
+                                            }
+                                          : null
+                                      );
+                                    } finally {
+                                      setConfirmingKey(null);
+                                    }
+                                  }}
+                                  className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
+                                  aria-label="Confirm decision"
+                                >
+                                  {isConfirming ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!!confirmingKey}
+                                  onClick={() =>
+                                    setPendingProposals((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            decisions: prev.decisions.filter((_, j) => j !== i),
+                                          }
+                                        : null
+                                    )
+                                  }
+                                  className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
+                                  aria-label="Dismiss decision"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1 pt-0.5">
-                            {/* Intentionally raw <button> — non-standard icon-only shape */}
-                            <button
-                              type="button"
-                              disabled={!!confirmingKey}
-                              onClick={async () => {
-                                setConfirmingKey(key);
-                                try {
-                                  await fetch('/api/tasks', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      title: t.title,
-                                      description: t.description,
-                                      assigned_to: taskAssignOverrides[i] ?? t.assigned_to,
-                                      conversationId: selected?.thread.id,
-                                      projectId,
-                                    }),
-                                  });
-                                  setPendingProposals((prev) =>
-                                    prev
-                                      ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
-                                      : null
-                                  );
-                                } finally {
-                                  setConfirmingKey(null);
-                                }
-                              }}
-                              className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
-                              aria-label="Confirm task"
-                            >
-                              {isConfirming ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Check className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!!confirmingKey}
-                              onClick={() =>
-                                setPendingProposals((prev) =>
-                                  prev
-                                    ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
-                                    : null
-                                )
-                              }
-                              className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
-                              aria-label="Dismiss task"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {pendingProposals.tasks.length > 0 && (
+                    <div className="px-6 py-3">
+                      <ChromeLabel className="text-secondary mb-2 block text-[10px] tracking-widest">
+                        Tasks
+                      </ChromeLabel>
+                      <div className="flex flex-col gap-2">
+                        {pendingProposals.tasks.map((t, i) => {
+                          const key = `task-${i}`;
+                          const isConfirming = confirmingKey === key;
+                          return (
+                            <div key={i} className="flex items-start gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-panel-foreground text-sm leading-snug">
+                                  {t.title}
+                                </p>
+                                <div className="text-panel-muted mt-0.5 flex flex-wrap items-center gap-x-1 text-xs leading-relaxed">
+                                  <select
+                                    value={taskAssignOverrides[i] ?? t.assigned_to}
+                                    onChange={(e) =>
+                                      setTaskAssignOverrides((prev) => ({
+                                        ...prev,
+                                        [i]: e.target.value,
+                                      }))
+                                    }
+                                    className="text-panel-muted cursor-pointer bg-transparent text-xs outline-none"
+                                  >
+                                    {members.map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.name}
+                                      </option>
+                                    ))}
+                                    <option value="founder">{profile?.name || 'Founder'}</option>
+                                  </select>
+                                  {t.description && <span> — {t.description}</span>}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                                {/* Intentionally raw <button> — non-standard icon-only shape */}
+                                <button
+                                  type="button"
+                                  disabled={!!confirmingKey}
+                                  onClick={async () => {
+                                    setConfirmingKey(key);
+                                    try {
+                                      await fetch('/api/tasks', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          title: t.title,
+                                          description: t.description,
+                                          assigned_to: taskAssignOverrides[i] ?? t.assigned_to,
+                                          conversationId: selected?.thread.id,
+                                          projectId,
+                                        }),
+                                      });
+                                      setPendingProposals((prev) =>
+                                        prev
+                                          ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
+                                          : null
+                                      );
+                                    } finally {
+                                      setConfirmingKey(null);
+                                    }
+                                  }}
+                                  className="text-panel-faint hover:text-status-online rounded-sm p-1 transition-colors disabled:opacity-40"
+                                  aria-label="Confirm task"
+                                >
+                                  {isConfirming ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!!confirmingKey}
+                                  onClick={() =>
+                                    setPendingProposals((prev) =>
+                                      prev
+                                        ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== i) }
+                                        : null
+                                    )
+                                  }
+                                  className="text-panel-faint hover:text-panel-muted rounded-sm p-1 transition-colors disabled:opacity-40"
+                                  aria-label="Dismiss task"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1521,6 +1675,67 @@ export function ThreadsView({ projectId }: { projectId: string }) {
             </button>
           </div>
         </div>
+        {/* Mobile long-press action sheet for respond-order chips */}
+        {(() => {
+          const chipOrder = replyOrder ?? selected.memberOrder;
+          const idx = replyChipLongPressId ? chipOrder.indexOf(replyChipLongPressId) : -1;
+          const isExcluded = replyChipLongPressId ? replyExcluded.has(replyChipLongPressId) : false;
+          const chipMember = replyChipLongPressId ? getMemberById(replyChipLongPressId) : null;
+          return (
+            <ActionSheet
+              open={replyChipLongPressId !== null}
+              onClose={() => setReplyChipLongPressId(null)}
+              items={[
+                // Only show move options when the move is actually possible
+                ...(idx > 0
+                  ? [
+                      {
+                        label: 'Move left',
+                        onClick: () => {
+                          if (!replyChipLongPressId) return;
+                          setReplyOrder((prev) => {
+                            const base = [...(prev ?? selected.memberOrder)];
+                            [base[idx - 1], base[idx]] = [base[idx], base[idx - 1]];
+                            return base;
+                          });
+                        },
+                      },
+                    ]
+                  : []),
+                ...(idx >= 0 && idx < chipOrder.length - 1
+                  ? [
+                      {
+                        label: 'Move right',
+                        onClick: () => {
+                          if (!replyChipLongPressId) return;
+                          setReplyOrder((prev) => {
+                            const base = [...(prev ?? selected.memberOrder)];
+                            [base[idx], base[idx + 1]] = [base[idx + 1], base[idx]];
+                            return base;
+                          });
+                        },
+                      },
+                    ]
+                  : []),
+                {
+                  label: isExcluded
+                    ? `Include ${chipMember?.name ?? replyChipLongPressId ?? ''}`
+                    : `Exclude ${chipMember?.name ?? replyChipLongPressId ?? ''}`,
+                  onClick: () => {
+                    if (!replyChipLongPressId) return;
+                    setReplyExcluded((prev) => {
+                      const next = new Set(prev);
+                      next.has(replyChipLongPressId)
+                        ? next.delete(replyChipLongPressId)
+                        : next.add(replyChipLongPressId);
+                      return next;
+                    });
+                  },
+                },
+              ]}
+            />
+          );
+        })()}
       </div>
     );
   };

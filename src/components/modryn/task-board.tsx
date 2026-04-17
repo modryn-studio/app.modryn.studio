@@ -1,7 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Copy, Download, Loader2, Play, Plus, X } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Download,
+  Loader2,
+  Play,
+  Plus,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
 import { Markdown } from '@/components/prompt-kit/markdown';
@@ -102,7 +112,13 @@ function TaskCard({
 
   function handleDownload() {
     if (!task.output) return;
-    const slug = task.title.trim().split(/\s+/).slice(0, 5).join('-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const slug = task.title
+      .trim()
+      .split(/\s+/)
+      .slice(0, 5)
+      .join('-')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '');
     const blob = new Blob([task.output], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -267,19 +283,35 @@ function TaskCard({
           <div className="flex shrink-0 items-center gap-1 pt-0.5">
             {/* Intentionally raw <button> — non-standard icon-only shape */}
             {task.status !== 'done' && !isFounder && (
-              <button
-                type="button"
-                disabled={executing}
-                onClick={handleExecute}
-                className="text-panel-faint hover:text-status-online rounded-sm p-1.5 transition-colors disabled:opacity-40"
-                aria-label="Execute task"
-              >
-                {executing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={executing || completingLoading}
+                  onClick={handleExecute}
+                  className="text-panel-faint hover:text-status-online rounded-sm p-1.5 transition-colors disabled:opacity-40"
+                  aria-label="Execute task"
+                >
+                  {executing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                {/* Manual complete — escape hatch when work was done outside the app */}
+                <button
+                  type="button"
+                  disabled={executing || completingLoading}
+                  onClick={handleComplete}
+                  className="text-panel-faint hover:text-status-online rounded-sm p-1.5 transition-colors disabled:opacity-40"
+                  aria-label="Mark done"
+                >
+                  {completingLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </>
             )}
             {/* Founder complete button — symmetrical to Play */}
             {task.status !== 'done' && isFounder && (
