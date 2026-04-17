@@ -97,7 +97,15 @@ export default function ModrynStudio() {
   const { members, refetch } = useMembers();
   const { profile, profileLoaded } = useProfile();
 
-  // Briefing data — re-fetched when the active member or project changes.
+  // Incremented whenever a decision is logged anywhere in the app, triggering a briefing re-fetch.
+  const [decisionsVersion, setDecisionsVersion] = useState(0);
+  useEffect(() => {
+    const handler = () => setDecisionsVersion((v) => v + 1);
+    window.addEventListener('modryn:decision-logged', handler);
+    return () => window.removeEventListener('modryn:decision-logged', handler);
+  }, []);
+
+  // Briefing data — re-fetched when the active member, project, or decisionsVersion changes.
   // Tasks are filtered to the member's assignments within the project; decisions are project-scoped.
   const [contextTasks, setContextTasks] = useState<{ text: string; due?: string }[]>([]);
   const [contextDecisions, setContextDecisions] = useState<{ text: string }[]>([]);
@@ -132,7 +140,7 @@ export default function ModrynStudio() {
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [activeChat, activeProjectId, members]);
+  }, [activeChat, activeProjectId, members, decisionsVersion]);
 
   const handleViewChange = (view: View) => {
     setActiveView(view);

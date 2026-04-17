@@ -23,14 +23,14 @@ export async function GET(
     // Find existing DM between founder and this member, scoped to project
     const existing = projectId
       ? await sql`
-          SELECT c.id FROM conversations c
+          SELECT c.id, c.last_synthesized_at FROM conversations c
           JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.member_id = 'founder'
           JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.member_id = ${memberId}
           WHERE c.type = 'dm' AND c.project_id = ${projectId}
           LIMIT 1
         `
       : await sql`
-          SELECT c.id FROM conversations c
+          SELECT c.id, c.last_synthesized_at FROM conversations c
           JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.member_id = 'founder'
           JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.member_id = ${memberId}
           WHERE c.type = 'dm'
@@ -38,9 +38,11 @@ export async function GET(
         `;
 
     let conversationId: string;
+    let lastSynthesizedAt: Date | null = null;
 
     if (existing.length > 0) {
       conversationId = existing[0].id;
+      lastSynthesizedAt = existing[0].last_synthesized_at ?? null;
     } else {
       // Create new DM conversation
       const created = projectId
@@ -75,7 +77,9 @@ export async function GET(
       createdAt: m.created_at,
     }));
 
-    return log.end(ctx, Response.json({ conversationId, messages: formatted }), { memberId });
+    return log.end(ctx, Response.json({ conversationId, messages: formatted, lastSynthesizedAt }), {
+      memberId,
+    });
   } catch (error) {
     log.err(ctx, error);
     return Response.json({ error: 'Internal error' }, { status: 500 });

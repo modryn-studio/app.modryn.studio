@@ -38,7 +38,7 @@ Uses `generateText` rather than `streamText`. Michelle does not have web search 
 
 ## DM vs Thread — how messages work
 
-**DM:** Server fetches the last 40 messages from DB and passes a sliding window of 20 to the model. Client only sends the new message; server owns history.
+**DM:** Server fetches up to 60 messages from DB (newest-first), accumulates them until an 8 000-token budget (`HISTORY_TOKEN_BUDGET`) is exhausted, then reverses to chronological order. Client only sends the new message; server owns history.
 
 **Thread:** Each member gets a single user message containing the full labeled transcript of everything said so far, ending with "Contribute your response." Members re-query the DB at respond time so each one sees responses from members who went before them in the sequence.
 
@@ -67,9 +67,13 @@ All stored in `member_memory` (episodic, semantic) and `org_memory` (org facts) 
 
 ---
 
-## Thread Decisions Draft
+## Decisions Draft (DM + Threads)
 
-`POST /api/threads/[threadId]/decisions-draft` — triggered manually by the user via the synthesize button in thread view. Runs Haiku against the full thread transcript and returns structured proposals: `{ decisions: [...], tasks: [...] }`. Returned to the client for review — the user confirms or dismisses each item before it’s written to the DB. Distinct from automatic org extraction (`/extract`), which fires after every respond sequence without user input.
+**DM:** `POST /api/conversations/[conversationId]/decisions-draft` — triggered by the Synthesize button (desktop header or mobile strip above input). Reads messages since `last_synthesized_at` on the conversations row (NULL = full history), runs Haiku against that slice, returns `{ decisions: [...], tasks: [...] }`. After each run, advances `last_synthesized_at` to the last message's `created_at` so subsequent calls only read new turns. Returns empty arrays if nothing new.
+
+**Thread:** `POST /api/threads/[threadId]/decisions-draft` — triggered by the synthesize button in thread view. Runs Haiku against the full thread transcript. Same response shape and review flow — no watermark (threads scope by round instead).
+
+Both: proposals returned to the client for review. The user confirms or dismisses each item before it's written to the DB. Distinct from automatic org extraction (`/extract`), which fires after every respond sequence without user input.
 
 ---
 
@@ -109,7 +113,7 @@ The founder is identified as `sender_id = 'founder'` in messages — not a membe
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `projects`             | Top-level containers — name, optional context field, timestamps                                                                                                                                                             |
 | `members`              | AI member profiles — ID, name, role, initials, system prompt, status                                                                                                                                                        |
-| `conversations`        | DM or thread containers — type (`dm` or `thread`), title, timestamps                                                                                                                                                        |
+| `conversations`        | DM or thread containers — type (`dm` or `thread`), title, timestamps. `last_synthesized_at` (nullable) tracks the DM synthesis watermark.                                                                                   |
 | `conversation_members` | Join table — which members (+ founder) are in each conversation, with respond order for threads                                                                                                                             |
 | `messages`             | All messages — sender_id, role (`user`/`assistant`), content, conversation_id                                                                                                                                               |
 | `member_memory`        | Episodic and semantic memory rows per member — memory_type, summary, conversation_id                                                                                                                                        |

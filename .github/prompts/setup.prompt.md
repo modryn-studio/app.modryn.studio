@@ -23,7 +23,7 @@ Then edit `.github/copilot-instructions.md` and replace every `<!-- TODO -->` se
 Also fill in `src/config/site.ts` — replace every `TODO:` placeholder with real content from context.md and brand.md:
 
 - `name` / `shortName` — product name from context.md
-- `url` — from the **URL** section of context.md (use `https://` prefix). Extract the slug from the URL — it's the part after `/tools/`. **If the URL section is blank, do NOT guess — stop and tell Luke: "Fill in the URL field in context.md (e.g. https://modrynstudio.com/tools/your-slug)".**
+- `url` — from the **URL** section of context.md. Use the URL as-is — do not extract a slug. **If the URL section is blank, do NOT guess — stop and tell Luke: "Fill in the URL field in context.md (e.g. https://lawnagent.app)".**
 - `description` — 110–160 char meta description that describes what the product does and who it's for
 - `ogTitle` — 50–60 char title formatted as "Product Name | Short Value Prop"
 - `ogDescription` — 110–160 char OG description, slightly more marketing-forward than the meta description
@@ -37,16 +37,6 @@ Also fill in `src/config/site.ts` — replace every `TODO:` placeholder with rea
 Do not modify any section without a `<!-- TODO -->` marker.
 Do not add new sections.
 Do not touch API Route Logging, Analytics, Dev Server, Code Style, or Core Rules.
-
----
-
-## Set basePath in next.config.ts
-
-Using the slug extracted from the URL field in context.md, update `next.config.ts`:
-
-- Replace `TODO_SLUG` in `basePath` with the actual slug
-- Example: if URL is `https://modrynstudio.com/tools/hiking-finder`, set `basePath: '/tools/hiking-finder'`
-- If the URL field was blank (and you stopped to ask Luke), leave `TODO_SLUG` in place and flag it
 
 ---
 
@@ -90,63 +80,19 @@ This is the runtime theme — it must match what you put in `copilot-instruction
 
 ## Create Home Page
 
-**Fully replace** `src/app/page.tsx` with a project-specific landing page built from `context.md` and `brand.md`. Do not patch the stub — overwrite it completely.
+Leave `src/app/page.tsx` as a stub. Do not generate a landing page.
 
-The page must include:
-
-- A `<main>` element with `bg-bg text-text` applied
-- A hero `<h1>` using the hero headline from brand.md — use `text-accent` on the key phrase or tagline
-- The hero sub-copy from brand.md as a `<p>`
-- Any primary CTA element from brand.md copy
-- Correct font classes: `font-heading` on headings, `font-mono` on any pipeline output, terminal text, or file name display
-
-Use only Tailwind utility classes and `@theme` token names (`text-accent`, `bg-surface`, `border-border`, etc.). No inline styles. No raw hex values.
+The landing page will be built manually from locked copy. Check `docs/landing-page-v1.md` for the copy to use. Wire `<EmailSignup />` only (see next section).
 
 ---
 
 ## Wire EmailSignup Component
 
-Check the `Monetization` section of `context.md`.
-
-**If monetization is `email-only` or `one-time-payment`** (or if the section is blank — default to `email-only`):
-
 - Check if `src/components/email-signup.tsx` exists. It should already be in the boilerplate.
 - Add `import EmailSignup from '@/components/email-signup'` to `src/app/page.tsx`
-- Add `<EmailSignup />` after the hero section, before any footer
+- Add `<EmailSignup />` inside `<main>` — it can be the only element for now
 - The component posts to `/api/feedback` with `type: 'newsletter'` — this route already exists in the boilerplate.
-- **Personalize the copy** — update the `waitlist` block in `src/config/site.ts` with project-specific copy:
-  - `headline` — short, punchy H2 (4–7 words). Describe what's coming, not a generic "don't miss it". Match the brand voice from `brand.md`.
-  - `subheadline` — 1–2 sentences. Why they should sign up. Reference the product's specific promise.
-  - `success` — confirmation message. Warm, specific to this product. NOT "Next launch, your inbox." — that's modrynstudio.com language.
-
-**If monetization is `none`**: skip email signup entirely.
-
----
-
-## Wire Stripe (Conditional)
-
-Check the `Monetization` section of `context.md`.
-
-**If monetization is `one-time-payment`**:
-
-### Option A: Payment Links (recommended — fastest)
-
-No npm packages, no API routes, no env vars needed.
-
-1. User creates a Payment Link at stripe.com → Payment Links
-2. Set the Payment Link's success URL to the tool page with `?paid=true` appended (e.g. `https://modrynstudio.com/tools/[slug]?paid=true`)
-3. Pass the Payment Link URL as the `checkoutUrl` prop on `<PayGate>`:
-   ```tsx
-   <PayGate
-     checkoutUrl="https://buy.stripe.com/xxxxx"
-     price="$9"
-     valueProposition="Unlock full results"
-   >
-     {/* paid content */}
-   </PayGate>
-   ```
-4. Verify `src/components/pay-gate.tsx` exists (should be in boilerplate)
-5. Add `paymentGate` analytics event to `src/lib/analytics.ts`:
-   ```ts
-   paymentGate: (action: string) => track('payment_gate', { action }),
-   ```
+- Set placeholder copy in the `waitlist` block in `src/config/site.ts`:
+  - `headline: 'Early access'`
+  - `subheadline: 'Sign up to be first in line.'`
+  - `success: "You're on the list."`

@@ -23,8 +23,6 @@ import {
   X,
 } from 'lucide-react';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
-import { LogDecisionButton } from '@/components/modryn/log-decision-button';
-import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
 import { useProfile } from '@/lib/use-profile';
 import { useMembers } from '@/hooks/use-members';
 import { cn } from '@/lib/utils';
@@ -406,22 +404,6 @@ function AIMessage({
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             )}
-            {memberId !== undefined && projectId !== undefined && (
-              <LogDecisionButton
-                messageContent={displayText}
-                memberId={memberId}
-                conversationId={conversationId ?? null}
-                projectId={projectId}
-              />
-            )}
-            {memberId !== undefined && projectId !== undefined && (
-              <LogOrgMemoryButton
-                messageContent={displayText}
-                memberId={memberId}
-                conversationId={conversationId ?? null}
-                projectId={projectId}
-              />
-            )}
           </div>
         )}
       </div>
@@ -537,6 +519,8 @@ export function ChatView({
   const [pendingTimestamp, setPendingTimestamp] = useState<string | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
+  // Mirrors conversationIdRef for render — ref is kept for stale-closure-safe callbacks
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   type TextAttachment = { type: 'text'; name: string; content: string };
   type ImageAttachment = {
@@ -562,6 +546,7 @@ export function ChatView({
 
   // Synthesize state — DM decisions-draft
   const [synthesizing, setSynthesizing] = useState(false);
+  const [lastSynthesizedAt, setLastSynthesizedAt] = useState<Date | null>(null);
   const [pendingProposals, setPendingProposals] = useState<{
     decisions: { title: string; description: string }[];
     tasks: { title: string; description: string; assigned_to: string }[];
@@ -601,6 +586,8 @@ export function ChatView({
     setPendingProposals(null);
     setConfirmingKey(null);
     setTaskAssignOverrides({});
+    setLastSynthesizedAt(null);
+    setConversationId(null);
     let cancelled = false;
     async function loadHistory() {
       try {
@@ -612,6 +599,8 @@ export function ChatView({
         if (cancelled) return;
 
         conversationIdRef.current = data.conversationId;
+        setConversationId(data.conversationId);
+        setLastSynthesizedAt(data.lastSynthesizedAt ? new Date(data.lastSynthesizedAt) : null);
 
         if (data.messages.length > 0) {
           const loaded = data.messages.map(
@@ -837,11 +826,31 @@ export function ChatView({
           setPendingProposals(draft);
           setTaskAssignOverrides({});
         }
+        // Advance watermark client-side so the dot clears immediately without waiting for a refetch
+        const latestMsg = [...messages]
+          .reverse()
+          .find((m) => (m as { createdAt?: Date | string }).createdAt);
+        setLastSynthesizedAt(
+          latestMsg ? new Date((latestMsg as { createdAt?: Date | string }).createdAt!) : new Date()
+        );
       }
     } finally {
       setSynthesizing(false);
     }
   };
+
+  // Amber dot on the Synthesize button when there are AI responses not yet synthesized
+  const hasUnsynthesized = (() => {
+    if (!historyLoaded) return false;
+    const assistantMsgs = messages.filter((m) => m.role === 'assistant');
+    if (assistantMsgs.length === 0) return false;
+    if (lastSynthesizedAt === null) return true;
+    const threshold = lastSynthesizedAt;
+    return assistantMsgs.some((m) => {
+      const ca = (m as { createdAt?: Date | string }).createdAt;
+      return ca ? new Date(ca) > threshold : false;
+    });
+  })();
 
   return (
     <div className="bg-panel flex h-full flex-col">
@@ -889,24 +898,29 @@ export function ChatView({
             {isSubmitted ? 'analyzing' : status === 'streaming' ? 'generating' : 'online'}
           </ChromeLabel>
           {/* Synthesize button — runs decisions-draft on this DM conversation */}
-          {historyLoaded && messages.length > 0 && conversationIdRef.current && (
-            <button
-              type="button"
-              disabled={isStreaming || synthesizing}
-              onClick={handleSynthesize}
-              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
-              title="Synthesize decisions + tasks from this conversation"
-              aria-label="Synthesize decisions and tasks"
-            >
-              {synthesizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
+          {historyLoaded && messages.length > 0 && conversationId && (
+            <div className="relative">
+              <button
+                type="button"
+                disabled={isStreaming || synthesizing}
+                onClick={handleSynthesize}
+                className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+                aria-label="Synthesize decisions and tasks"
+              >
+                {synthesizing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+              </button>
+              {hasUnsynthesized && !synthesizing && (
+                <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
               )}
-            </button>
+            </div>
           )}
           {onToggleContext && (
             <button
+              type="button"
               onClick={onToggleContext}
               className="text-panel-muted hover:text-panel-text p-1 transition-colors"
               aria-label={contextCollapsed ? 'Show context' : 'Hide context'}
@@ -920,6 +934,45 @@ export function ChatView({
           )}
         </div>
       </div>
+
+      {/* Mobile-only status + Synthesize strip — desktop header is hidden on mobile */}
+      {historyLoaded && messages.length > 0 && conversationId && (
+        <div className="border-panel-border flex items-center justify-between border-b px-4 py-2 md:hidden">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                isSubmitted
+                  ? 'bg-status-active animate-pulse'
+                  : status === 'streaming'
+                    ? 'bg-status-generating animate-pulse'
+                    : 'bg-status-online'
+              )}
+            />
+            <ChromeLabel className="text-panel-muted text-[10px] tracking-[0.08em] normal-case">
+              {isSubmitted ? 'analyzing' : status === 'streaming' ? 'generating' : 'online'}
+            </ChromeLabel>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              disabled={isStreaming || synthesizing}
+              onClick={handleSynthesize}
+              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+              aria-label="Synthesize decisions and tasks"
+            >
+              {synthesizing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+            </button>
+            {hasUnsynthesized && !synthesizing && (
+              <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <ChatContainerRoot className="relative flex-1">
@@ -989,7 +1042,7 @@ export function ChatView({
                         onRetry={!isStreaming ? () => handleRetry(message.id) : undefined}
                         messageId={message.id ?? `idx-${idx}`}
                         memberId={memberId}
-                        conversationId={conversationIdRef.current}
+                        conversationId={conversationId}
                         projectId={projectId}
                         sources={message.parts
                           ?.filter((p): p is SourceUrlUIPart => p.type === 'source-url')
@@ -1011,7 +1064,7 @@ export function ChatView({
                     isSearching={memberId === 'michelle-lim'}
                     projectId={projectId}
                     memberId={memberId}
-                    conversationId={conversationIdRef.current}
+                    conversationId={conversationId}
                   />
                 )}
               </div>
@@ -1069,6 +1122,7 @@ export function ChatView({
                                     projectId,
                                   }),
                                 });
+                                window.dispatchEvent(new Event('modryn:decision-logged'));
                                 setPendingProposals((prev) =>
                                   prev
                                     ? {
@@ -1307,6 +1361,7 @@ export function ChatView({
                 </button>
               )}
               <button
+                type="button"
                 onClick={handleSend}
                 disabled={
                   (!inputValue.trim() && attachments.length === 0) ||

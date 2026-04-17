@@ -2,13 +2,11 @@
 
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/auth/client';
 
 export function SignInForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -23,7 +21,8 @@ export function SignInForm() {
       if (signInError) {
         setError(signInError.message || 'Failed to sign in. Try again.');
       } else {
-        router.push('/');
+        // Full page reload so ProfileProvider remounts and refetches with the new session cookie.
+        window.location.href = '/';
       }
     });
   }

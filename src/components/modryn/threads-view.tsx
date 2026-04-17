@@ -21,8 +21,6 @@ import Image from 'next/image';
 import { ChatContainerRoot, ChatContainerContent } from '@/components/prompt-kit/chat-container';
 import { ScrollButton } from '@/components/prompt-kit/scroll-button';
 import { ChromeLabel } from '@/components/modryn/chrome-label';
-import { LogDecisionButton } from '@/components/modryn/log-decision-button';
-import { LogOrgMemoryButton } from '@/components/modryn/log-org-memory-button';
 import { Markdown } from '@/components/prompt-kit/markdown';
 import { Sheet } from '@/components/ui/sheet';
 import { ActionSheet } from '@/components/ui/action-sheet';
@@ -239,6 +237,8 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   const [taskAssignOverrides, setTaskAssignOverrides] = useState<Record<number, string>>({});
   // True while the on-demand synthesize button is calling decisions-draft
   const [synthesizing, setSynthesizing] = useState(false);
+  // Dot indicator — true after a respond sequence completes, cleared when Synthesize runs or thread changes
+  const [hasNewRoundResponses, setHasNewRoundResponses] = useState(false);
 
   // Clear any pending long-press timer on unmount to prevent state updates after unmount.
   useEffect(() => {
@@ -246,6 +246,18 @@ export function ThreadsView({ projectId }: { projectId: string }) {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
+
+  // Light up the dot when a respond sequence finishes; clear it when Synthesize runs or thread changes
+  const prevRespondingRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevRespondingRef.current !== null && respondingMemberId === null) {
+      setHasNewRoundResponses(true);
+    }
+    prevRespondingRef.current = respondingMemberId;
+  }, [respondingMemberId]);
+  useEffect(() => {
+    setHasNewRoundResponses(false);
+  }, [selected?.thread.id]);
 
   function handleCopyMessage(id: string, text: string) {
     navigator.clipboard.writeText(text);
@@ -922,39 +934,44 @@ export function ThreadsView({ projectId }: { projectId: string }) {
               )}
             </h1>
             {/* Synthesize button — re-runs decisions-draft on demand for any existing thread */}
-            <button
-              type="button"
-              disabled={isSequenceRunning || sendingReply || synthesizing}
-              onClick={async () => {
-                setSynthesizing(true);
-                try {
-                  const res = await fetch(`/api/threads/${selected.thread.id}/decisions-draft`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                  });
-                  if (res.ok) {
-                    const draft = (await res.json()) as {
-                      decisions: { title: string; description: string }[];
-                      tasks: { title: string; description: string; assigned_to: string }[];
-                    };
-                    if (draft.decisions.length > 0 || draft.tasks.length > 0) {
-                      setPendingProposals(draft);
+            <div className="relative">
+              <button
+                type="button"
+                disabled={isSequenceRunning || sendingReply || synthesizing}
+                onClick={async () => {
+                  setHasNewRoundResponses(false);
+                  setSynthesizing(true);
+                  try {
+                    const res = await fetch(`/api/threads/${selected.thread.id}/decisions-draft`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                    });
+                    if (res.ok) {
+                      const draft = (await res.json()) as {
+                        decisions: { title: string; description: string }[];
+                        tasks: { title: string; description: string; assigned_to: string }[];
+                      };
+                      if (draft.decisions.length > 0 || draft.tasks.length > 0) {
+                        setPendingProposals(draft);
+                      }
                     }
+                  } finally {
+                    setSynthesizing(false);
                   }
-                } finally {
-                  setSynthesizing(false);
-                }
-              }}
-              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
-              title="Synthesize decisions + tasks from this round"
-              aria-label="Synthesize decisions and tasks"
-            >
-              {synthesizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
+                }}
+                className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+                aria-label="Synthesize decisions and tasks"
+              >
+                {synthesizing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+              </button>
+              {hasNewRoundResponses && !synthesizing && (
+                <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
               )}
-            </button>
+            </div>
           </div>
 
           {/* Respond order strip */}
@@ -1185,18 +1202,6 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                           <Copy className="h-3.5 w-3.5" />
                         )}
                       </button>
-                      <LogDecisionButton
-                        messageContent={msgBody}
-                        memberId={msg.sender_id}
-                        conversationId={selected.thread.id}
-                        projectId={projectId}
-                      />
-                      <LogOrgMemoryButton
-                        messageContent={msgBody}
-                        memberId={msg.sender_id}
-                        conversationId={selected.thread.id}
-                        projectId={projectId}
-                      />
                     </div>
                   </div>
                   <div className="pl-8.5">
@@ -1344,6 +1349,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                                       projectId,
                                     }),
                                   });
+                                  window.dispatchEvent(new Event('modryn:decision-logged'));
                                   setPendingProposals((prev) =>
                                     prev
                                       ? {

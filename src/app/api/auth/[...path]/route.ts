@@ -20,16 +20,12 @@ function withCanonicalOrigin(request: NextRequest): Request {
   } as RequestInit);
 }
 
-export async function GET(
-  request: NextRequest,
-  ctx: { params: Promise<{ path: string[] }> }
-) {
-  return _GET(withCanonicalOrigin(request), ctx);
+export async function GET(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  const params = await ctx.params;
+  return _GET(withCanonicalOrigin(request), { params: Promise.resolve(params) });
 }
 
-export async function POST(
-  request: NextRequest,
-  ctx: { params: Promise<{ path: string[] }> }
-) {
-  return _POST(withCanonicalOrigin(request), ctx);
+export async function POST(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  const params = await ctx.params;
+  return _POST(withCanonicalOrigin(request), { params: Promise.resolve(params) });
 }
