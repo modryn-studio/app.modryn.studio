@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  Download,
   FileText,
   Loader2,
   Paperclip,
@@ -839,6 +840,67 @@ export function ChatView({
     }
   };
 
+  const handleDownloadTranscript = () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const founderName = profile?.name || 'You';
+    const lines: string[] = [
+      `# Conversation with ${memberName}`,
+      `Exported: ${new Date().toLocaleString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    for (const message of messages) {
+      const key = message.id ?? '';
+      const createdAt = (message as { createdAt?: Date | string }).createdAt;
+      // Prefer the DB-stored createdAt for full datetime; fall back to the HH:MM display string
+      // kept in messageTimestamps for messages that only have a client-side timestamp.
+      const timestamp = createdAt
+        ? new Date(createdAt).toLocaleString()
+        : (messageTimestamps[key] ?? '');
+
+      const roleLabel = message.role === 'user' ? founderName : memberName;
+      const header = timestamp ? `**${roleLabel}** — ${timestamp}` : `**${roleLabel}**`;
+
+      let body = '';
+      if (message.role === 'user') {
+        // Extract text parts; note image parts as placeholders
+        const rawText = getMessageText(message);
+        const { body: msgBody, attachments } = parseMessageContent(rawText);
+        const imageParts = (message as { parts?: { type: string; text?: string }[] }).parts?.filter(
+          (p) => p.type === 'image'
+        );
+        const imageNotices =
+          imageParts && imageParts.length > 0
+            ? Array(imageParts.length).fill('[Image]').join('\n')
+            : '';
+        const attachmentNotices = attachments.map((a) => `[Attachment: ${a.name}]`).join('\n');
+        body = [imageNotices, msgBody, attachmentNotices].filter(Boolean).join('\n');
+      } else {
+        const { body: msgBody, sources } = parseSourcesBlock(getMessageText(message));
+        const sourcesLine =
+          sources.length > 0
+            ? '\n\nSources: ' +
+              sources.map((s) => (s.title ? `[${s.title}](${s.url})` : s.url)).join(', ')
+            : '';
+        body = msgBody + sourcesLine;
+      }
+
+      lines.push(header, '', body, '');
+    }
+
+    const content = lines.join('\n');
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${memberName.toLowerCase().replace(/\s+/g, '-')}-${date}.md`;
+    a.click();
+    // Revoke after a tick — revoking synchronously can race with the browser's download initiation
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  };
+
   // Amber dot on the Synthesize button when there are AI responses not yet synthesized
   const hasUnsynthesized = (() => {
     if (!historyLoaded) return false;
@@ -918,6 +980,17 @@ export function ChatView({
               )}
             </div>
           )}
+          {historyLoaded && messages.length > 0 && (
+            <button
+              type="button"
+              disabled={isStreaming}
+              onClick={handleDownloadTranscript}
+              className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+              aria-label="Download transcript"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onToggleContext && (
             <button
               type="button"
@@ -953,23 +1026,34 @@ export function ChatView({
               {isSubmitted ? 'analyzing' : status === 'streaming' ? 'generating' : 'online'}
             </ChromeLabel>
           </div>
-          <div className="relative">
+          <div className="flex items-center gap-1">
+            <div className="relative">
+              <button
+                type="button"
+                disabled={isStreaming || synthesizing}
+                onClick={handleSynthesize}
+                className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+                aria-label="Synthesize decisions and tasks"
+              >
+                {synthesizing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+              </button>
+              {hasUnsynthesized && !synthesizing && (
+                <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
+              )}
+            </div>
             <button
               type="button"
-              disabled={isStreaming || synthesizing}
-              onClick={handleSynthesize}
+              disabled={isStreaming}
+              onClick={handleDownloadTranscript}
               className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
-              aria-label="Synthesize decisions and tasks"
+              aria-label="Download transcript"
             >
-              {synthesizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
-              )}
+              <Download className="h-3.5 w-3.5" />
             </button>
-            {hasUnsynthesized && !synthesizing && (
-              <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
-            )}
           </div>
         </div>
       )}
