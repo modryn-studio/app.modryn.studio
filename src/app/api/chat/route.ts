@@ -491,7 +491,13 @@ export async function POST(req: Request): Promise<Response> {
         if (transcript && conversationId && memberId) {
           try {
             await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
-            await extractAndStoreOrgFacts(transcript, conversationId, memberId, projectId);
+            const { usage: orgUsage } = await extractAndStoreOrgFacts(transcript, conversationId, memberId, projectId);
+            const orgCost = ((orgUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((orgUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+            log.info(ctx.reqId, 'Org extraction cost', {
+              input_tokens: orgUsage?.inputTokens,
+              output_tokens: orgUsage?.outputTokens,
+              total_cost_usd: orgCost.toFixed(5),
+            });
           } catch (e) {
             log.err(ctx, e);
           }
@@ -504,7 +510,7 @@ export async function POST(req: Request): Promise<Response> {
 
         if (transcript && conversationId && memberId && text && meetsThreshold) {
           try {
-            const { text: summary } = await generateText({
+            const { text: summary, usage: episodicUsage } = await generateText({
               model: anthropic('claude-haiku-4-5-20251001'),
               messages: [
                 {
@@ -514,6 +520,12 @@ export async function POST(req: Request): Promise<Response> {
               ],
               maxOutputTokens: 600,
               temperature: 0.3,
+            });
+            const episodicCost = ((episodicUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((episodicUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+            log.info(ctx.reqId, 'Episodic summary cost', {
+              input_tokens: episodicUsage?.inputTokens,
+              output_tokens: episodicUsage?.outputTokens,
+              total_cost_usd: episodicCost.toFixed(5),
             });
 
             // Upsert — one episodic summary per conversation, updated as it grows.
@@ -559,7 +571,7 @@ export async function POST(req: Request): Promise<Response> {
               const episodicCorpus = allEpisodic
                 .map((r: Record<string, string>) => r.summary)
                 .join('\n\n---\n\n');
-              const { text: semanticSummary } = await generateText({
+              const { text: semanticSummary, usage: semanticUsage } = await generateText({
                 model: anthropic('claude-haiku-4-5-20251001'),
                 messages: [
                   {
@@ -574,7 +586,8 @@ export async function POST(req: Request): Promise<Response> {
                 INSERT INTO member_memory (member_id, conversation_id, summary, memory_type)
                 VALUES (${memberId}, NULL, ${semanticSummary}, 'semantic')
               `;
-              log.info(ctx.reqId, 'Semantic memory written', { memberId, episodicCount: count });
+              const semanticCost = ((semanticUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((semanticUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+              log.info(ctx.reqId, 'Semantic memory written', { memberId, episodicCount: count, input_tokens: semanticUsage?.inputTokens, output_tokens: semanticUsage?.outputTokens, total_cost_usd: semanticCost.toFixed(5) });
             }
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed

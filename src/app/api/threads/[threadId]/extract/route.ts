@@ -73,7 +73,7 @@ export async function POST(
       })
       .join('\n\n---\n\n');
 
-    const factsExtracted = await extractAndStoreOrgFacts(
+    const { count: factsExtracted } = await extractAndStoreOrgFacts(
       transcript,
       threadId,
       memberId,

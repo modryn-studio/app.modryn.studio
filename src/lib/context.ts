@@ -136,9 +136,9 @@ export async function extractAndStoreOrgFacts(
   conversationId: string,
   memberId: string,
   projectId?: string
-): Promise<number> {
+): Promise<{ count: number; usage?: { inputTokens?: number; outputTokens?: number } }> {
   try {
-    const { output } = await generateText({
+    const { output, usage } = await generateText({
       model: anthropic('claude-haiku-4-5-20251001'),
       output: Output.object({
         schema: z.object({
@@ -157,7 +157,7 @@ export async function extractAndStoreOrgFacts(
     });
 
     const facts = output?.facts ?? [];
-    if (facts.length === 0) return 0;
+    if (facts.length === 0) return { count: 0, usage };
 
     for (const content of facts) {
       await sql`
@@ -165,13 +165,13 @@ export async function extractAndStoreOrgFacts(
         VALUES (${content}, ${conversationId}, ${memberId}, 'auto', ${projectId ?? null})
       `;
     }
-    return facts.length;
+    return { count: facts.length, usage };
   } catch (err) {
     // Both error types mean Haiku produced no usable structured output — degrade gracefully.
     // NoOutputGeneratedError: model returned no content at all (e.g. large web-search transcripts).
     // NoObjectGeneratedError: model returned content but no valid JSON object.
     if (err instanceof NoObjectGeneratedError || err instanceof NoOutputGeneratedError) {
-      return 0;
+      return { count: 0 };
     }
     throw err;
   }
