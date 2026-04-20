@@ -319,35 +319,43 @@ export async function POST(req: Request): Promise<Response> {
       : [];
     const incomingContent = [...incomingImageParts, ...incomingTextParts];
 
+    // Mark the last history message with a cache breakpoint so Anthropic caches the
+    // accumulated conversation prefix. On subsequent turns the prefix is a cache read
+    // ($0.30/M) instead of a normal input ($3.00/M).
+    const historyMessages = selectedRows
+      .map((row, idx) => {
+        const isLast = idx === selectedRows.length - 1;
+        const cacheBreak = isLast
+          ? { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
+          : {};
+        if (row.role === 'assistant') {
+          return { role: 'assistant' as const, content: stripSources(row.content), ...cacheBreak };
+        }
+        // User — may contain images stored as JSON parts array
+        try {
+          const parsed = JSON.parse(row.content);
+          if (Array.isArray(parsed)) {
+            const parts = parsed
+              .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
+                p.type === 'image' && p.url
+                  ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
+                  : { type: 'text' as const, text: p.text ?? '' }
+              )
+              .filter(
+                (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
+              );
+            if (parts.length > 0) return { role: 'user' as const, content: parts, ...cacheBreak };
+          }
+        } catch {
+          /* plain text — fall through */
+        }
+        const t = stripSources(row.content);
+        return t ? { role: 'user' as const, content: t, ...cacheBreak } : null;
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+
     const coreMessages = [
-      // History — selectedRows is in chronological order after the .reverse() above
-      ...selectedRows
-        .map((row) => {
-          if (row.role === 'assistant') {
-            return { role: 'assistant' as const, content: stripSources(row.content) };
-          }
-          // User — may contain images stored as JSON parts array
-          try {
-            const parsed = JSON.parse(row.content);
-            if (Array.isArray(parsed)) {
-              const parts = parsed
-                .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
-                  p.type === 'image' && p.url
-                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
-                    : { type: 'text' as const, text: p.text ?? '' }
-                )
-                .filter(
-                  (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
-                );
-              if (parts.length > 0) return { role: 'user' as const, content: parts };
-            }
-          } catch {
-            /* plain text — fall through */
-          }
-          const t = stripSources(row.content);
-          return t ? { role: 'user' as const, content: t } : null;
-        })
-        .filter((m): m is NonNullable<typeof m> => m !== null),
+      ...historyMessages,
       // Incoming user message
       {
         role: 'user' as const,
@@ -369,16 +377,42 @@ export async function POST(req: Request): Promise<Response> {
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
-      system: systemPrompt,
-      messages: coreMessages,
+      // System prompt injected as a typed system message with a 1h cache TTL.
+      // Anthropic caches this block across turns — cache reads cost $0.30/M vs $3.00/M normal.
+      // Minimum cacheable size for Sonnet 4.6 is 1024 tokens; assembled prompt is ~5k+.
+      messages: [
+        {
+          role: 'system' as const,
+          content: systemPrompt,
+          providerOptions: {
+            anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+          },
+        },
+        ...coreMessages,
+      ],
       maxOutputTokens: 800,
       temperature: 0.7,
       ...(tools && { tools }),
-      async onFinish({ text, usage, sources }) {
-        const inputCost = ((usage?.inputTokens ?? 0) / 1_000_000) * 3;
+      async onFinish({ text, usage, sources, providerMetadata }) {
+        // Prompt caching splits input into three buckets with different rates:
+        //   cache write: $3.75/M — paying to store (25% premium over normal)
+        //   cache read:  $0.30/M — already cached (90% discount)
+        //   normal:      $3.00/M
+        const anthropicMeta = providerMetadata?.anthropic as
+          | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+          | undefined;
+        const cacheWrite = anthropicMeta?.cacheCreationInputTokens ?? 0;
+        const cacheRead = anthropicMeta?.cacheReadInputTokens ?? 0;
+        const normalInput = (usage?.inputTokens ?? 0) - cacheWrite - cacheRead;
+        const inputCost =
+          (normalInput / 1_000_000) * 3 +
+          (cacheWrite / 1_000_000) * 3.75 +
+          (cacheRead / 1_000_000) * 0.3;
         const outputCost = ((usage?.outputTokens ?? 0) / 1_000_000) * 15;
         log.info(ctx.reqId, 'Stream complete', {
           input_tokens: usage?.inputTokens,
+          ...(cacheWrite > 0 && { cache_write_tokens: cacheWrite }),
+          ...(cacheRead > 0 && { cache_read_tokens: cacheRead }),
           output_tokens: usage?.outputTokens,
           input_cost_usd: inputCost.toFixed(5),
           output_cost_usd: outputCost.toFixed(5),
