@@ -243,17 +243,63 @@ export async function POST(
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
-      system: systemPrompt,
+      // Cache the assembled system prompt at 1h TTL. Member persona + company context
+      // dominate the token count and are stable per member across calls within the hour.
+      // The transcript (user message) changes every call and is not cached.
       messages: [
         {
-          role: 'user',
+          role: 'system' as const,
+          content: systemPrompt,
+          providerOptions: {
+            anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+          },
+        },
+        {
+          role: 'user' as const,
           content: `The full thread so far:\n\n${transcript}\n\nContribute your response.`,
         },
       ],
       maxOutputTokens: 800,
       temperature: 0.7,
       ...(tools && { tools }),
-      async onFinish({ text, sources }) {
+      async onFinish({ text, usage, sources, providerMetadata }) {
+        // Prompt caching splits input into four buckets with different rates:
+        //   1h cache write: $6.00/M  — 2× base (static system prompt, charged on first call)
+        //   cache read:     $0.30/M  — 0.1× base (90% discount when cache hits)
+        //   normal:         $3.00/M  — base rate
+        const anthropicMeta = providerMetadata?.anthropic as
+          | {
+              usage?: {
+                cache_creation?: {
+                  ephemeral_1h_input_tokens?: number;
+                  ephemeral_5m_input_tokens?: number;
+                };
+              };
+            }
+          | undefined;
+        const cacheRead = usage?.inputTokenDetails?.cacheReadTokens ?? 0;
+        const rawCacheCreation = anthropicMeta?.usage?.cache_creation;
+        const cacheWrite1h = rawCacheCreation?.ephemeral_1h_input_tokens ?? 0;
+        const cacheWrite5m = rawCacheCreation?.ephemeral_5m_input_tokens ?? 0;
+        const totalCacheWrite = cacheWrite1h + cacheWrite5m;
+        const normalInput = (usage?.inputTokens ?? 0) - totalCacheWrite - cacheRead;
+        const inputCost =
+          (normalInput / 1_000_000) * 3 +
+          (cacheWrite1h / 1_000_000) * 6 +
+          (cacheWrite5m / 1_000_000) * 3.75 +
+          (cacheRead / 1_000_000) * 0.3;
+        const outputCost = ((usage?.outputTokens ?? 0) / 1_000_000) * 15;
+        log.info(ctx.reqId, 'Stream complete', {
+          memberId,
+          input_tokens: usage?.inputTokens,
+          ...(cacheWrite1h > 0 && { cache_write_1h_tokens: cacheWrite1h }),
+          ...(cacheWrite5m > 0 && { cache_write_5m_tokens: cacheWrite5m }),
+          ...(cacheRead > 0 && { cache_read_tokens: cacheRead }),
+          output_tokens: usage?.outputTokens,
+          input_cost_usd: inputCost.toFixed(5),
+          output_cost_usd: outputCost.toFixed(5),
+          total_cost_usd: (inputCost + outputCost).toFixed(5),
+        });
         // DB write happens inside onFinish — the stream does not close until this
         // resolves. This guarantees that when the client reads stream-done and fires
         // the next member's respond call, the history query sees the completed row.

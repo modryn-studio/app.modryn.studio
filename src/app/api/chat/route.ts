@@ -211,40 +211,67 @@ export async function POST(req: Request): Promise<Response> {
       selectedRows.push(row);
       historyTokensUsed += tokens;
     }
-    const dbMessages = selectedRows
-      .reverse() // back to chronological
-      .map((row) => {
-        // User messages containing images are stored as a JSON parts array.
-        // Parse it; fall back to plain text for all other messages.
-        let parts: { type: string; text?: string; image?: URL; mediaType?: string }[] = [
-          { type: 'text' as const, text: stripSources(row.content) },
-        ];
-        if (row.role === 'user') {
-          try {
-            const parsed = JSON.parse(row.content);
-            if (Array.isArray(parsed)) {
-              parts = parsed
-                .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
-                  p.type === 'image' && p.url
-                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
-                    : { type: 'text' as const, text: p.text ?? '' }
-                )
-                // Filter empty text parts so Anthropic never receives blank text blocks in history.
-                .filter(
-                  (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
-                );
-            }
-          } catch {
-            /* plain text — keep default */
-          }
+    const chronologicalRows = [...selectedRows].reverse(); // chronological order
+
+    // Only keep real image parts for the 3 most recent user messages that contain images.
+    // Older image messages are replaced with a "[image]" text stub — the model saw the image
+    // at the time and its response is already in the history. Re-sending the blob tokens
+    // on every subsequent call balloons the 5m cache write bucket significantly.
+    const IMAGE_KEEP_RECENT = 3;
+    let imageUserMsgsSeen = 0;
+    // Walk newest→oldest to count image-bearing user rows, then mark which rows keep images.
+    const keepImageSet = new Set<string>();
+    for (let i = chronologicalRows.length - 1; i >= 0; i--) {
+      const row = chronologicalRows[i];
+      if (row.role !== 'user') continue;
+      try {
+        const parsed = JSON.parse(row.content);
+        if (Array.isArray(parsed) && parsed.some((p: { type: string }) => p.type === 'image')) {
+          imageUserMsgsSeen++;
+          if (imageUserMsgsSeen <= IMAGE_KEEP_RECENT) keepImageSet.add(row.id);
         }
-        return {
-          id: row.id,
-          role: row.role as 'user' | 'assistant',
-          parts,
-          createdAt: new Date(row.created_at),
-        };
-      });
+      } catch {
+        /* plain text row — no images */
+      }
+    }
+
+    const dbMessages = chronologicalRows.map((row) => {
+      // User messages containing images are stored as a JSON parts array.
+      // Parse it; fall back to plain text for all other messages.
+      let parts: { type: string; text?: string; image?: URL; mediaType?: string }[] = [
+        { type: 'text' as const, text: stripSources(row.content) },
+      ];
+      if (row.role === 'user') {
+        try {
+          const parsed = JSON.parse(row.content);
+          if (Array.isArray(parsed)) {
+            const keepImages = keepImageSet.has(row.id);
+            parts = parsed
+              .map((p: { type: string; text?: string; url?: string; contentType?: string }) => {
+                if (p.type === 'image' && p.url) {
+                  // Stub out old images to avoid re-paying blob token costs on every call.
+                  return keepImages
+                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
+                    : { type: 'text' as const, text: '[image]' };
+                }
+                return { type: 'text' as const, text: p.text ?? '' };
+              })
+              // Filter empty text parts so Anthropic never receives blank text blocks in history.
+              .filter(
+                (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
+              );
+          }
+        } catch {
+          /* plain text — keep default */
+        }
+      }
+      return {
+        id: row.id,
+        role: row.role as 'user' | 'assistant',
+        parts,
+        createdAt: new Date(row.created_at),
+      };
+    });
 
     const textFromIncoming =
       (message.parts ?? [])
@@ -329,25 +356,31 @@ export async function POST(req: Request): Promise<Response> {
     // Mark the last history message with a cache breakpoint so Anthropic caches the
     // accumulated conversation prefix. On subsequent turns the prefix is a cache read
     // ($0.30/M) instead of a normal input ($3.00/M).
-    const historyMessages = selectedRows
+    const historyMessages = chronologicalRows
       .map((row, idx) => {
-        const isLast = idx === selectedRows.length - 1;
+        const isLast = idx === chronologicalRows.length - 1;
         const cacheBreak = isLast
           ? { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
           : {};
         if (row.role === 'assistant') {
           return { role: 'assistant' as const, content: stripSources(row.content), ...cacheBreak };
         }
-        // User — may contain images stored as JSON parts array
+        // User — may contain images stored as JSON parts array.
+        // Apply the same image-stubbing logic as dbMessages: only keep real image blobs
+        // for the 3 most recent image-bearing messages (keepImageSet).
         try {
           const parsed = JSON.parse(row.content);
           if (Array.isArray(parsed)) {
+            const keepImages = keepImageSet.has(row.id);
             const parts = parsed
-              .map((p: { type: string; text?: string; url?: string; contentType?: string }) =>
-                p.type === 'image' && p.url
-                  ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
-                  : { type: 'text' as const, text: p.text ?? '' }
-              )
+              .map((p: { type: string; text?: string; url?: string; contentType?: string }) => {
+                if (p.type === 'image' && p.url) {
+                  return keepImages
+                    ? { type: 'image' as const, image: new URL(p.url), mediaType: p.contentType }
+                    : { type: 'text' as const, text: '[image]' };
+                }
+                return { type: 'text' as const, text: p.text ?? '' };
+              })
               .filter(
                 (p: { type: string; text?: string }) => !(p.type === 'text' && !p.text?.trim())
               );

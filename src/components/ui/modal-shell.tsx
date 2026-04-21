@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/cn';
-import { SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 // Shared input field style for all sheets — underline variant on dark sidebar chrome.
 export const SHEET_FIELD_CLASS =
@@ -30,6 +30,7 @@ export function ModalShell({ title, width = 'w-96', children, className }: Modal
         <SheetTitle className="text-sidebar-muted text-[13px] font-medium tracking-widest uppercase">
           {title}
         </SheetTitle>
+        <SheetDescription className="sr-only">{title}</SheetDescription>
       </SheetHeader>
       {children}
     </SheetContent>
