@@ -7,6 +7,29 @@
 
 ---
 
+## Prompt Caching
+
+All DM and thread requests use Anthropic prompt caching to reduce cost on repeated turns.
+
+**Two cache tiers:**
+
+- **1h cache (static)** — the assembled system prompt (all 8 layers) is marked with a 1h TTL `cacheControl` breakpoint. Written once on the first message; subsequent messages in the same session read it at $0.30/M instead of $3.00/M.
+- **5m cache (dynamic)** — the DB message history prefix is marked with a 5m TTL `cacheControl` breakpoint. Rewritten each turn (history grows), but any overlap from the previous turn reads as a cache hit.
+
+**Cost rates (Sonnet 4.6):**
+
+| Token type       | Rate     |
+| ---------------- | -------- |
+| Normal input     | $3.00/M  |
+| Cache write — 1h | $6.00/M  |
+| Cache write — 5m | $3.75/M  |
+| Cache read       | $0.30/M  |
+| Output           | $15.00/M |
+
+**Cost logging** — `onFinish` in `/api/chat/route.ts` logs a `Stream complete` entry per request with: `input_tokens`, `cache_write_1h_tokens` (if > 0), `cache_write_5m_tokens` (if > 0), `cache_read_tokens` (if > 0), `output_tokens`, `input_cost_usd`, `output_cost_usd`, `total_cost_usd`. Haiku memory jobs log separately as `Org extraction cost` and `Episodic summary cost`. All visible in `dev.log`.
+
+---
+
 ## System Prompt — Same structure for both DMs and threads
 
 Built from 8 priority-ordered layers with a 12k token budget. Lower-priority layers are dropped first if over budget.

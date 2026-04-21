@@ -9,7 +9,7 @@ import {
   getMemberTasks,
   extractAndStoreOrgFacts,
 } from '@/lib/context';
-import { assembleContext, estimateTokens } from '@/lib/tokens';
+import { assembleContext, estimateTokens, DEFAULT_BUDGET } from '@/lib/tokens';
 import sql from '@/lib/db';
 import { auth } from '@/lib/auth/server';
 import '@/lib/env'; // validate required env vars on cold start
@@ -118,48 +118,56 @@ export async function POST(req: Request): Promise<Response> {
 
     const formatInstruction = surface ? ROUTE_CONTEXT[surface] : null;
 
-    // Priority order: 1=format, 2=system prompt, 3=company context, 4=project context,
-    // 5=member tasks, 6=semantic, 7=org memory, 8=episodic
-    const systemPrompt = assembleContext([
-      ...(formatInstruction
-        ? [
-            {
-              label: 'format',
-              content: `## Format Instructions\n\n${formatInstruction}`,
-              priority: 1,
-            },
-          ]
-        : []),
-      { label: 'system', content: memberSystemPrompt, priority: 2 },
-      ...(companyContext
-        ? [{ label: 'company', content: `## Company Context\n\n${companyContext}`, priority: 3 }]
-        : []),
-      ...(projectContext ? [{ label: 'project', content: projectContext, priority: 4 }] : []),
-      ...(memberTasks
-        ? [{ label: 'tasks', content: memberTasks, priority: 5, prunable: true }]
-        : []),
-      ...(semanticSegments
-        ? [
-            {
-              label: 'semantic',
-              content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
-              priority: 6,
-              prunable: true,
-            },
-          ]
-        : []),
-      ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 7, prunable: true }] : []),
-      ...(episodicSegments
-        ? [
-            {
-              label: 'episodic',
-              content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
-              priority: 8,
-              prunable: true,
-            },
-          ]
-        : []),
-    ]);
+    // Build static system prompt: member system prompt + company context only.
+    // These layers are identical per member across all calls → reliable 1h cache hits.
+    // Separated from dynamic context so the cache breakpoint sits on stable content.
+    const staticContent = [
+      memberSystemPrompt,
+      ...(companyContext ? [`## Company Context\n\n${companyContext}`] : []),
+    ].join('\n\n---\n\n');
+
+    // Build dynamic system prompt: everything that changes per-request.
+    // No cache breakpoint here — content varies each turn so caching would always miss.
+    const dynamicBudget = DEFAULT_BUDGET - estimateTokens(staticContent);
+    const dynamicContent = assembleContext(
+      [
+        ...(formatInstruction
+          ? [
+              {
+                label: 'format',
+                content: `## Format Instructions\n\n${formatInstruction}`,
+                priority: 1,
+              },
+            ]
+          : []),
+        ...(projectContext ? [{ label: 'project', content: projectContext, priority: 4 }] : []),
+        ...(memberTasks
+          ? [{ label: 'tasks', content: memberTasks, priority: 5, prunable: true }]
+          : []),
+        ...(semanticSegments
+          ? [
+              {
+                label: 'semantic',
+                content: `## Member Observations (behavioural patterns, oldest first)\n\n${semanticSegments}`,
+                priority: 6,
+                prunable: true,
+              },
+            ]
+          : []),
+        ...(orgMemory ? [{ label: 'org', content: orgMemory, priority: 7, prunable: true }] : []),
+        ...(episodicSegments
+          ? [
+              {
+                label: 'episodic',
+                content: `## Session Memory (previous conversations, oldest first)\n\n${episodicSegments}`,
+                priority: 8,
+                prunable: true,
+              },
+            ]
+          : []),
+      ],
+      dynamicBudget > 0 ? dynamicBudget : DEFAULT_BUDGET
+    );
 
     log.info(ctx.reqId, 'Context layers (estimated tokens)', {
       ...(formatInstruction ? { format: estimateTokens(formatInstruction) } : {}),
@@ -170,7 +178,8 @@ export async function POST(req: Request): Promise<Response> {
       semantic: semanticSegments ? estimateTokens(semanticSegments) : 0,
       org_memory: orgMemory ? estimateTokens(orgMemory) : 0,
       episodic: episodicSegments ? estimateTokens(episodicSegments) : 0,
-      assembled_tokens_est: estimateTokens(systemPrompt),
+      static_tokens_est: estimateTokens(staticContent),
+      dynamic_tokens_est: dynamicContent ? estimateTokens(dynamicContent) : 0,
     });
 
     // Build allMessages: DB history (newest-first, token-budget-limited) + the new incoming message.
@@ -279,8 +288,6 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     // Save the incoming user message to DB. Skip on retry — it already exists.
-
-    // Save the incoming user message to DB. Skip on retry — it already exists.
     if (conversationId && message?.role === 'user' && !isRetry) {
       const text = textFromIncoming;
       // When images are attached, store as a JSON parts array for history reconstruction.
@@ -377,41 +384,64 @@ export async function POST(req: Request): Promise<Response> {
 
     const result = streamText({
       model: anthropic('claude-sonnet-4-6'),
-      // System prompt injected as a typed system message with a 1h cache TTL.
-      // Anthropic caches this block across turns — cache reads cost $0.30/M vs $3.00/M normal.
-      // Minimum cacheable size for Sonnet 4.6 is 1024 tokens; assembled prompt is ~5k+.
+      // Two-tier system prompt strategy for prompt caching:
+      // 1. Static tier (1h cache TTL): member system prompt + company context.
+      //    Content is identical per member across all calls → reliable cache hits.
+      //    Minimum cacheable size for Sonnet 4.6 is 2048 tokens; static prompt is ~8k+.
+      // 2. Dynamic tier (no cache): format, project, tasks, memory.
+      //    Varies per request — caching would always miss and cost 2× at 1h rate.
       messages: [
         {
           role: 'system' as const,
-          content: systemPrompt,
+          content: staticContent,
           providerOptions: {
             anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
           },
         },
+        ...(dynamicContent ? [{ role: 'system' as const, content: dynamicContent }] : []),
         ...coreMessages,
       ],
       maxOutputTokens: 800,
       temperature: 0.7,
       ...(tools && { tools }),
       async onFinish({ text, usage, sources, providerMetadata }) {
-        // Prompt caching splits input into three buckets with different rates:
-        //   cache write: $3.75/M — paying to store (25% premium over normal)
-        //   cache read:  $0.30/M — already cached (90% discount)
-        //   normal:      $3.00/M
+        // Prompt caching splits input into four buckets with different rates:
+        //   1h cache write: $6.00/M  — 2× base (static system prompt, charged on first call)
+        //   5m cache write: $3.75/M  — 1.25× base (history prefix, written each turn)
+        //   cache read:     $0.30/M  — 0.1× base (90% discount when cache hits)
+        //   normal:         $3.00/M  — base rate
         const anthropicMeta = providerMetadata?.anthropic as
-          | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+          | {
+              cacheCreationInputTokens?: number;
+              usage?: {
+                // cache_read_input_tokens is snake_case in the raw usage JSONObject.
+                // The SDK surfaces this via usage.inputTokenDetails.cacheReadTokens (preferred).
+                cache_read_input_tokens?: number;
+                cache_creation?: {
+                  ephemeral_1h_input_tokens?: number;
+                  ephemeral_5m_input_tokens?: number;
+                };
+              };
+            }
           | undefined;
-        const cacheWrite = anthropicMeta?.cacheCreationInputTokens ?? 0;
-        const cacheRead = anthropicMeta?.cacheReadInputTokens ?? 0;
-        const normalInput = (usage?.inputTokens ?? 0) - cacheWrite - cacheRead;
+        // SDK normalizes cache read tokens into inputTokenDetails — use that over raw providerMetadata.
+        const cacheRead = usage?.inputTokenDetails?.cacheReadTokens ?? 0;
+        // Raw Anthropic usage breaks cache writes by TTL — SDK surface combines them.
+        const rawCacheCreation = anthropicMeta?.usage?.cache_creation;
+        const cacheWrite1h = rawCacheCreation?.ephemeral_1h_input_tokens ?? 0;
+        const cacheWrite5m = rawCacheCreation?.ephemeral_5m_input_tokens ?? 0;
+        const totalCacheWrite = cacheWrite1h + cacheWrite5m;
+        const normalInput = (usage?.inputTokens ?? 0) - totalCacheWrite - cacheRead;
         const inputCost =
           (normalInput / 1_000_000) * 3 +
-          (cacheWrite / 1_000_000) * 3.75 +
+          (cacheWrite1h / 1_000_000) * 6 +
+          (cacheWrite5m / 1_000_000) * 3.75 +
           (cacheRead / 1_000_000) * 0.3;
         const outputCost = ((usage?.outputTokens ?? 0) / 1_000_000) * 15;
         log.info(ctx.reqId, 'Stream complete', {
           input_tokens: usage?.inputTokens,
-          ...(cacheWrite > 0 && { cache_write_tokens: cacheWrite }),
+          ...(cacheWrite1h > 0 && { cache_write_1h_tokens: cacheWrite1h }),
+          ...(cacheWrite5m > 0 && { cache_write_5m_tokens: cacheWrite5m }),
           ...(cacheRead > 0 && { cache_read_tokens: cacheRead }),
           output_tokens: usage?.outputTokens,
           input_cost_usd: inputCost.toFixed(5),
@@ -491,8 +521,15 @@ export async function POST(req: Request): Promise<Response> {
         if (transcript && conversationId && memberId) {
           try {
             await sql`DELETE FROM org_memory WHERE source_conversation_id = ${conversationId}`;
-            const { usage: orgUsage } = await extractAndStoreOrgFacts(transcript, conversationId, memberId, projectId);
-            const orgCost = ((orgUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((orgUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+            const { usage: orgUsage } = await extractAndStoreOrgFacts(
+              transcript,
+              conversationId,
+              memberId,
+              projectId
+            );
+            const orgCost =
+              ((orgUsage?.inputTokens ?? 0) / 1_000_000) * 1 +
+              ((orgUsage?.outputTokens ?? 0) / 1_000_000) * 5;
             log.info(ctx.reqId, 'Org extraction cost', {
               input_tokens: orgUsage?.inputTokens,
               output_tokens: orgUsage?.outputTokens,
@@ -521,7 +558,9 @@ export async function POST(req: Request): Promise<Response> {
               maxOutputTokens: 600,
               temperature: 0.3,
             });
-            const episodicCost = ((episodicUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((episodicUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+            const episodicCost =
+              ((episodicUsage?.inputTokens ?? 0) / 1_000_000) * 1 +
+              ((episodicUsage?.outputTokens ?? 0) / 1_000_000) * 5;
             log.info(ctx.reqId, 'Episodic summary cost', {
               input_tokens: episodicUsage?.inputTokens,
               output_tokens: episodicUsage?.outputTokens,
@@ -586,8 +625,16 @@ export async function POST(req: Request): Promise<Response> {
                 INSERT INTO member_memory (member_id, conversation_id, summary, memory_type)
                 VALUES (${memberId}, NULL, ${semanticSummary}, 'semantic')
               `;
-              const semanticCost = ((semanticUsage?.inputTokens ?? 0) / 1_000_000) * 1 + ((semanticUsage?.outputTokens ?? 0) / 1_000_000) * 5;
-              log.info(ctx.reqId, 'Semantic memory written', { memberId, episodicCount: count, input_tokens: semanticUsage?.inputTokens, output_tokens: semanticUsage?.outputTokens, total_cost_usd: semanticCost.toFixed(5) });
+              const semanticCost =
+                ((semanticUsage?.inputTokens ?? 0) / 1_000_000) * 1 +
+                ((semanticUsage?.outputTokens ?? 0) / 1_000_000) * 5;
+              log.info(ctx.reqId, 'Semantic memory written', {
+                memberId,
+                episodicCount: count,
+                input_tokens: semanticUsage?.inputTokens,
+                output_tokens: semanticUsage?.outputTokens,
+                total_cost_usd: semanticCost.toFixed(5),
+              });
             }
           } catch (e) {
             // Summarization failure must not surface to the user — response is already streamed

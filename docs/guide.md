@@ -77,7 +77,7 @@ After all members respond, use **Synthesize** (top-right) to extract decisions a
 | Memory (episodic, semantic, org)            | ✅ Works                     |
 | Decision/task synthesis (DM + threads)      | ✅ Works                     |
 | Group threads (multi-member, sequential)    | ✅ Works                     |
-| Michelle web search (DMs + threads + tasks) | ✅ Works                     |
+| Michelle web search (DMs + threads only)    | ✅ Works                     |
 | Task board (assign, execute, review output) | ✅ Works                     |
 | Inbox                                       | ⏳ UI only — no messages yet |
 | Member-initiated async messages             | ❌ Not built                 |

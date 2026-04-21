@@ -23,6 +23,7 @@ mode: standalone-subdomain — `basePath` must be absent from `next.config.ts`.
   - `claude-sonnet-4-6` — main member responses (DMs + threads + tasks)
   - `claude-haiku-4-5-20251001` — episodic summarization, semantic memory, org fact extraction
   - `Output.object()` + `NoObjectGeneratedError` handling — schema-enforced structured extraction, no manual JSON parsing
+  - Prompt caching active on all DM + thread requests: system prompt marked with 1h TTL `cacheControl` (static), message history prefix marked with 5m TTL (dynamic). `onFinish` logs per-request token breakdown + USD cost for Sonnet and Haiku jobs to `dev.log`.
 - `@/lib/tokens.ts` — `assembleContext()` builds the system prompt from priority-ordered layers with a token budget; lower-priority layers pruned first. DMs + threads: 12k budget, 8 layers (format → system → company → project → tasks → semantic → org → episodic). Tasks: 8k budget, 5 layers (format → system → company → project → org) — no episodic/semantic.
 - `@/lib/context.ts` — `getMemberTasks()` injects a member's active task queue (pending/in_progress/blocked, LIMIT 5) + recently completed task titles (LIMIT 3) at priority 5. Returns `null` if no tasks → layer silently skipped. `getProjectContext(projectId)` returns project name + context field at priority 4, wrapped in `<project-context>` tags.
 - Memory tiers (all in `member_memory` / `org_memory` tables):

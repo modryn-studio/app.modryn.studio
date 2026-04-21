@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { generateText, Output, NoObjectGeneratedError, NoOutputGeneratedError } from 'ai';
+import { generateText, generateObject, NoObjectGeneratedError } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import sql from '@/lib/db';
@@ -138,16 +138,14 @@ export async function extractAndStoreOrgFacts(
   projectId?: string
 ): Promise<{ count: number; usage?: { inputTokens?: number; outputTokens?: number } }> {
   try {
-    const { output, usage } = await generateText({
+    const { object, usage } = await generateObject({
       model: anthropic('claude-haiku-4-5-20251001'),
-      output: Output.object({
-        schema: z.object({
-          facts: z
-            .array(z.string().min(11))
-            .describe(
-              'Company-level facts only: decisions made, commitments stated, constraints identified, open questions. Each string is one fact. Empty array if nothing qualifies.'
-            ),
-        }),
+      schema: z.object({
+        facts: z
+          .array(z.string().min(11))
+          .describe(
+            'Company-level facts only: decisions made, commitments stated, constraints identified, open questions. Each string is one fact. Empty array if nothing qualifies.'
+          ),
       }),
       system:
         'Extract only company-level facts: decisions made, commitments stated, constraints named, open questions that affect company direction. Do not extract individual member positions, opinions, or arguments. A member advocating for an approach in a discussion is not a company decision. Only extract what the company has decided or committed to, not what individuals proposed. Return facts as neutral statements without attributing them to specific team members. Write "The team identified X" or "An open question exists around Y" — never "[Name] proposed..." or "[Name] argued..." Return an empty facts array if nothing qualifies.',
@@ -156,7 +154,7 @@ export async function extractAndStoreOrgFacts(
       temperature: 0.2,
     });
 
-    const facts = output?.facts ?? [];
+    const facts = object?.facts ?? [];
     if (facts.length === 0) return { count: 0, usage };
 
     for (const content of facts) {
@@ -167,11 +165,10 @@ export async function extractAndStoreOrgFacts(
     }
     return { count: facts.length, usage };
   } catch (err) {
-    // Both error types mean Haiku produced no usable structured output — degrade gracefully.
-    // NoOutputGeneratedError: model returned no content at all (e.g. large web-search transcripts).
     // NoObjectGeneratedError: model returned content but no valid JSON object.
-    if (err instanceof NoObjectGeneratedError || err instanceof NoOutputGeneratedError) {
-      return { count: 0 };
+    // Return usage so cost logging works even when extraction produces no facts.
+    if (err instanceof NoObjectGeneratedError) {
+      return { count: 0, usage: err.usage };
     }
     throw err;
   }
