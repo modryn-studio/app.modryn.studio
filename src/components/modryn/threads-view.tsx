@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Download,
   Eye,
   EyeOff,
   FileText,
@@ -279,6 +280,58 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     navigator.clipboard.writeText(text);
     setCopiedMsgId(id);
     setTimeout(() => setCopiedMsgId((prev) => (prev === id ? null : prev)), 1500);
+  }
+
+  function handleDownloadTranscript() {
+    if (!selected) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const founderName = profile?.name || 'Luke';
+    const slug = selected.thread.title
+      ? selected.thread.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      : 'thread';
+
+    const lines: string[] = [
+      `# Thread: ${selected.thread.title || 'Untitled'}`,
+      `Exported: ${new Date().toLocaleString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    for (const msg of selected.messages) {
+      const timestamp = new Date(msg.created_at).toLocaleString();
+      const label = msg.sender_id === 'founder' ? founderName : (msg.sender_name ?? msg.sender_id);
+      const header = `**${label}** — ${timestamp}`;
+
+      let body = '';
+      if (msg.sender_id === 'founder') {
+        const { body: msgBody, attachments } = parseMessageContent(msg.content);
+        const attachmentNotices = attachments.map((a) => `[Attachment: ${a.name}]`).join('\n');
+        body = [msgBody, attachmentNotices].filter(Boolean).join('\n');
+      } else {
+        const { body: msgBody, sources } = parseSourcesBlock(msg.content);
+        const sourcesLine =
+          sources.length > 0
+            ? '\n\nSources: ' +
+              sources.map((s) => (s.title ? `[${s.title}](${s.url})` : s.url)).join(', ')
+            : '';
+        body = msgBody + sourcesLine;
+      }
+
+      lines.push(header, '', body, '');
+    }
+
+    const content = lines.join('\n');
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug}-${date}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   async function handleDeleteThread(threadId: string) {
@@ -1028,6 +1081,17 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                 <span className="bg-secondary absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full" />
               )}
             </div>
+            {selected.messages.length > 0 && (
+              <button
+                type="button"
+                disabled={isSequenceRunning}
+                onClick={handleDownloadTranscript}
+                className="text-panel-faint hover:text-panel-muted shrink-0 rounded-sm p-1 transition-colors disabled:opacity-30"
+                aria-label="Download transcript"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Respond order strip */}
