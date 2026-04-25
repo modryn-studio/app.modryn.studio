@@ -220,6 +220,10 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [replyValue, setReplyValue] = useDraft(`thread-${selected?.thread.id ?? 'none'}`);
   const [sendingReply, setSendingReply] = useState(false);
+  const [replyAttachedFiles, setReplyAttachedFiles] = useState<{ name: string; content: string }[]>(
+    []
+  );
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
   const [replyExcluded, setReplyExcluded] = useState<Set<string>>(new Set());
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
@@ -668,9 +672,25 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   // ——— Reply ———
 
   async function handleSendReply() {
-    if (!replyValue.trim() || respondingMemberId || !selected || sendingReply) return;
-    const content = replyValue.trim();
+    if (
+      (!replyValue.trim() && replyAttachedFiles.length === 0) ||
+      respondingMemberId ||
+      !selected ||
+      sendingReply
+    )
+      return;
+    const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
+    const parts = [
+      replyValue.trim(),
+      ...replyAttachedFiles.map((f) => {
+        const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+        const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
+        return `---\n**${f.name}**\n\n${fence}`;
+      }),
+    ].filter(Boolean);
+    const content = parts.join('\n\n');
     setReplyValue('');
+    setReplyAttachedFiles([]);
     if (replyInputRef.current) replyInputRef.current.style.height = 'auto';
     setSendingReply(true);
     setPendingProposals(null); // Clear previous round's proposals before starting a new round
@@ -718,9 +738,14 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     setCreateError('');
     try {
       const memberOrder = getEffectiveOrder();
+      const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
       const parts = [
         newBrief.trim(),
-        ...attachedFiles.map((f) => `---\n**${f.name}**\n\n${f.content}`),
+        ...attachedFiles.map((f) => {
+          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+          const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
+          return `---\n**${f.name}**\n\n${fence}`;
+        }),
       ].filter(Boolean);
       const brief = parts.join('\n\n');
       const res = await fetch('/api/threads', {
@@ -766,6 +791,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     files.forEach((file) => {
+      if (file.size > 100 * 1024) return;
       const reader = new FileReader();
       reader.onload = () => {
         setAttachedFiles((prev) => [
@@ -773,6 +799,24 @@ export function ThreadsView({ projectId }: { projectId: string }) {
           { name: file.name, content: reader.result as string },
         ]);
       };
+      reader.onerror = () => {};
+      reader.readAsText(file);
+    });
+    e.target.value = '';
+  }
+
+  function handleReplyFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      if (file.size > 100 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setReplyAttachedFiles((prev) => [
+          ...prev,
+          { name: file.name, content: reader.result as string },
+        ]);
+      };
+      reader.onerror = () => {};
       reader.readAsText(file);
     });
     e.target.value = '';
@@ -1712,6 +1756,34 @@ export function ThreadsView({ projectId }: { projectId: string }) {
 
         {/* Reply input */}
         <div className="border-panel-border border-t px-5 py-4">
+          {replyAttachedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {replyAttachedFiles.map((f, i) => (
+                <span
+                  key={i}
+                  className="border-panel-border bg-panel text-panel-muted flex items-center gap-1 rounded-sm border font-mono text-[10px]"
+                >
+                  <span className="px-2 py-0.5">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReplyAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-panel-faint hover:text-panel-muted px-1 leading-none"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <input
+            ref={replyFileInputRef}
+            type="file"
+            multiple
+            accept=".tsx,.ts,.jsx,.js,.md,.txt"
+            className="hidden"
+            onChange={handleReplyFileChange}
+          />
           <div className="border-panel-border bg-panel-input focus-within:border-sidebar-accent focus-within:ring-sidebar-accent/10 flex items-end gap-3 rounded-sm border px-4 py-3 transition-colors focus-within:ring-4">
             <Textarea
               ref={replyInputRef}
@@ -1725,18 +1797,30 @@ export function ThreadsView({ projectId }: { projectId: string }) {
               className="disabled:cursor-not-allowed"
               maxHeight={240}
             />
-            <button
-              onClick={handleSendReply}
-              disabled={inputDisabled || !replyValue.trim()}
-              className="bg-panel-foreground hover:bg-panel-foreground/80 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
-              aria-label="Send reply"
-            >
-              {sendingReply ? (
-                <ThinkingDots />
-              ) : (
-                <Send className="text-panel-inverse h-3.5 w-3.5" />
-              )}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => replyFileInputRef.current?.click()}
+                disabled={inputDisabled}
+                className="text-panel-faint hover:text-panel-muted transition-colors disabled:opacity-30"
+                aria-label="Attach file"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleSendReply}
+                disabled={inputDisabled || (!replyValue.trim() && replyAttachedFiles.length === 0)}
+                className="bg-panel-foreground hover:bg-panel-foreground/80 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors disabled:opacity-30"
+                aria-label="Send reply"
+              >
+                {sendingReply ? (
+                  <ThinkingDots />
+                ) : (
+                  <Send className="text-panel-inverse h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
         {/* Mobile long-press action sheet for respond-order chips */}
@@ -1862,7 +1946,7 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".md,.txt"
+                accept=".tsx,.ts,.jsx,.js,.md,.txt"
                 className="hidden"
                 onChange={handleFileChange}
               />

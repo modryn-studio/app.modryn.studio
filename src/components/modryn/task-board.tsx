@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   Loader2,
+  Paperclip,
   Play,
   Plus,
   X,
@@ -408,6 +409,10 @@ export function TaskBoard({ projectId }: { projectId: string }) {
   const [newAssignedTo, setNewAssignedTo] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [taskAttachedFiles, setTaskAttachedFiles] = useState<{ name: string; content: string }[]>(
+    []
+  );
+  const taskFileInputRef = useRef<HTMLInputElement>(null);
   const { members } = useMembers();
   const { profile } = useProfile();
 
@@ -447,6 +452,7 @@ export function TaskBoard({ projectId }: { projectId: string }) {
     setNewDescription('');
     setNewAssignedTo(members[0]?.id ?? 'founder');
     setCreateError(null);
+    setTaskAttachedFiles([]);
     setSheetOpen(true);
   }
 
@@ -455,12 +461,22 @@ export function TaskBoard({ projectId }: { projectId: string }) {
     setCreating(true);
     setCreateError(null);
     try {
+      const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
+      const descParts = [
+        newDescription.trim(),
+        ...taskAttachedFiles.map((f) => {
+          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+          const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
+          return `---\n**${f.name}**\n\n${fence}`;
+        }),
+      ].filter(Boolean);
+      const description = descParts.join('\n\n') || undefined;
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newTitle.trim(),
-          description: newDescription.trim() || undefined,
+          description,
           assigned_to: newAssignedTo,
           projectId,
         }),
@@ -478,12 +494,30 @@ export function TaskBoard({ projectId }: { projectId: string }) {
             : (members.find((m) => m.id === newAssignedTo)?.name ?? null),
       };
       setTasks((prev) => [enriched, ...prev]);
+      setTaskAttachedFiles([]);
       setSheetOpen(false);
     } catch {
       setCreateError('Could not create task. Try again.');
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleTaskFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      if (file.size > 100 * 1024) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setTaskAttachedFiles((prev) => [
+          ...prev,
+          { name: file.name, content: reader.result as string },
+        ]);
+      };
+      reader.onerror = () => {};
+      reader.readAsText(file);
+    });
+    e.target.value = '';
   }
 
   const pending = tasks.filter((t) => t.status !== 'done');
@@ -535,12 +569,53 @@ export function TaskBoard({ projectId }: { projectId: string }) {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="task-description"
-                  className="text-sidebar-muted font-mono text-[9px] tracking-[0.18em] uppercase"
-                >
-                  Context
-                </label>
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="task-description"
+                    className="text-sidebar-muted font-mono text-[9px] tracking-[0.18em] uppercase"
+                  >
+                    Context
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => taskFileInputRef.current?.click()}
+                    disabled={creating}
+                    className="text-sidebar-muted hover:text-sidebar-foreground transition-colors disabled:opacity-30"
+                    aria-label="Attach file"
+                  >
+                    <Paperclip className="h-3 w-3" />
+                  </button>
+                </div>
+                <input
+                  ref={taskFileInputRef}
+                  type="file"
+                  multiple
+                  accept=".tsx,.ts,.jsx,.js,.md,.txt"
+                  className="hidden"
+                  onChange={handleTaskFileChange}
+                />
+                {taskAttachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {taskAttachedFiles.map((f, i) => (
+                      <span
+                        key={i}
+                        className="border-sidebar-border bg-sidebar text-sidebar-muted flex items-center gap-1 rounded-sm border font-mono text-[10px]"
+                      >
+                        <span className="px-2 py-0.5">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTaskAttachedFiles((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          className="text-sidebar-muted hover:text-sidebar-foreground px-1 leading-none"
+                          aria-label={`Remove ${f.name}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   id="task-description"
                   value={newDescription}
