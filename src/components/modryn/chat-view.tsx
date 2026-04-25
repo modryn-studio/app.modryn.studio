@@ -757,6 +757,8 @@ export function ChatView({
             setAttachments((prev) => prev.filter((a) => !(a.type === 'image' && a.id === id)));
           });
       } else {
+        // 100 KB limit for text/code files — silently drop if exceeded
+        if (file.size > 100 * 1024) return;
         const reader = new FileReader();
         reader.onload = () => {
           setAttachments((prev) => [
@@ -764,6 +766,8 @@ export function ChatView({
             { type: 'text', name: file.name, content: reader.result as string },
           ]);
         };
+        // Silently discard on read failure — same pattern as image upload errors
+        reader.onerror = () => {};
         reader.readAsText(file);
       }
     });
@@ -777,9 +781,14 @@ export function ChatView({
     if (isStreaming) return;
     // Block send while any image is still uploading to blob storage
     if (imageAttachments.some((a) => a.uploading)) return;
+    const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
     const msgParts = [
       inputValue.trim(),
-      ...textAttachments.map((f) => `---\n**${f.name}**\n\n${f.content}`),
+      ...textAttachments.map((f) => {
+        const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+        const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
+        return `---\n**${f.name}**\n\n${fence}`;
+      }),
     ].filter(Boolean);
     const text = msgParts.join('\n\n');
     // Provide image URLs to prepareSendMessagesRequest via ref — called synchronously by sendMessage
@@ -1351,7 +1360,7 @@ export function ChatView({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".md,.txt,image/jpeg,image/png,image/gif,image/webp"
+          accept=".tsx,.ts,.jsx,.js,.md,.txt,image/jpeg,image/png,image/gif,image/webp"
           className="hidden"
           onChange={handleFileChange}
         />
