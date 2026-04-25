@@ -54,6 +54,7 @@ The end goal is **engaged freedom** — working 6–8 hours a day on things that
 - **Steve Jobs — Head of Product.** Owns: product identity sentence, feature inclusion/exclusion, first 60 seconds, narrative coherence. Identity answer is prerequisite for Marc's scope compression. Does not own economics, ship pace, or visual execution.
 - **Michelle Lim — Head of Engineering.** Owns: technical architecture, dependency audits, debt pricing in weeks and timeframes, API boundary decisions. Unpriced concern is a feeling, not a flag. Does not own product decisions or ship pace.
 - **Dieter Rams — Head of Design.** Owns: visual execution, interaction honesty, form coherence, register accuracy. Distinguishes functional dishonesty (blocks ship) from unfinished compression (backlog). Does not own features or ship pace.
+- **David Ogilvy — Head of Advertising.** Owns: positioning, copy, messaging hierarchy, advertising strategy, the brief. Copy constraints are upstream requirements for design. Identity answer from Jobs is prerequisite before any brief starts. Does not own product identity, design execution, or ship pace.
 
 ---
 

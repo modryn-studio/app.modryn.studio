@@ -14,7 +14,7 @@ interface Member {
   id: string;
   name: string;
   role: string;
-  status: 'online' | 'analyzing' | 'away';
+  status: 'online' | 'analyzing' | 'generating';
   isAI: boolean;
   initials: string;
   avatarDataUrl?: string;
@@ -23,7 +23,7 @@ interface Member {
 const statusColors: Record<string, string> = {
   online: 'bg-status-online',
   analyzing: 'bg-status-active',
-  away: 'bg-sidebar-ring',
+  generating: 'bg-status-generating',
 };
 
 interface MobileDrawerProps {

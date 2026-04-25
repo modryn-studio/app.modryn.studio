@@ -236,7 +236,12 @@ function TaskCard({
                   isFounder ? 'bg-panel-chrome' : 'bg-panel-chrome-strong'
                 )}
               >
-                <span className="text-panel-chrome-foreground font-mono text-[9px] font-semibold">
+                <span
+                  className={cn(
+                    'font-mono text-[9px] font-semibold',
+                    isFounder ? 'text-panel-chrome-foreground' : 'text-panel-inverse'
+                  )}
+                >
                   {isFounder
                     ? founderInitials
                     : (assignedMember?.initials ?? task.assigned_to.slice(0, 2).toUpperCase())}

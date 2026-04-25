@@ -9,6 +9,7 @@
  *
  * Filename → member ID convention:
  *   charlie-munger-system-prompt.md  →  charlie-munger
+ *   david-ogilvy-system-prompt.md    →  david-ogilvy
  *   dieter-rams-system-prompt.md     →  dieter-rams
  *   marc-lou-system-prompt.md        →  marc-lou
  *   michelle-lim-system-prompt.md    →  michelle-lim
@@ -16,7 +17,7 @@
  *
  * Run this after every prompt file edit. It is safe to run repeatedly — Postgres will
  * execute the UPDATE regardless of whether the value changed, but the observable result
- * is the same and the cost is negligible for 5 rows.
+ * is the same and the cost is negligible for 6 rows.
  */
 
 import fs from 'fs';
@@ -45,9 +46,7 @@ const DATABASE_URL = loadDatabaseUrl();
 const sql = neon(DATABASE_URL);
 const promptsDir = path.join(root, 'docs', 'system-prompts');
 
-const files = fs
-  .readdirSync(promptsDir)
-  .filter((f) => f.endsWith('-system-prompt.md'));
+const files = fs.readdirSync(promptsDir).filter((f) => f.endsWith('-system-prompt.md'));
 
 if (files.length === 0) {
   console.error('No *-system-prompt.md files found in docs/system-prompts/');

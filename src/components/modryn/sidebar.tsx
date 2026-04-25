@@ -28,7 +28,7 @@ import type { AIMember } from '@/hooks/use-members';
 
 export type View = 'chat' | 'inbox' | 'threads' | 'tasks' | 'calendar' | 'reddit';
 
-type MemberStatus = 'online' | 'analyzing' | 'away';
+type MemberStatus = 'online' | 'analyzing' | 'generating';
 
 interface Member {
   id: string;
@@ -59,19 +59,19 @@ interface SidebarProps {
 const statusColors: Record<MemberStatus, string> = {
   online: 'bg-status-online',
   analyzing: 'bg-status-active',
-  away: 'bg-sidebar-ring',
+  generating: 'bg-status-generating',
 };
 
 const statusTextColors: Record<MemberStatus, string> = {
   online: 'text-status-online',
   analyzing: 'text-status-active',
-  away: 'text-sidebar-ring',
+  generating: 'text-status-generating',
 };
 
 const statusLabels: Record<MemberStatus, string> = {
   online: 'online',
   analyzing: 'analyzing',
-  away: 'away',
+  generating: 'generating',
 };
 
 const navItems: { id: View; label: string; icon: React.ElementType }[] = [

@@ -7,7 +7,7 @@ export interface AIMember {
   name: string;
   role: string;
   initials: string;
-  status: 'online' | 'analyzing' | 'away';
+  status: 'online' | 'analyzing' | 'generating';
   avatarUrl: string;
   systemPrompt: string;
   personalityNotes: string;

@@ -32,7 +32,7 @@ const draftOutputSchema = z.object({
         assigned_to: z
           .string()
           .describe(
-            'Member ID of the owner — must be one of: charlie-munger, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder'
+            'Member ID of the owner — must be one of: charlie-munger, david-ogilvy, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder'
           ),
       })
     )
@@ -103,7 +103,7 @@ export async function POST(
 
 DECISIONS — a decision is a choice the company made or a commitment stated. Not individual opinions, not debate, not open questions. Examples: "Use TraderSync over Tradovate WebSocket", "Ship broker connection layer before inference engine". One sentence each.
 
-TASKS — a task is a specific next action with a clear owner. Assign based on role ownership, not who proposed the work. Michelle Lim (michelle-lim) owns implementation — any task requiring building, coding, or technical research belongs to her regardless of who raised it. Marc Lou (marc-lou) owns timeline and scope decisions, not implementation. Steve Jobs (steve-jobs) owns product identity and narrative. Charlie Munger (charlie-munger) owns risk assessment and strategic challenge. Dieter Rams (dieter-rams) owns visual execution, interaction honesty, form coherence, and register accuracy — if a task involves how something looks, feels, or communicates, it belongs to him. Founder owns tasks requiring Luke's direct judgment or external action. Valid assigned_to values: charlie-munger, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder.
+TASKS — a task is a specific next action with a clear owner. Assign based on role ownership, not who proposed the work. Michelle Lim (michelle-lim) owns implementation — any task requiring building, coding, or technical research belongs to her regardless of who raised it. Marc Lou (marc-lou) owns timeline and scope decisions, not implementation. Steve Jobs (steve-jobs) owns product identity and narrative. Charlie Munger (charlie-munger) owns risk assessment and strategic challenge. Dieter Rams (dieter-rams) owns visual execution, interaction honesty, form coherence, and register accuracy — if a task involves how something looks, feels, or communicates, it belongs to him. David Ogilvy (david-ogilvy) owns advertising strategy, positioning, copy, messaging hierarchy, and the brief — any task involving what to say, how to say it, or how to reach an audience belongs to him. Founder owns tasks requiring Luke's direct judgment or external action. Valid assigned_to values: charlie-munger, david-ogilvy, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder.
 
 For each task description, write an execution-ready brief — not a summary sentence. The assignee will execute the task with no access to this conversation. Include: what triggered this task, every decision made in this round that constrains the output (name them specifically), and the exact deliverable (files, formats, what done looks like). 3–5 sentences minimum.
 

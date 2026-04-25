@@ -80,7 +80,7 @@ export function MobileHeader({ drawerOpen, onToggleDrawer, activeMember }: Mobil
             width={32}
             height={32}
             unoptimized
-            className="h-8 w-8 object-cover"
+            className="h-8 w-8 rounded-sm object-cover"
           />
         ) : (
           <div className="bg-sidebar-accent flex h-8 w-8 items-center justify-center rounded-sm">

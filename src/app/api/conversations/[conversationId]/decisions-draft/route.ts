@@ -29,7 +29,7 @@ const draftOutputSchema = z.object({
         assigned_to: z
           .string()
           .describe(
-            'Member ID of the owner — must be one of: charlie-munger, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder'
+            'Member ID of the owner — must be one of: charlie-munger, david-ogilvy, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder'
           ),
       })
     )
@@ -110,7 +110,7 @@ export async function POST(
 
 DECISIONS — a decision is a choice the company made or a commitment stated by either party. Not opinions, not debate, not open questions. Examples: "Ship onboarding flow before proposal logic", "Start Reddit recruiting in Week 2". One sentence each.
 
-TASKS — a task is a specific next action with a clear owner surfaced in the conversation. Assign based on role ownership. Michelle Lim (michelle-lim) owns implementation and technical work. Marc Lou (marc-lou) owns timeline and scope. Steve Jobs (steve-jobs) owns product identity and narrative. Charlie Munger (charlie-munger) owns risk assessment. Dieter Rams (dieter-rams) owns visual execution and form. Founder owns tasks requiring Luke's direct judgment or external action (writing copy, recruiting, decisions only Luke can make). Valid assigned_to values: charlie-munger, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder.
+TASKS — a task is a specific next action with a clear owner surfaced in the conversation. Assign based on role ownership. Michelle Lim (michelle-lim) owns implementation and technical work. Marc Lou (marc-lou) owns timeline and scope. Steve Jobs (steve-jobs) owns product identity and narrative. Charlie Munger (charlie-munger) owns risk assessment. Dieter Rams (dieter-rams) owns visual execution and form. David Ogilvy (david-ogilvy) owns advertising strategy, positioning, copy, messaging hierarchy, and the brief. Founder owns tasks requiring Luke's direct judgment or external action (recruiting, decisions only Luke can make). Valid assigned_to values: charlie-munger, david-ogilvy, dieter-rams, marc-lou, michelle-lim, steve-jobs, founder.
 
 For each task description, write an execution-ready brief — not a summary sentence. The assignee will execute the task with no access to this conversation. Include: what triggered this task, every decision made in the conversation that constrains the output (name them specifically), and the exact deliverable (files, formats, what done looks like). 3–5 sentences minimum.
 

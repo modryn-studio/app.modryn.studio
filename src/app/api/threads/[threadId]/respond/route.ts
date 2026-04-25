@@ -27,7 +27,7 @@ const THREAD_FORMAT_SUBSEQUENT =
 //   "(Munger)", "(Marc)" — Jobs/Marc's short-name parentheticals
 //   "— Jobs", "— Marc" — Michelle/Dieter's dash-name attributions
 const MEMBER_NAMES =
-  'Charlie Munger|Steve Jobs|Michelle Lim|Marc Lou|Dieter Rams|Munger|Jobs|Michelle|Marc|Rams';
+  'Charlie Munger|David Ogilvy|Steve Jobs|Michelle Lim|Marc Lou|Dieter Rams|Munger|Ogilvy|Jobs|Michelle|Marc|Rams';
 function stripCrossMemberRefs(prompt: string): string {
   return prompt
     .replace(new RegExp(`\\(that's (?:${MEMBER_NAMES})\\)`, 'gi'), '')

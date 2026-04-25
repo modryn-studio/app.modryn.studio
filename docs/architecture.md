@@ -115,6 +115,7 @@ Actual DB primary keys — hardcoded in several places in the codebase (web sear
 | ID               | Name           |
 | ---------------- | -------------- |
 | `charlie-munger` | Charlie Munger |
+| `david-ogilvy`   | David Ogilvy   |
 | `dieter-rams`    | Dieter Rams    |
 | `marc-lou`       | Marc Lou       |
 | `michelle-lim`   | Michelle Lim   |
