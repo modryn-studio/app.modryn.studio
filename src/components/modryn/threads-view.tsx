@@ -177,24 +177,24 @@ function parseMessageContent(text: string): {
 function AttachmentChip({ name, content }: { name: string; content: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-sidebar-ring overflow-hidden rounded-sm border">
+    <div className="border-panel-border overflow-hidden rounded-sm border">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="hover:bg-sidebar-accent/45 flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
+        className="hover:bg-panel-selected/50 flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors"
       >
-        <FileText className="text-sidebar-muted h-3 w-3 shrink-0" />
-        <span className="text-sidebar-muted font-mono text-[10px]">{name}</span>
+        <FileText className="text-panel-faint h-3 w-3 shrink-0" />
+        <span className="text-panel-muted font-mono text-[10px]">{name}</span>
         <ChevronDown
           className={cn(
-            'text-sidebar-muted ml-auto h-3 w-3 transition-transform',
+            'text-panel-faint ml-auto h-3 w-3 transition-transform',
             open && 'rotate-180'
           )}
         />
       </button>
       {open && (
-        <div className="border-sidebar-ring max-h-64 overflow-y-auto border-t px-3 py-2">
-          <pre className="text-sidebar-muted font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+        <div className="border-panel-border max-h-64 overflow-y-auto border-t px-3 py-2">
+          <pre className="text-panel-muted font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
             {content}
           </pre>
         </div>
@@ -680,15 +680,14 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     )
       return;
     const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
-    const parts = [
-      replyValue.trim(),
-      ...replyAttachedFiles.map((f) => {
+    const attachmentStr = replyAttachedFiles
+      .map((f) => {
         const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
         const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
-        return `---\n**${f.name}**\n\n${fence}`;
-      }),
-    ].filter(Boolean);
-    const content = parts.join('\n\n');
+        return `\n\n---\n**${f.name}**\n\n${fence}`;
+      })
+      .join('');
+    const content = replyValue.trim() + attachmentStr;
     setReplyValue('');
     setReplyAttachedFiles([]);
     if (replyInputRef.current) replyInputRef.current.style.height = 'auto';
@@ -739,15 +738,14 @@ export function ThreadsView({ projectId }: { projectId: string }) {
     try {
       const memberOrder = getEffectiveOrder();
       const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
-      const parts = [
-        newBrief.trim(),
-        ...attachedFiles.map((f) => {
+      const attachmentStr = attachedFiles
+        .map((f) => {
           const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
           const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
-          return `---\n**${f.name}**\n\n${fence}`;
-        }),
-      ].filter(Boolean);
-      const brief = parts.join('\n\n');
+          return `\n\n---\n**${f.name}**\n\n${fence}`;
+        })
+        .join('');
+      const brief = newBrief.trim() + attachmentStr;
       const res = await fetch('/api/threads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -996,7 +994,13 @@ export function ThreadsView({ projectId }: { projectId: string }) {
                 </div>
               ) : thread.last_message ? (
                 <p className="text-panel-muted truncate text-[10px] leading-relaxed">
-                  {thread.last_message}
+                  {(() => {
+                    const { body, attachments } = parseMessageContent(thread.last_message);
+                    if (body) return body;
+                    if (attachments.length > 0)
+                      return `${attachments.length} attachment${attachments.length > 1 ? 's' : ''}`;
+                    return thread.last_message;
+                  })()}
                 </p>
               ) : null}
               <div className="mt-1.5 flex items-center justify-between">

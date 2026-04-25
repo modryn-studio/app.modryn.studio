@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Copy,
   Download,
+  FileText,
   Loader2,
   Paperclip,
   Play,
@@ -19,6 +20,23 @@ import { Markdown } from '@/components/prompt-kit/markdown';
 import { useMembers, type AIMember } from '@/hooks/use-members';
 import { useProfile } from '@/lib/use-profile';
 import { cn } from '@/lib/utils';
+
+function parseDescriptionContent(text: string): {
+  body: string;
+  attachmentNames: string[];
+} {
+  const re = /\n\n---\n\*\*(.+?)\*\*\n\n/g;
+  const matches: { index: number; name: string }[] = [];
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    matches.push({ index: match.index, name: match[1] });
+  }
+  if (matches.length === 0) return { body: text, attachmentNames: [] };
+  return {
+    body: text.slice(0, matches[0].index),
+    attachmentNames: matches.map((m) => m.name),
+  };
+}
 
 interface Task {
   id: string;
@@ -252,9 +270,30 @@ function TaskCard({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-panel-foreground text-sm leading-snug">{task.title}</p>
-            {task.description && (
-              <p className="text-panel-muted mt-0.5 text-xs leading-relaxed">{task.description}</p>
-            )}
+            {task.description &&
+              (() => {
+                const { body, attachmentNames } = parseDescriptionContent(task.description);
+                return (
+                  <>
+                    {body && (
+                      <p className="text-panel-muted mt-0.5 text-xs leading-relaxed">{body}</p>
+                    )}
+                    {attachmentNames.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {attachmentNames.map((name) => (
+                          <span
+                            key={name}
+                            className="border-panel-border text-panel-faint flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px]"
+                          >
+                            <FileText className="h-2.5 w-2.5 shrink-0" />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             <div className="mt-1.5 flex items-center gap-2">
               {/* Pulse dot — matches DM header status dot and thread respond-order ring */}
               {(executing || displayStatus === 'in_progress') && (
@@ -462,15 +501,14 @@ export function TaskBoard({ projectId }: { projectId: string }) {
     setCreateError(null);
     try {
       const CODE_FENCE_EXTS = new Set(['tsx', 'ts', 'jsx', 'js']);
-      const descParts = [
-        newDescription.trim(),
-        ...taskAttachedFiles.map((f) => {
+      const attachmentStr = taskAttachedFiles
+        .map((f) => {
           const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
           const fence = CODE_FENCE_EXTS.has(ext) ? `\`\`\`${ext}\n${f.content}\n\`\`\`` : f.content;
-          return `---\n**${f.name}**\n\n${fence}`;
-        }),
-      ].filter(Boolean);
-      const description = descParts.join('\n\n') || undefined;
+          return `\n\n---\n**${f.name}**\n\n${fence}`;
+        })
+        .join('');
+      const description = newDescription.trim() + attachmentStr || undefined;
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
